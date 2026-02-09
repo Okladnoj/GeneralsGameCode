@@ -161,6 +161,20 @@
             "displayName": "Unix 32bit VCPKG Release"
         },
         {
+            "name": "macos",
+            "displayName": "macOS Release",
+            "generator": "Unix Makefiles",
+            "hidden": false,
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_BUILD_TYPE": "Release",
+                "RTS_BUILD_ZEROHOUR": "ON",
+                "RTS_BUILD_GENERALS": "OFF",
+                "RTS_BUILD_CORE_TOOLS": "OFF"
+            }
+        },
+        {
             "name": "mingw-w64-i686",
             "displayName": "MinGW-w64 32-bit (i686) Release",
             "generator": "Unix Makefiles",
@@ -270,6 +284,13 @@
             "configurePreset": "unix",
             "displayName": "Build Unix 32bit VCPKG Release",
             "description": "Build Unix 32bit VCPKG Release",
+            "configuration": "Release"
+        },
+        {
+            "name": "macos",
+            "configurePreset": "macos",
+            "displayName": "Build macOS Release",
+            "description": "Build macOS Release",
             "configuration": "Release"
         },
         {

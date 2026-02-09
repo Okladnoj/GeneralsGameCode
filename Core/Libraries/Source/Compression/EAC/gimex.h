@@ -93,7 +93,7 @@ typedef unsigned char GCHANNEL;
 
 #ifndef ARGB
 #define ARGB ARGB
-#if defined(_MSC_VER) || defined(__i386__)
+#if defined(_MSC_VER) || defined(__i386__) || defined(__x86_64__) || defined(__arm64__) || defined(__aarch64__)
 
     typedef struct
     {
@@ -107,7 +107,7 @@ typedef unsigned char GCHANNEL;
         GCHANNEL r,g,b,a;
     } ARGB;
 
-#else /* GameCube/Mac */
+#else /* GameCube / Legacy PowerPC Mac */
 
     typedef struct
     {
