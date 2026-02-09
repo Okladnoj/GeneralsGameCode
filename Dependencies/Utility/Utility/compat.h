@@ -64,12 +64,12 @@
 #define _MAX_PATH 260
 #endif
 
+#include "io_compat.h"
 #include "mem_compat.h"
 #include "string_compat.h"
 #include "tchar_compat.h"
-#include "wchar_compat.h"
-#include "time_compat.h"
 #include "thread_compat.h"
+#include "time_compat.h"
+#include "wchar_compat.h"
 
 #endif
-
