@@ -2183,6 +2183,8 @@ typedef struct tagMSG {
 #define PM_REMOVE 0x0001
 #define PM_NOYIELD 0x0002
 
+extern "C" void MacOS_PumpEvents();
+
 inline BOOL PeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
                          UINT wMsgFilterMax, UINT wRemoveMsg) {
   (void)lpMsg;
@@ -2190,6 +2192,7 @@ inline BOOL PeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
   (void)wMsgFilterMin;
   (void)wMsgFilterMax;
   (void)wRemoveMsg;
+  MacOS_PumpEvents();
   return FALSE;
 }
 #define PeekMessage PeekMessageA
