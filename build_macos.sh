@@ -13,12 +13,12 @@ source Platform/MacOS/Scripts/files.sh
 
 # Include paths
 INCLUDES="-ICore/GameEngine/Include \
+-IPlatform/MacOS/Include \
 -ICore/Libraries/Include \
 -IGeneralsMD/Code/GameEngine/Include \
 -IGeneralsMD/Code/Libraries/Include \
 -IPartiallyExtract/Code/GameEngine/Include \
 -IPartiallyExtract/Code/Libraries/Include \
--IPlatform/MacOS/Include \
 -IGenerals/Code/GameEngine/Include \
 -IDependencies/gamespy/include \
 -IDependencies/gamespy/include/gamespy \

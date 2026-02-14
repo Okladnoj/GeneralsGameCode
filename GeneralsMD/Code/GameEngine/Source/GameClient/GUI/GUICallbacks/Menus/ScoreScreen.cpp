@@ -74,6 +74,7 @@
 #include "Common/SkirmishBattleHonors.h"
 #include "Common/ThingFactory.h"
 #include "GameClient/CDCheck.h"
+
 #include "GameClient/CampaignManager.h"
 #include "GameClient/ChallengeGenerals.h"
 #include "GameClient/Display.h"

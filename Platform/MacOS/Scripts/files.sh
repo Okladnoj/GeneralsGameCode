@@ -883,6 +883,8 @@ SOURCES+=(
 SOURCES+=("GeneralsMD/Code/GameEngine/Source/Common/System/CriticalSection.cpp")
 SOURCES+=("GeneralsMD/Code/GameEngine/Source/GameClient/DisplayString.cpp")
 SOURCES+=("GeneralsMD/Code/GameEngine/Source/GameClient/DisplayStringManager.cpp")
+SOURCES+=("Platform/MacOS/Source/MacOSGameEngineHooks.cpp")
+
 
 # Deduplicate sources
 SOURCES=($(printf "%s\n" "${SOURCES[@]}" | sort -u))
