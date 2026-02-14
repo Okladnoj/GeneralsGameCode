@@ -42,8 +42,8 @@
 #include "Win32Device/Common/Win32BIGFileSystem.h"
 #include "Win32Device/Common/Win32LocalFileSystem.h"
 #else
-#include "StdDevice/Common/StdBIGFileSystem.h"
-#include "StdDevice/Common/StdLocalFileSystem.h"
+#include "StdBIGFileSystem.h"
+#include "StdLocalFileSystem.h"
 #endif
 #include "W3DDevice/Common/W3DFunctionLexicon.h"
 #include "W3DDevice/Common/W3DModuleFactory.h"

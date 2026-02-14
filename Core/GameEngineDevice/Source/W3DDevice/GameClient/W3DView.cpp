@@ -242,7 +242,6 @@ void W3DView::setWidth(Int width) {
   m_cameraAreaConstraintsValid = false;
   m_recalcCamera = true;
 }
-}
 
 //-------------------------------------------------------------------------------------------------
 /** Sets location of top-left view corner on display */
@@ -2253,7 +2252,6 @@ void W3DView::initHeightForMap(void) {
   m_cameraAreaConstraintsValid =
       false; // possible ground level change invalidates camera constraints
   m_recalcCamera = true;
-}
 }
 
 //-------------------------------------------------------------------------------------------------

@@ -18,7 +18,8 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //																																						//
-//  (c) 2001-2003 Electronic Arts Inc.																				//
+//  (c) 2001-2003 Electronic Arts Inc.
+//  //
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -26,10 +27,8 @@
 // Stephan Vedder, April 2025
 ///////////////////////////////////////////////////////
 
-#include "StdDevice/Common/StdLocalFile.h"
+#include "StdLocalFile.h"
 
-StdLocalFile::StdLocalFile() : LocalFile() {
-}
+StdLocalFile::StdLocalFile() : LocalFile() {}
 
-StdLocalFile::~StdLocalFile() {
-}
+StdLocalFile::~StdLocalFile() {}
