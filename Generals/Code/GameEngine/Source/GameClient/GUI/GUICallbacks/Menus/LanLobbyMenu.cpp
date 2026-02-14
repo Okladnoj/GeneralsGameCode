@@ -113,7 +113,7 @@ UnicodeString LANPreferences::getUserName(void)
 	{
 		// TheSuperHackers @feature Use the instance id as default user name
 		// to avoid duplicate names for multiple client instances.
-		ret.format(L"Instance%.2d", rts::ClientInstance::getInstanceId());
+		ret.format(u"Instance%.2d", rts::ClientInstance::getInstanceId());
 		return ret;
 	}
 
@@ -235,9 +235,9 @@ UnicodeString LANPreferences::getRemoteIPEntry(Int i)
 	ret.translate(ipstr);
 	if (!asciientry.isEmpty())
 	{
-		ret.concat(L"(");
+		ret.concat(u"(");
 		ret.concat(QuotedPrintableToUnicodeString(asciientry));
-		ret.concat(L")");
+		ret.concat(u")");
 	}
 
 	return ret;
@@ -434,16 +434,16 @@ void LanLobbyMenuInit( WindowLayout *layout, void *userData )
 			/// @todo: display error and exit lan lobby if no IPs are found
 		}
 
-		IPSource = L"Local IP chosen";
+		IPSource = u"Local IP chosen";
 		IP = IPlist->getIP();
 	}
 	else
 	{
-		IPSource = L"Default local IP";
+		IPSource = u"Default local IP";
 	}
 #if defined(RTS_DEBUG)
 	UnicodeString str;
-	str.format(L"%s: %d.%d.%d.%d", IPSource, PRINTF_IP_AS_4_INTS(IP));
+	str.format(u"%s: %d.%d.%d.%d", IPSource, PRINTF_IP_AS_4_INTS(IP));
 	GadgetListBoxAddEntryText(listboxChatWindow, str, chatSystemColor, -1, 0);
 #endif
 
@@ -474,7 +474,7 @@ void LanLobbyMenuInit( WindowLayout *layout, void *userData )
 	/*
 	UnicodeString unicodeChat;
 
-	unicodeChat = L"Local IP list:";
+	unicodeChat = u"Local IP list:";
 	GadgetListBoxAddEntryText(listboxChatWindow, unicodeChat, chatSystemColor, -1, 0);
 
 	IPlist = IPs.getAddresses();
@@ -771,7 +771,7 @@ WindowMsgHandledType LanLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 				}
 				else if ( controlID == buttonHostID )
 				{
-					TheLAN->RequestGameCreate( L"", FALSE);
+					TheLAN->RequestGameCreate( u"", FALSE);
 
 				}
 				else if ( controlID == buttonClearID )
@@ -852,13 +852,13 @@ WindowMsgHandledType LanLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 
 					txtInput.truncateTo(g_lanPlayerNameLength);
 
-					if (!txtInput.isEmpty() && txtInput.getCharAt(txtInput.getLength()-1) == L',')
+					if (!txtInput.isEmpty() && txtInput.getCharAt(txtInput.getLength()-1) == u',')
 						txtInput.removeLastChar(); // we use , for strtok's so we can't allow them in names.  :(
 
-					if (!txtInput.isEmpty() && txtInput.getCharAt(txtInput.getLength()-1) == L':')
+					if (!txtInput.isEmpty() && txtInput.getCharAt(txtInput.getLength()-1) == u':')
 						txtInput.removeLastChar(); // we use : for strtok's so we can't allow them in names.  :(
 
-					if (!txtInput.isEmpty() && txtInput.getCharAt(txtInput.getLength()-1) == L';')
+					if (!txtInput.isEmpty() && txtInput.getCharAt(txtInput.getLength()-1) == u';')
 						txtInput.removeLastChar(); // we use ; for strtok's so we can't allow them in names.  :(
 
 					// send it over the network

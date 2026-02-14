@@ -15,13 +15,15 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// FILE: BaseTypeCore.h ///////////////////////////////////////////////////////////
+// FILE: BaseTypeCore.h
+// ///////////////////////////////////////////////////////////
 //
 // Project:  RTS3
 //
 // Basic types and constants
 // Author: Michael S. Booth, January 1995, September 2000
-// TheSuperHackers @build feliwir 11/04/2025 Move common BaseType.h code to BaseTypeCore.h
+// TheSuperHackers @build feliwir 11/04/2025 Move common BaseType.h code to
+// BaseTypeCore.h
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -29,16 +31,22 @@
 
 #pragma once
 
+#ifdef __APPLE__
+#include <MacOSSystemProtection.h>
+#endif
+
 #include <math.h>
 #include <string.h>
-// TheSuperHackers @build feliwir 07/04/2025 Adds utility macros for cross-platform compatibility
+// TheSuperHackers @build feliwir 07/04/2025 Adds utility macros for
+// cross-platform compatibility
 #include <Utility/compat.h>
 #include <Utility/stdint_adapter.h>
 
 /*
 **	Turn off some unneeded warnings.
-**	Within the windows headers themselves, Microsoft has disabled the warnings 4290, 4514,
-**	4069, 4200, 4237, 4103, 4001, 4035, 4164. Makes you wonder, eh?
+**	Within the windows headers themselves, Microsoft has disabled the
+*warnings 4290, 4514, *	4069, 4200, 4237, 4103, 4001, 4035, 4164. Makes you
+*wonder, eh?
 */
 
 // "unreferenced inline function has been removed" Yea, so what?
@@ -54,8 +62,8 @@
 // Tempates create LLLOOONNNGGG identifiers!
 #pragma warning(disable : 4786)
 
-// 'function selected for automatic inline expansion'.  Cool, but since we're treating
-// warnings as errors, don't warn me about this!
+// 'function selected for automatic inline expansion'.  Cool, but since we're
+// treating warnings as errors, don't warn me about this!
 #pragma warning(disable : 4711)
 
 #if 0
@@ -70,34 +78,36 @@
 // 'conditional expression is constant'. used lots in debug builds.
 #pragma warning(disable : 4127)
 
-// 'nonstandard extension used : nameless struct/union'. MS headers violate this...
+// 'nonstandard extension used : nameless struct/union'. MS headers violate
+// this...
 #pragma warning(disable : 4201)
 
 // 'unreachable code'. STL violates this...
 #pragma warning(disable : 4702)
 
-// 'local variable is initialized but not referenced'. good thing to know about...
+// 'local variable is initialized but not referenced'. good thing to know
+// about...
 #pragma warning(error : 4189)
 
 // 'unreferenced local variable'. good thing to know about...
 #pragma warning(error : 4101)
 
 #ifndef PI
-#define PI     3.14159265359f
+#define PI 3.14159265359f
 #define TWO_PI 6.28318530718f
 #endif
 
 // MSVC math.h defines overloaded functions with this name...
-//#ifndef abs
-//#define abs(x) (((x) < 0) ? -(x) : (x))
-//#endif
+// #ifndef abs
+// #define abs(x) (((x) < 0) ? -(x) : (x))
+// #endif
 
 #ifndef MIN
-#define MIN(x,y) (((x)<(y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #endif
 
 #ifndef MAX
-#define MAX(x,y) (((x)>(y)) ? (x) : (y))
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
 #ifndef TRUE
@@ -111,15 +121,15 @@
 //--------------------------------------------------------------------
 // Fundamental type definitions
 //--------------------------------------------------------------------
-typedef float						Real;					// 4 bytes
-typedef int32_t						Int;					// 4 bytes
-typedef uint32_t	                UnsignedInt;	  	    // 4 bytes
-typedef uint16_t	                UnsignedShort;		    // 2 bytes
-typedef int16_t						Short;					// 2 bytes
-typedef unsigned char	            UnsignedByte;			// 1 byte		USED TO BE "Byte"
-typedef char						Byte;					// 1 byte		USED TO BE "SignedByte"
-typedef char						Char;					// 1 byte of text
-typedef bool						Bool;					//
+typedef float Real;                 // 4 bytes
+typedef int32_t Int;                // 4 bytes
+typedef uint32_t UnsignedInt;       // 4 bytes
+typedef uint16_t UnsignedShort;     // 2 bytes
+typedef int16_t Short;              // 2 bytes
+typedef unsigned char UnsignedByte; // 1 byte		USED TO BE "Byte"
+typedef char Byte;                  // 1 byte		USED TO BE "SignedByte"
+typedef char Char;                  // 1 byte of text
+typedef bool Bool;                  //
 // note, the types below should use "long long", but MSVC doesn't support it yet
-typedef int64_t						Int64;						// 8 bytes
-typedef uint64_t					UnsignedInt64;	  	        // 8 bytes
+typedef int64_t Int64;          // 8 bytes
+typedef uint64_t UnsignedInt64; // 8 bytes

@@ -18,7 +18,8 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //																																						//
-//  (c) 2001-2003 Electronic Arts Inc.																				//
+//  (c) 2001-2003 Electronic Arts Inc.
+//  //
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -48,7 +49,7 @@
 
 // SYSTEM INCLUDES ////////////////////////////////////////////////////////////
 #ifndef DIRECTINPUT_VERSION
-#	define DIRECTINPUT_VERSION	0x800
+#define DIRECTINPUT_VERSION 0x800
 #endif
 
 #include <dinput.h>
@@ -62,37 +63,35 @@
 
 // class DirectInputKeyboard --------------------------------------------------
 /** Class for interfacing with the keyboard using direct input as the
-	* implementation */
+ * implementation */
 //-----------------------------------------------------------------------------
-class DirectInputKeyboard : public Keyboard
-{
+class DirectInputKeyboard : public Keyboard {
 
 public:
+  DirectInputKeyboard(void);
+  virtual ~DirectInputKeyboard(void);
 
-	DirectInputKeyboard( void );
-	virtual ~DirectInputKeyboard( void );
-
-	// extend methods from the base class
-	virtual void init( void );		///< initialize the keyboard, extending init functionality
-	virtual void reset( void );		///< Reset the keyboard system
-	virtual void update( void );  ///< update call, extending update functionality
-	virtual Bool getCapsState( void );		///< get state of caps lock key, return TRUE if down
+  // extend methods from the base class
+  virtual void
+  init(void); ///< initialize the keyboard, extending init functionality
+  virtual void reset(void);  ///< Reset the keyboard system
+  virtual void update(void); ///< update call, extending update functionality
+  virtual Bool
+  getCapsState(void); ///< get state of caps lock key, return TRUE if down
 
 protected:
+  // extended methods from the base class
+  virtual void getKey(KeyboardIO *key); ///< get a single key event
 
-	// extended methods from the base class
-	virtual void getKey( KeyboardIO *key );  ///< get a single key event
+  //-----------------------------------------------------------------------------------------------
 
-	//-----------------------------------------------------------------------------------------------
+  // new methods to this derived class
+  void openKeyboard(void);  ///< create direct input keyboard
+  void closeKeyboard(void); ///< release direct input keyboard
 
-	// new methods to this derived class
-	void openKeyboard( void );  ///< create direct input keyboard
-	void closeKeyboard( void );  ///< release direct input keyboard
-
-	// direct input data members
-	LPDIRECTINPUT8 m_pDirectInput;  ///< pointer to direct input interface
-	LPDIRECTINPUTDEVICE8 m_pKeyboardDevice;  ///< pointer to keyboard device
-
+  // direct input data members
+  LPDIRECTINPUT8 m_pDirectInput;          ///< pointer to direct input interface
+  LPDIRECTINPUTDEVICE8 m_pKeyboardDevice; ///< pointer to keyboard device
 };
 
 // INLINING ///////////////////////////////////////////////////////////////////

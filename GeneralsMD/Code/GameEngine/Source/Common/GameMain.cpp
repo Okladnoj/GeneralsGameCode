@@ -18,7 +18,8 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //																																						//
-//  (c) 2001-2003 Electronic Arts Inc.																				//
+//  (c) 2001-2003 Electronic Arts Inc.
+//  //
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -26,41 +27,44 @@
 // The main entry point for the game
 // Author: Michael S. Booth, April 2001
 
-#include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include "PreRTS.h" // This must go first in EVERY cpp file in the GameEngine
 
 #include "Common/FramePacer.h"
 #include "Common/GameEngine.h"
 #include "Common/ReplaySimulation.h"
 
-
 /**
  * This is the entry point for the game system.
  */
-Int GameMain()
-{
-	int exitcode = 0;
-	// initialize the game engine using factory function
-	TheFramePacer = new FramePacer();
-	TheFramePacer->enableFramesPerSecondLimit(TRUE);
-	TheGameEngine = CreateGameEngine();
-	TheGameEngine->init();
+Int GameMain() {
+  int exitcode = 0;
+  // initialize the game engine using factory function
+  TheFramePacer = new FramePacer();
+  TheFramePacer->enableFramesPerSecondLimit(TRUE);
+  TheGameEngine = CreateGameEngine();
+  printf("GameMain: calling TheGameEngine->init()...\n");
+  fflush(stdout);
+  TheGameEngine->init();
+  printf("GameMain: TheGameEngine->init() returned.\n");
+  fflush(stdout);
 
-	if (!TheGlobalData->m_simulateReplays.empty())
-	{
-		exitcode = ReplaySimulation::simulateReplays(TheGlobalData->m_simulateReplays, TheGlobalData->m_simulateReplayJobs);
-	}
-	else
-	{
-		// run it
-		TheGameEngine->execute();
-	}
+  if (!TheGlobalData->m_simulateReplays.empty()) {
+    printf("GameMain: simulating replays...\n");
+    fflush(stdout);
+    exitcode = ReplaySimulation::simulateReplays(
+        TheGlobalData->m_simulateReplays, TheGlobalData->m_simulateReplayJobs);
+  } else {
+    // run it
+    printf("GameMain: calling TheGameEngine->execute()...\n");
+    fflush(stdout);
+    TheGameEngine->execute();
+  }
 
-	// since execute() returned, we are exiting the game
-	delete TheFramePacer;
-	TheFramePacer = nullptr;
-	delete TheGameEngine;
-	TheGameEngine = nullptr;
+  // since execute() returned, we are exiting the game
+  delete TheFramePacer;
+  TheFramePacer = nullptr;
+  delete TheGameEngine;
+  TheGameEngine = nullptr;
 
-	return exitcode;
+  return exitcode;
 }
-

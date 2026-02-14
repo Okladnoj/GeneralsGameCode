@@ -18,109 +18,135 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //																																						//
-//  (c) 2001-2003 Electronic Arts Inc.																				//
+//  (c) 2001-2003 Electronic Arts Inc.
+//  //
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
 // This file contains all the header files that shouldn't change frequently.
-// Be careful what you stick in here, because putting files that change often in here will
-// tend to cheese people's goats.
+// Be careful what you stick in here, because putting files that change often in
+// here will tend to cheese people's goats.
 
 #pragma once
 
 //-----------------------------------------------------------------------------
 // srj sez: this must come first, first, first.
-#define _STLP_USE_NEWALLOC					1
-//#define _STLP_USE_CUSTOM_NEWALLOC		STLSpecialAlloc
+#define _STLP_USE_NEWALLOC 1
+// #define _STLP_USE_CUSTOM_NEWALLOC		STLSpecialAlloc
 class STLSpecialAlloc;
 
-
-// We actually don't use Windows for much other than timeGetTime, but it was included in 40
-// different .cpp files, so I bit the bullet and included it here.
-// PLEASE DO NOT ABUSE WINDOWS OR IT WILL BE REMOVED ENTIRELY. :-)
-//--------------------------------------------------------------------------------- System Includes
+// We actually don't use Windows for much other than timeGetTime, but it was
+// included in 40 different .cpp files, so I bit the bullet and included it
+// here. PLEASE DO NOT ABUSE WINDOWS OR IT WILL BE REMOVED ENTIRELY. :-)
+//---------------------------------------------------------------------------------
+// System Includes
 #define WIN32_LEAN_AND_MEAN
-// TheSuperHackers @build JohnsterID 05/01/2026 Add ATL compatibility for MinGW-w64 builds
+// TheSuperHackers @build JohnsterID 05/01/2026 Add ATL compatibility for
+// MinGW-w64 builds
 #if defined(__GNUC__) && defined(_WIN32)
-    #include <Utility/atl_compat.h>
+#include <Utility/atl_compat.h>
 #endif
+
+#ifdef _WIN32
 #include <atlbase.h>
 #include <windows.h>
+#else
+#include <win_compat.h>
+#endif
 
 #include <assert.h>
 #include <ctype.h>
+#ifdef _WIN32
 #include <direct.h>
 #include <excpt.h>
-#include <float.h>
+#endif
 #include <Utility/fstream_adapter.h>
+#include <float.h>
+#ifdef _WIN32
 #include <imagehlp.h>
 #include <io.h>
+#endif
 #include <limits.h>
+#ifdef _WIN32
 #include <lmcons.h>
+#endif
 #if defined(_MSC_VER) && _MSC_VER < 1300
 #include <mapicode.h>
 #endif
 #include <math.h>
 #include <memory.h>
+#ifdef _WIN32
 #include <mmsystem.h>
 #include <objbase.h>
 #include <ocidl.h>
 #include <process.h>
 #include <shellapi.h>
-#include <shlobj.h>
 #include <shlguid.h>
+#include <shlobj.h>
 #include <snmp.h>
+#endif
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#ifdef _WIN32
 #include <sys/timeb.h>
+#endif
 #include <sys/types.h>
 #include <tchar.h>
 #include <time.h>
+#ifdef _WIN32
 #include <vfw.h>
 #include <winerror.h>
 #include <wininet.h>
 #include <winreg.h>
-
-#ifndef DIRECTINPUT_VERSION
-#	define DIRECTINPUT_VERSION	0x800
 #endif
 
+#ifndef DIRECTINPUT_VERSION
+#define DIRECTINPUT_VERSION 0x800
+#endif
+
+#ifdef _WIN32
 #include <dinput.h>
+#else
+#include <dinput.h> // We have a local dinput.h in Dependencies/dx8
+#endif
 
-//------------------------------------------------------------------------------------ STL Includes
+//------------------------------------------------------------------------------------
+// STL Includes
 // srj sez: no, include STLTypesdefs below, instead, thanks
-//#include <algorithm>
-//#include <bitset>
-//#include <hash_map>
-//#include <list>
-//#include <map>
-//#include <queue>
-//#include <set>
-//#include <stack>
-//#include <string>
-//#include <vector>
+// #include <algorithm>
+// #include <bitset>
+// #include <hash_map>
+// #include <list>
+// #include <map>
+// #include <queue>
+// #include <set>
+// #include <stack>
+// #include <string>
+// #include <vector>
 
-//------------------------------------------------------------------------------------ RTS Includes
+//------------------------------------------------------------------------------------
+// RTS Includes
 // Icky. These have to be in this order.
-#include "Lib/BaseType.h"
-#include "Common/STLTypedefs.h"
-#include "Common/Errors.h"
-#include "Common/Debug.h"
 #include "Common/AsciiString.h"
+#include "Common/Debug.h"
+#include "Common/Errors.h"
+#include "Common/STLTypedefs.h"
 #include "Common/SubsystemInterface.h"
+#include "Lib/BaseType.h"
 
 #include "Common/GameCommon.h"
 #include "Common/GameMemory.h"
 #include "Common/GameType.h"
 #include "Common/GlobalData.h"
 
-// You might not want Kindof in here because it seems like it changes frequently, but the problem
-// is that Kindof is included EVERYWHERE, so it might as well be precompiled.
+// You might not want Kindof in here because it seems like it changes
+// frequently, but the problem is that Kindof is included EVERYWHERE, so it
+// might as well be precompiled.
+#include "Common/DisabledTypes.h"
 #include "Common/INI.h"
 #include "Common/KindOf.h"
-#include "Common/DisabledTypes.h"
 #include "Common/NameKeyGenerator.h"
 #include "GameClient/ClientRandomValue.h"
 #include "GameLogic/LogicRandomValue.h"
@@ -129,5 +155,5 @@ class STLSpecialAlloc;
 #include "Common/UnicodeString.h"
 
 #if defined(__GNUC__) && defined(_WIN32)
-    #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 #endif

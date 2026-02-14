@@ -35,6 +35,7 @@
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #pragma once
+#include "always.h"
 
 #ifndef _UNIX
 char *strtok_r(char *strptr, const char *delimiters, char **lasts);

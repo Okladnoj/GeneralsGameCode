@@ -484,8 +484,8 @@ GameMessageDisposition MetaEventTranslator::translateGameMessage(const GameMessa
 
               if ( TheInGameUI )
 								TheInGameUI->messageNoFormat( TheGlobalData->m_TiVOFastMode
-									? TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_ON", L"Fast Forward is on")
-									: TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_OFF", L"Fast Forward is off")
+									? TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_ON", u"Fast Forward is on")
+									: TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_OFF", u"Fast Forward is off")
 								);
 			      }
 			      disp = KEEP_MESSAGE; // cause for goodness sake, this key gets used a lot by non-replay hotkeys
@@ -791,8 +791,8 @@ MetaMapRec *MetaMap::getMetaMapRec(GameMessage::Type t)
 			map->m_modState = CTRL;
 			map->m_usableIn = COMMANDUSABLE_GAME;
 			map->m_category = CATEGORY_SELECTION;
-			map->m_description = TheGameText->FETCH_OR_SUBSTITUTE("GUI:SelectNextIdleWorkerDescription", L"Select the next idle worker");
-			map->m_displayName = TheGameText->FETCH_OR_SUBSTITUTE("GUI:SelectNextIdleWorker", L"Next Idle Worker");
+			map->m_description = TheGameText->FETCH_OR_SUBSTITUTE("GUI:SelectNextIdleWorkerDescription", u"Select the next idle worker");
+			map->m_displayName = TheGameText->FETCH_OR_SUBSTITUTE("GUI:SelectNextIdleWorker", u"Next Idle Worker");
 		}
 	}
 	{

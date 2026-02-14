@@ -214,4 +214,7 @@ TPoint2D<T> const TPoint2D<T>::Bias_To(TRect<T> const & rect) const
 **	This typedef provides an uncluttered type name for a rectangle that
 **	is composed of integers.
 */
+#if defined(__APPLE__)
+#define Rect EngineRect
+#endif
 typedef TRect<int> Rect;

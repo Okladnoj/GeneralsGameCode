@@ -17,26 +17,28 @@
 */
 
 /***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
+ ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S
+ ****
  ***********************************************************************************************
  *                                                                                             *
- *                 Project Name : Command & Conquer                                            *
+ *                 Project Name : Command & Conquer *
  *                                                                                             *
- *                     $Archive:: /Commando/Code/wwlib/trim.h                                 $*
+ *                     $Archive:: /Commando/Code/wwlib/trim.h $*
  *                                                                                             *
- *                      $Author:: Jani_p                                                      $*
+ *                      $Author:: Jani_p $*
  *                                                                                             *
- *                     $Modtime:: 6/14/01 7:25p                                               $*
+ *                     $Modtime:: 6/14/01 7:25p $*
  *                                                                                             *
- *                    $Revision:: 3                                                           $*
+ *                    $Revision:: 3 $*
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ * Functions: *
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *- - - - - - - */
 
 #pragma once
 
-#include <wchar.h>
+#include "win.h"
 
-char * strtrim(char * buffer);
-wchar_t * wcstrim(wchar_t * buffer);
+char *strtrim(char *buffer);
+WCHAR *wcstrim(WCHAR *buffer);

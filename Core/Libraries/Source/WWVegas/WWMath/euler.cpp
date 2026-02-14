@@ -219,22 +219,22 @@ void EulerAnglesClass::From_Matrix(const Matrix3D & M, int order)
 	// Trying to "clean" up the eulers, special cased for XYZr
 	if (order == EulerOrderXYZr) {
 
-		const double PI = 3.141592654;
+		const double LOCAL_PI = 3.141592654;
 
-		double x2 = PI + Angle[0];
-		double y2 = PI - Angle[1];
-		double z2 = PI + Angle[2];
+		double x2 = LOCAL_PI + Angle[0];
+		double y2 = LOCAL_PI - Angle[1];
+		double z2 = LOCAL_PI + Angle[2];
 
-		if (x2 > PI) {
-			x2 = x2 - 2*PI;
+		if (x2 > LOCAL_PI) {
+			x2 = x2 - 2*LOCAL_PI;
 		}
 
-		if (y2 > PI) {
-			y2 = y2 - 2*PI;
+		if (y2 > LOCAL_PI) {
+			y2 = y2 - 2*LOCAL_PI;
 		}
 
-		if (z2 > PI) {
-			z2 = z2 - 2*PI;
+		if (z2 > LOCAL_PI) {
+			z2 = z2 - 2*LOCAL_PI;
 		}
 
 		double mag0 = Angle[0]*Angle[0] + Angle[1]*Angle[1] + Angle[2]*Angle[2];

@@ -163,7 +163,7 @@
         {
             "name": "macos",
             "displayName": "macOS Release",
-            "generator": "Unix Makefiles",
+            "generator": "Ninja",
             "hidden": false,
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
@@ -505,6 +505,19 @@
                 {
                     "type": "build",
                     "name": "mingw-w64-i686-profile"
+                }
+            ]
+        },
+        {
+            "name": "macos",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "macos"
+                },
+                {
+                    "type": "build",
+                    "name": "macos"
                 }
             ]
         }

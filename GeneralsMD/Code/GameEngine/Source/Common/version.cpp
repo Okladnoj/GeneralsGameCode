@@ -125,7 +125,7 @@ UnicodeString Version::getUnicodeVersion() const
 			UnicodeString user = getUnicodeBuildUserOrGitCommitAuthorName();
 			// User name requires at least 2 characters
 			if (user.getLength() < 2)
-				user.concat(L"xx");
+				user.concat(u"xx");
 
 			version.format(TheGameText->fetch("Version:Format4").str(), m_major, m_minor, m_buildNum, m_localBuildNum,
 				user.getCharAt(0), user.getCharAt(1));
@@ -137,7 +137,7 @@ UnicodeString Version::getUnicodeVersion() const
 	}
 
 #ifdef RTS_DEBUG
-	version.concat(L" Debug");
+	version.concat(u" Debug");
 #endif
 
 	return version;
@@ -279,13 +279,13 @@ UnicodeString Version::getUnicodeGitVersion() const
 	UnicodeString str;
 	if (m_showFullVersion)
 	{
-		str.format(L"%s %s",
+		str.format(u"%s %s",
 			getUnicodeGitCommitCount().str(),
 			getUnicodeGitTagOrHash().str());
 	}
 	else
 	{
-		str.format(L"%s",
+		str.format(u"%s",
 			getUnicodeGitCommitCount().str());
 	}
 	return str;
@@ -321,7 +321,7 @@ UnicodeString Version::getUnicodeBuildUserOrGitCommitAuthorName() const
 UnicodeString Version::getUnicodeProductTitle() const
 {
 	// @todo Make configurable
-	return L"Community Patch";
+	return u"Community Patch";
 }
 
 UnicodeString Version::getUnicodeProductVersion() const
@@ -348,13 +348,13 @@ UnicodeString Version::getUnicodeProductString() const
 
 		if (!productVersion.isEmpty())
 		{
-			str.concat(L" ");
+			str.concat(u" ");
 			str.concat(productVersion);
 		}
 
 		if (!productAuthor.isEmpty())
 		{
-			str.concat(L" ");
+			str.concat(u" ");
 			str.concat(productAuthor);
 		}
 	}
@@ -368,15 +368,15 @@ UnicodeString Version::getUnicodeProductVersionHashString() const
 	UnicodeString productString = getUnicodeProductString();
 	UnicodeString gameVersion = getUnicodeVersion();
 	UnicodeString gameHash;
-	gameHash.format(L"exe:%08X ini:%08X", TheGlobalData->m_exeCRC, TheGlobalData->m_iniCRC);
+	gameHash.format(u"exe:%08X ini:%08X", TheGlobalData->m_exeCRC, TheGlobalData->m_iniCRC);
 
 	if (!productString.isEmpty())
 	{
 		str.concat(productString);
-		str.concat(L" | ");
+		str.concat(u" | ");
 	}
 	str.concat(gameHash);
-	str.concat(L" ");
+	str.concat(u" ");
 	str.concat(gameVersion);
 
 	return str;
@@ -394,8 +394,8 @@ AsciiString Version::buildAsciiGitCommitCount()
 UnicodeString Version::buildUnicodeGitCommitCount()
 {
 	UnicodeString str;
-	str.format(L"%s%d",
-		GitUncommittedChanges ? L"~" : L"",
+	str.format(u"%s%d",
+		GitUncommittedChanges ? u"~" : u"",
 		GitRevision);
 	return str;
 }
@@ -448,6 +448,6 @@ UnicodeString Version::buildUnicodeGitCommitTime()
 	UnicodeString str;
 	WideChar* buf = str.getBufferForRead(len);
 	tm* time = gmtime(&GitCommitTimeStamp);
-	wcsftime(buf, len+1, L"%Y-%m-%d %H:%M:%S", time);
+	wcsftime(buf, len+1, u"%Y-%m-%d %H:%M:%S", time);
 	return str;
 }

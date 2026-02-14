@@ -296,7 +296,7 @@ void PlayerListDlg::OnNewplayer()
 	Int num = 1;
 	do {
 		pname.format("player%04d",num);
-		pnameu.format(L"Player %04d's Display Name",num);
+		pnameu.format(u"Player %04d's Display Name",num);
 		num++;
 	} while (m_sides.findSideInfo(pname));
 
@@ -872,19 +872,19 @@ void PlayerListDlg::OnAddskirmishplayers()
 {
 	// PlyrCivilian
 
-	addSide(&m_sides, "FactionCivilian", "PlyrCivilian", L"PlyrCivilian");
-	addSide(&m_sides, "FactionAmerica", "SkirmishAmerica", L"SkirmishAmerica");
-	addSide(&m_sides, "FactionChina", "SkirmishChina", L"SkirmishChina");
-	addSide(&m_sides, "FactionGLA", "SkirmishGLA", L"SkirmishGLA");
+	addSide(&m_sides, "FactionCivilian", "PlyrCivilian", u"PlyrCivilian");
+	addSide(&m_sides, "FactionAmerica", "SkirmishAmerica", u"SkirmishAmerica");
+	addSide(&m_sides, "FactionChina", "SkirmishChina", u"SkirmishChina");
+	addSide(&m_sides, "FactionGLA", "SkirmishGLA", u"SkirmishGLA");
 
-	addSide(&m_sides, "FactionAmericaAirForceGeneral", "SkirmishAmericaAirForceGeneral", L"SkirmishAmericaAirForceGeneral");
-	addSide(&m_sides, "FactionAmericaLaserGeneral", "SkirmishAmericaLaserGeneral", L"SkirmishAmericaLaserGeneral");
-	addSide(&m_sides, "FactionAmericaSuperWeaponGeneral", "SkirmishAmericaSuperWeaponGeneral", L"SkirmishAmericaSuperWeaponGeneral");
-	addSide(&m_sides, "FactionChinaTankGeneral", "SkirmishChinaTankGeneral", L"SkirmishChinaTankGeneral");
-	addSide(&m_sides, "FactionChinaNukeGeneral", "SkirmishChinaNukeGeneral", L"SkirmishChinaNukeGeneral");
-	addSide(&m_sides, "FactionChinaInfantryGeneral", "SkirmishChinaInfantryGeneral", L"SkirmishChinaInfantryGeneral");
-	addSide(&m_sides, "FactionGLADemolitionGeneral", "SkirmishGLADemolitionGeneral", L"SkirmishGLADemolitionGeneral");
-	addSide(&m_sides, "FactionGLAToxinGeneral", "SkirmishGLAToxinGeneral", L"SkirmishGLAToxinGeneral");
-	addSide(&m_sides, "FactionGLAStealthGeneral", "SkirmishGLAStealthGeneral", L"SkirmishGLAStealthGeneral");
+	addSide(&m_sides, "FactionAmericaAirForceGeneral", "SkirmishAmericaAirForceGeneral", u"SkirmishAmericaAirForceGeneral");
+	addSide(&m_sides, "FactionAmericaLaserGeneral", "SkirmishAmericaLaserGeneral", u"SkirmishAmericaLaserGeneral");
+	addSide(&m_sides, "FactionAmericaSuperWeaponGeneral", "SkirmishAmericaSuperWeaponGeneral", u"SkirmishAmericaSuperWeaponGeneral");
+	addSide(&m_sides, "FactionChinaTankGeneral", "SkirmishChinaTankGeneral", u"SkirmishChinaTankGeneral");
+	addSide(&m_sides, "FactionChinaNukeGeneral", "SkirmishChinaNukeGeneral", u"SkirmishChinaNukeGeneral");
+	addSide(&m_sides, "FactionChinaInfantryGeneral", "SkirmishChinaInfantryGeneral", u"SkirmishChinaInfantryGeneral");
+	addSide(&m_sides, "FactionGLADemolitionGeneral", "SkirmishGLADemolitionGeneral", u"SkirmishGLADemolitionGeneral");
+	addSide(&m_sides, "FactionGLAToxinGeneral", "SkirmishGLAToxinGeneral", u"SkirmishGLAToxinGeneral");
+	addSide(&m_sides, "FactionGLAStealthGeneral", "SkirmishGLAStealthGeneral", u"SkirmishGLAStealthGeneral");
 	updateTheUI();
 }

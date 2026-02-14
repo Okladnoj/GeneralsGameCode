@@ -588,8 +588,8 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 	// Print out the name of the replay.
 	UnicodeString replayName;
 	replayName = TheGameText->fetch("GUI:LastReplay");
-	m_file->writeFormat(L"%s", replayName.str());
-	m_file->writeChar(L"\0");
+	m_file->writeFormat(u"%s", replayName.str());
+	m_file->writeChar(u"\0");
 
 	// Date and Time
 	SYSTEMTIME systemTime;
@@ -600,10 +600,10 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 	UnicodeString versionString = TheVersion->getUnicodeVersion();
 	UnicodeString versionTimeString = TheVersion->getUnicodeBuildTime();
 	UnsignedInt versionNumber = TheVersion->getVersionNumber();
-	m_file->writeFormat(L"%s", versionString.str());
-	m_file->writeChar(L"\0");
-	m_file->writeFormat(L"%s", versionTimeString.str());
-	m_file->writeChar(L"\0");
+	m_file->writeFormat(u"%s", versionString.str());
+	m_file->writeChar(u"\0");
+	m_file->writeFormat(u"%s", versionTimeString.str());
+	m_file->writeChar(u"\0");
 	m_file->write(&versionNumber, sizeof(versionNumber));
 	m_file->write(&(TheGlobalData->m_exeCRC), sizeof(TheGlobalData->m_exeCRC));
 	m_file->write(&(TheGlobalData->m_iniCRC), sizeof(TheGlobalData->m_iniCRC));
@@ -674,10 +674,10 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 			continue;
 		}
 		UnicodeString name = player->getPlayerDisplayName();
-		fwprintf(m_file, L"%s", name.str());
+		fwprintf(m_file, u"%s", name.str());
 		fputwc(0, m_file);
 		UnicodeString faction = player->getFaction()->getFactionDisplayName();
-		fwprintf(m_file, L"%s", faction.str());
+		fwprintf(m_file, u"%s", faction.str());
 		fputwc(0, m_file);
 		Int color = player->getColor()->getAsInt();
 		fwrite(&color, sizeof(color), 1, m_file);
@@ -1124,7 +1124,7 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 			const UnsignedInt mismatchFrame = TheGameLogic->getFrame() - m_crcInfo->GetQueueSize() - 1;
 
 			// Now also prints a UI message for it.
-			const UnicodeString mismatchDetailsStr = TheGameText->FETCH_OR_SUBSTITUTE("GUI:CRCMismatchDetails", L"InGame:%8.8X Replay:%8.8X Frame:%d");
+			const UnicodeString mismatchDetailsStr = TheGameText->FETCH_OR_SUBSTITUTE("GUI:CRCMismatchDetails", u"InGame:%8.8X Replay:%8.8X Frame:%d");
 			TheInGameUI->message(mismatchDetailsStr, playbackCRC, newCRC, mismatchFrame);
 
 			DEBUG_LOG(("Replay has gone out of sync!\nInGame:%8.8X Replay:%8.8X\nFrame:%d",
@@ -1224,13 +1224,13 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 		debugString = "EXE is different:\n";
 		if (versionStringDiff)
 		{
-			tempStrWide.format(L"   Version [%s] vs [%s]\n", TheVersion->getUnicodeVersion().str(), header.versionString.str());
+			tempStrWide.format(u"   Version [%s] vs [%s]\n", TheVersion->getUnicodeVersion().str(), header.versionString.str());
 			tempStr.translate(tempStrWide);
 			debugString.concat(tempStr);
 		}
 		if (versionTimeStringDiff)
 		{
-			tempStrWide.format(L"   Build Time [%s] vs [%s]\n", TheVersion->getUnicodeBuildTime().str(), header.versionTimeString.str());
+			tempStrWide.format(u"   Build Time [%s] vs [%s]\n", TheVersion->getUnicodeBuildTime().str(), header.versionTimeString.str());
 			tempStr.translate(tempStrWide);
 			debugString.concat(tempStr);
 		}
@@ -1316,7 +1316,7 @@ Bool RecorderClass::playbackFile(AsciiString filename)
  * Read a unicode string from the current file position. The string is assumed to be 0-terminated.
  */
 UnicodeString RecorderClass::readUnicodeString() {
-	WideChar str[1024] = L"";
+	WideChar str[1024] = u"";
 	Int index = 0;
 
 	Int c = m_file->readWideChar();
@@ -1334,7 +1334,7 @@ UnicodeString RecorderClass::readUnicodeString() {
 		}
 		str[index] = c;
 	}
-	str[1023] = L'\0';
+	str[1023] = u'\0';
 
 	UnicodeString retval(str);
 	return retval;

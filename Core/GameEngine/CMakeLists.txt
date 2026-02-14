@@ -1198,11 +1198,9 @@ target_link_libraries(corei_gameengine_public INTERFACE
     stlport
 )
 
-if(WIN32)
-    target_link_libraries(corei_gameengine_public INTERFACE
-        d3d8lib
-    )
-endif()
+target_link_libraries(corei_gameengine_public INTERFACE
+    d3d8lib
+)
 
 # ReactOS ATL for MinGW-w64 only (MSVC uses native ATL)
 if(MINGW)

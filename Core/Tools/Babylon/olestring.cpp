@@ -116,7 +116,7 @@ void OLEString::Set ( const char *new_sb )
 
 		{
 			ole = new OLECHAR[len+1];
-			swprintf ( ole, L"%S", new_sb );
+			swprintf ( ole, u"%S", new_sb );
 			sb = new char[len+1];
 			strcpy ( sb, new_sb );
 		}

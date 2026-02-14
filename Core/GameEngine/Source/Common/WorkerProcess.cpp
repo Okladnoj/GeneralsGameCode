@@ -60,9 +60,9 @@ typedef HANDLE (WINAPI *PFN_CreateJobObjectW)(LPSECURITY_ATTRIBUTES, LPCWSTR);
 typedef BOOL (WINAPI *PFN_SetInformationJobObject)(HANDLE, JOBOBJECTINFOCLASS, LPVOID, DWORD);
 typedef BOOL (WINAPI *PFN_AssignProcessToJobObject)(HANDLE, HANDLE);
 
-static PFN_CreateJobObjectW CreateJobObjectW = (PFN_CreateJobObjectW)GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "CreateJobObjectW");
-static PFN_SetInformationJobObject SetInformationJobObject = (PFN_SetInformationJobObject)GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "SetInformationJobObject");
-static PFN_AssignProcessToJobObject AssignProcessToJobObject = (PFN_AssignProcessToJobObject)GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "AssignProcessToJobObject");
+static PFN_CreateJobObjectW CreateJobObjectW = (PFN_CreateJobObjectW)GetProcAddress(GetModuleHandleW(u"kernel32.dll"), "CreateJobObjectW");
+static PFN_SetInformationJobObject SetInformationJobObject = (PFN_SetInformationJobObject)GetProcAddress(GetModuleHandleW(u"kernel32.dll"), "SetInformationJobObject");
+static PFN_AssignProcessToJobObject AssignProcessToJobObject = (PFN_AssignProcessToJobObject)GetProcAddress(GetModuleHandleW(u"kernel32.dll"), "AssignProcessToJobObject");
 #endif
 
 WorkerProcess::WorkerProcess()

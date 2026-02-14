@@ -24,124 +24,74 @@
 
 // ----------------------------------------------------------------------------
 
-MutexClass::MutexClass(const char* name) : handle(nullptr), locked(false)
-{
-	#ifdef _UNIX
-		//assert(0);
-	#else
-		handle=CreateMutex(nullptr,false,name);
-		WWASSERT(handle);
-	#endif
+MutexClass::MutexClass(const char *name) : handle(nullptr), locked(false) {
+  handle = CreateMutex(nullptr, false, name);
+  WWASSERT(handle);
 }
 
-MutexClass::~MutexClass()
-{
-	#ifdef _UNIX
-		//assert(0);
-	#else
-		WWASSERT(!locked); // Can't delete locked mutex!
-		CloseHandle(handle);
-	#endif
+MutexClass::~MutexClass() {
+  WWASSERT(!locked); // Can't delete locked mutex!
+  CloseHandle(handle);
 }
 
-bool MutexClass::Lock(int time)
-{
-	#ifdef _UNIX
-		//assert(0);
-		return true;
-	#else
-		int res = WaitForSingleObject(handle,time==WAIT_INFINITE ? INFINITE : time);
-		if (res!=WAIT_OBJECT_0) return false;
-		locked++;
-		return true;
-	#endif
+bool MutexClass::Lock(int time) {
+  int res =
+      WaitForSingleObject(handle, time == WAIT_INFINITE ? INFINITE : time);
+  if (res != WAIT_OBJECT_0)
+    return false;
+  locked++;
+  return true;
 }
 
-void MutexClass::Unlock()
-{
-	#ifdef _UNIX
-		//assert(0);
-	#else
-		WWASSERT(locked);
-		locked--;
-		int res=ReleaseMutex(handle);
-		res;	// silence compiler warnings
-		WWASSERT(res);
-	#endif
+void MutexClass::Unlock() {
+  WWASSERT(locked);
+  locked--;
+  int res = ReleaseMutex(handle);
+  res; // silence compiler warnings
+  WWASSERT(res);
 }
 
 // ----------------------------------------------------------------------------
 
-MutexClass::LockClass::LockClass(MutexClass& mutex_,int time) : mutex(mutex_)
-{
-	failed=!mutex.Lock(time);
+MutexClass::LockClass::LockClass(MutexClass &mutex_, int time) : mutex(mutex_) {
+  failed = !mutex.Lock(time);
 }
 
-MutexClass::LockClass::~LockClass()
-{
-	if (!failed) mutex.Unlock();
-}
-
-
-
-
-
-
-
-// ----------------------------------------------------------------------------
-
-CriticalSectionClass::CriticalSectionClass() : handle(nullptr), locked(false)
-{
-	#ifdef _UNIX
-		//assert(0);
-	#else
-		handle=W3DNEWARRAY char[sizeof(CRITICAL_SECTION)];
-		InitializeCriticalSection((CRITICAL_SECTION*)handle);
-	#endif
-}
-
-CriticalSectionClass::~CriticalSectionClass()
-{
-	#ifdef _UNIX
-		//assert(0);
-	#else
-		WWASSERT(!locked); // Can't delete locked mutex!
-		DeleteCriticalSection((CRITICAL_SECTION*)handle);
-		delete[] handle;
-	#endif
-}
-
-void CriticalSectionClass::Lock()
-{
-	#ifdef _UNIX
-		//assert(0);
-	#else
-		EnterCriticalSection((CRITICAL_SECTION*)handle);
-		locked++;
-	#endif
-}
-
-void CriticalSectionClass::Unlock()
-{
-	#ifdef _UNIX
-		//assert(0);
-	#else
-		WWASSERT(locked);
-		locked--;
-		LeaveCriticalSection((CRITICAL_SECTION*)handle);
-	#endif
+MutexClass::LockClass::~LockClass() {
+  if (!failed)
+    mutex.Unlock();
 }
 
 // ----------------------------------------------------------------------------
 
-CriticalSectionClass::LockClass::LockClass(CriticalSectionClass& critical_section) : CriticalSection(critical_section)
-{
-	CriticalSection.Lock();
+CriticalSectionClass::CriticalSectionClass() : handle(nullptr), locked(false) {
+  handle = W3DNEWARRAY char[sizeof(CRITICAL_SECTION)];
+  InitializeCriticalSection((CRITICAL_SECTION *)handle);
 }
 
-CriticalSectionClass::LockClass::~LockClass()
-{
-	CriticalSection.Unlock();
+CriticalSectionClass::~CriticalSectionClass() {
+  WWASSERT(!locked); // Can't delete locked mutex!
+  DeleteCriticalSection((LPCRITICAL_SECTION)handle);
+  delete[] (char *)handle;
 }
 
+void CriticalSectionClass::Lock() {
+  EnterCriticalSection((LPCRITICAL_SECTION)handle);
+  locked++;
+}
 
+void CriticalSectionClass::Unlock() {
+  WWASSERT(locked);
+  locked--;
+  LeaveCriticalSection((LPCRITICAL_SECTION)handle);
+}
+
+// ----------------------------------------------------------------------------
+
+CriticalSectionClass::LockClass::LockClass(
+    CriticalSectionClass &critical_section)
+    : CriticalSection(critical_section) {
+  CriticalSection.Lock();
+}
+
+CriticalSectionClass::LockClass::~LockClass() { CriticalSection.Unlock(); }

@@ -31,8 +31,9 @@
 //******************************************************************************************
 
 #include "dx8webbrowser.h"
-#include "ww3d.h"
+#include "../../../../../Dependencies/Utility/Utility/win_compat.h"
 #include "dx8wrapper.h"
+#include "ww3d.h"
 
 #if ENABLE_EMBEDDED_BROWSER
 
@@ -47,112 +48,103 @@
 #else
 
 #ifdef __MINGW32__
-#include "Utility/comsupp_compat.h"  // MinGW COM support compatibility
+#include "Utility/comsupp_compat.h" // MinGW COM support compatibility
 #endif
-#include <comutil.h>
-#include <comip.h>
+#include "../../../../../Dependencies/Utility/Utility/EABrowserEngine/BrowserEngine.h"
+#include "../../../../../Dependencies/Utility/Utility/comip.h"
+#include "../../../../../Dependencies/Utility/Utility/comutil.h"
 
-#include "EABrowserEngine/BrowserEngine.h"
-
-typedef _com_ptr_t<_com_IIID<IFEBrowserEngine2, &__uuidof(IFEBrowserEngine2)>> IFEBrowserEngine2Ptr;
+typedef my_com_ptr_t<
+    my_com_IIID<IFEBrowserEngine2, &__uuidof(IFEBrowserEngine2)>>
+    IFEBrowserEngine2Ptr;
 
 #endif
 
-static	IFEBrowserEngine2Ptr	pBrowser = 0;
+static IFEBrowserEngine2Ptr pBrowser = 0;
 
-HWND		DX8WebBrowser::hWnd = nullptr;
+HWND DX8WebBrowser::hWnd = nullptr;
 
-bool DX8WebBrowser::Initialize(	const char* badpageurl,
-											const char* loadingpageurl,
-											const char* mousefilename,
-											const char* mousebusyfilename)
-{
-	if(pBrowser == 0)
-	{
-		// Initialize COM
-		CoInitialize(nullptr);
+bool DX8WebBrowser::Initialize(const char *badpageurl,
+                               const char *loadingpageurl,
+                               const char *mousefilename,
+                               const char *mousebusyfilename) {
+  if (pBrowser == 0) {
+    // Initialize COM
+    CoInitialize(nullptr);
 
-		// Create an instance of the browser control
-		HRESULT hr = pBrowser.CreateInstance(__uuidof(FEBrowserEngine2));
+    // Create an instance of the browser control
+    HRESULT hr = pBrowser.CreateInstance(__uuidof(FEBrowserEngine2));
 
-		if(hr == REGDB_E_CLASSNOTREG)
-		{
-			HMODULE lib = ::LoadLibrary("BrowserEngine.DLL");
-			if(lib)
-			{
-				FARPROC proc = ::GetProcAddress(lib,"DllRegisterServer");
-				if(proc)
-				{
-					proc();
-					// Create an instance of the browser control
-					hr = pBrowser.CreateInstance(__uuidof(FEBrowserEngine2));
-				}
-				FreeLibrary(lib);
-			}
-		}
+    if (hr == REGDB_E_CLASSNOTREG) {
+      HMODULE lib = ::LoadLibrary("BrowserEngine.DLL");
+      if (lib) {
+        FARPROC proc = ::GetProcAddress(lib, "DllRegisterServer");
+        if (proc) {
+          proc();
+          // Create an instance of the browser control
+          hr = pBrowser.CreateInstance(__uuidof(FEBrowserEngine2));
+        }
+        FreeLibrary(lib);
+      }
+    }
 
-		// Initialize the browser.
-		if(hr == S_OK)
-		{
-			hWnd = (HWND)WW3D::Get_Window();
-			pBrowser->Initialize(reinterpret_cast<long*>(DX8Wrapper::_Get_D3D_Device8()));
+    // Initialize the browser.
+    if (hr == S_OK) {
+      hWnd = (HWND)WW3D::Get_Window();
+      pBrowser->Initialize(
+          reinterpret_cast<long *>(DX8Wrapper::_Get_D3D_Device8()));
 
-			if(badpageurl)
-				pBrowser->put_BadPageURL(_bstr_t(badpageurl));
+      if (badpageurl)
+        pBrowser->put_BadPageURL(_bstr_t(badpageurl));
 
-			if(loadingpageurl)
-				pBrowser->put_LoadingPageURL(_bstr_t(loadingpageurl));
+      if (loadingpageurl)
+        pBrowser->put_LoadingPageURL(_bstr_t(loadingpageurl));
 
-			if(mousefilename)
-				pBrowser->put_MouseFileName(_bstr_t(mousefilename));
+      if (mousefilename)
+        pBrowser->put_MouseFileName(_bstr_t(mousefilename));
 
-			if(mousebusyfilename)
-				pBrowser->put_MouseBusyFileName(_bstr_t(mousebusyfilename));
-		}
-		else
-		{
-			pBrowser = 0;
-			return false;
-		}
-	}
+      if (mousebusyfilename)
+        pBrowser->put_MouseBusyFileName(_bstr_t(mousebusyfilename));
+    } else {
+      pBrowser = 0;
+      return false;
+    }
+  }
 
-	return true;
+  return true;
 }
 
-void DX8WebBrowser::Shutdown()
-{
-	if(pBrowser)
-	{
-		// Shutdown the browser
-		pBrowser->Shutdown();
+void DX8WebBrowser::Shutdown() {
+  if (pBrowser) {
+    // Shutdown the browser
+    pBrowser->Shutdown();
 
-		// Release the smart pointer.
-		pBrowser = 0;
+    // Release the smart pointer.
+    pBrowser = 0;
 
-		hWnd = nullptr;
+    hWnd = nullptr;
 
-		// Shut down COM
-		CoUninitialize();
-	}
+    // Shut down COM
+    CoUninitialize();
+  }
 }
-
 
 // ******************************************************************************************
 // * Function Name: DX8WebBrowser::Update
 // ******************************************************************************************
-// * Description: 	Updates the browser image surfaces by copying the bits from the browser
-// *						DCs to the D3D Image surfaces.
+// * Description: 	Updates the browser image surfaces by copying the bits
+// from the browser *						DCs to the D3D
+// Image surfaces.
 // *
 // * Return Type:
 // *
 // * Argument:    	void
 // *
 // ******************************************************************************************
-void	DX8WebBrowser::Update(void)
-{
-	if(pBrowser) pBrowser->D3DUpdate();
+void DX8WebBrowser::Update(void) {
+  if (pBrowser)
+    pBrowser->D3DUpdate();
 };
-
 
 // ******************************************************************************************
 // * Function Name: DX8WebBrowser::Render
@@ -164,9 +156,9 @@ void	DX8WebBrowser::Update(void)
 // * Argument:    	int backbufferindex
 // *
 // ******************************************************************************************
-void	DX8WebBrowser::Render(int backbufferindex)
-{
-	if(pBrowser) pBrowser->D3DRender(backbufferindex);
+void DX8WebBrowser::Render(int backbufferindex) {
+  if (pBrowser)
+    pBrowser->D3DRender(backbufferindex);
 };
 
 // ******************************************************************************************
@@ -176,88 +168,98 @@ void	DX8WebBrowser::Render(int backbufferindex)
 // *
 // * Return Type:
 // *
-// * Argument:    	const char* browsername -	This is a "name" used to identify the
-// *															browser instance.  Multiple browsers can
-// *															be created, and are referenced using this name.
+// * Argument:    	const char* browsername -	This is a "name" used to
+// identify the *
+// browser instance.  Multiple browsers can *
+// be created, and are referenced using this name.
 // * Argument:    	const char* url - The url to display.
 // * Argument:    	int x - The position and size of the browser (in pixels)
 // * Argument:    	int y
 // * Argument:    	int w
 // * Argument:    	int h
-// * Argument:    	int updateticks - When non-zero, this forces the browser image to get updated
-// *												at the specified rate (number of milliseconds) regardless
-// *												of paint messages.  When this is zero (the default) the browser
-// *												image is only updated whenever a paint message is received.
+// * Argument:    	int updateticks - When non-zero, this forces the browser
+// image to get updated *
+// at the specified rate (number of milliseconds) regardless *
+// of paint messages.  When this is zero (the default) the browser *
+// image is only updated whenever a paint message is received.
 // *
 // ******************************************************************************************
-void	DX8WebBrowser::CreateBrowser(const char* browsername, const char* url, int x, int y, int w, int h, int updateticks, LONG options, LPDISPATCH gamedispatch)
-{
-	WWDEBUG_SAY(("DX8WebBrowser::CreateBrowser - Creating browser with the name %s, url = %s, (x, y, w, h) = (%d, %d, %d, %d), update ticks = %d", browsername, url, x, y, h, w, updateticks));
-	if(pBrowser)
-	{
-		_bstr_t brsname(browsername);
-		pBrowser->CreateBrowser(brsname, _bstr_t(url), reinterpret_cast<long>(hWnd), x, y, w, h, options, gamedispatch);
-		pBrowser->SetUpdateRate(brsname, updateticks);
-	}
+void DX8WebBrowser::CreateBrowser(const char *browsername, const char *url,
+                                  int x, int y, int w, int h, int updateticks,
+                                  LONG options, LPDISPATCH gamedispatch) {
+  WWDEBUG_SAY(
+      ("DX8WebBrowser::CreateBrowser - Creating browser with the name %s, url "
+       "= %s, (x, y, w, h) = (%d, %d, %d, %d), update ticks = %d",
+       browsername, url, x, y, h, w, updateticks));
+  if (pBrowser) {
+    _bstr_t brsname(browsername);
+    pBrowser->CreateBrowser(brsname, _bstr_t(url), reinterpret_cast<long>(hWnd),
+                            x, y, w, h, options, gamedispatch);
+    pBrowser->SetUpdateRate(brsname, updateticks);
+  }
 }
-
 
 // ******************************************************************************************
 // * Function Name: DX8WebBrowser::DestroyBrowser
 // ******************************************************************************************
-// * Description: 	Destroys the specified browser.  This closes the window and releases
-// *						the browser instance.
+// * Description: 	Destroys the specified browser.  This closes the window
+// and releases *						the browser
+// instance.
 // *
 // * Return Type:
 // *
-// * Argument:    	const char* browsername - The name of the browser to destroy.
+// * Argument:    	const char* browsername - The name of the browser to
+// destroy.
 // *
 // ******************************************************************************************
-void	DX8WebBrowser::DestroyBrowser(const char* browsername)
-{
-	WWDEBUG_SAY(("DX8WebBrowser::DestroyBrowser - destroying browser %s", browsername));
-	if(pBrowser)
-		pBrowser->DestroyBrowser(_bstr_t(browsername));
+void DX8WebBrowser::DestroyBrowser(const char *browsername) {
+  WWDEBUG_SAY(
+      ("DX8WebBrowser::DestroyBrowser - destroying browser %s", browsername));
+  if (pBrowser)
+    pBrowser->DestroyBrowser(_bstr_t(browsername));
 }
-
 
 // ******************************************************************************************
 // * Function Name: DX8WebBrowser::Is_Browser_Open
 // ******************************************************************************************
-// * Description: 	This function checks to see if a browser of the specified name exists and
-// *						is currently open.
+// * Description: 	This function checks to see if a browser of the
+// specified name exists and *						is
+// currently open.
 // *
 // * Return Type:
 // *
-// * Argument:    	const char* browsername - The name of the browser to test.
+// * Argument:    	const char* browsername - The name of the browser to
+// test.
 // *
 // ******************************************************************************************
-bool	DX8WebBrowser::Is_Browser_Open(const char* browsername)
-{
-	if(pBrowser == 0) return false;
+bool DX8WebBrowser::Is_Browser_Open(const char *browsername) {
+  if (pBrowser == 0)
+    return false;
 #if defined(_MSC_VER) && _MSC_VER < 1300
-	return (pBrowser->IsOpen(_bstr_t(browsername)) != 0);
+  return (pBrowser->IsOpen(_bstr_t(browsername)) != 0);
 #else
-	long isOpen;
-	return (pBrowser->IsOpen(_bstr_t(browsername), &isOpen) != 0);
+  long isOpen;
+  return (pBrowser->IsOpen(_bstr_t(browsername), &isOpen) != 0);
 #endif
 }
 
 // ******************************************************************************************
 // * Function Name: DX8WebBrowser::Navigate
 // ******************************************************************************************
-// * Description: 	This function causes the browser to navigate to the specified page.
+// * Description: 	This function causes the browser to navigate to the
+// specified page.
 // *
 // * Return Type:
 // *
-// * Argument:    	const char* browsername - The name of the browser to test.
-// *						const char* url - The url to navigate to.
+// * Argument:    	const char* browsername - The name of the browser to
+// test. *						const char* url - The
+// url to navigate to.
 // *
 // ******************************************************************************************
-void	DX8WebBrowser::Navigate(const char* browsername, const char* url)
-{
-	if(pBrowser == 0) return;
-	pBrowser->Navigate(_bstr_t(browsername),_bstr_t(url));
+void DX8WebBrowser::Navigate(const char *browsername, const char *url) {
+  if (pBrowser == 0)
+    return;
+  pBrowser->Navigate(_bstr_t(browsername), _bstr_t(url));
 }
 
 #endif

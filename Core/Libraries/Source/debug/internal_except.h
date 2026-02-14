@@ -17,7 +17,8 @@
 */
 
 /////////////////////////////////////////////////////////////////////////EA-V1
-// $File: //depot/GeneralsMD/Staging/code/Libraries/Source/debug/internal_except.h $
+// $File:
+// //depot/GeneralsMD/Staging/code/Libraries/Source/debug/internal_except.h $
 // $Author: mhoffe $
 // $Revision: #1 $
 // $DateTime: 2003/07/03 11:55:26 $
@@ -30,10 +31,9 @@
 #pragma once
 
 /// \internal exception handler
-class DebugExceptionhandler
-{
-  DebugExceptionhandler(const DebugExceptionhandler&);
-  DebugExceptionhandler& operator=(const DebugExceptionhandler&);
+class DebugExceptionhandler {
+  DebugExceptionhandler(const DebugExceptionhandler &);
+  DebugExceptionhandler &operator=(const DebugExceptionhandler &);
 
   // nobody can instantiate us
   DebugExceptionhandler(void);
@@ -45,7 +45,8 @@ class DebugExceptionhandler
     \param dbg debug instance
     \param exptr exception pointers
   */
-  static void LogExceptionLocation(Debug &dbg, struct _EXCEPTION_POINTERS *exptr);
+  static void LogExceptionLocation(Debug &dbg,
+                                   struct _EXCEPTION_POINTERS *exptr);
 
   /** \internal
 
@@ -66,7 +67,6 @@ class DebugExceptionhandler
   static void LogFPURegisters(Debug &dbg, struct _EXCEPTION_POINTERS *exptr);
 
 public:
-
   /** \internal
 
     \brief Determine exception type.
@@ -75,11 +75,12 @@ public:
     \param explanation exception explanation, buffer must be 512 chars
     \return exception type as string
   */
-  static const char *GetExceptionType(struct _EXCEPTION_POINTERS *exptr, char *explanation);
+  static const char *GetExceptionType(struct _EXCEPTION_POINTERS *exptr,
+                                      char *explanation);
 
   /** \internal
 
     \brief System exception filter
   */
-  static long __stdcall ExceptionFilter(struct _EXCEPTION_POINTERS* pExPtrs);
+  static LONG __stdcall ExceptionFilter(struct _EXCEPTION_POINTERS *pExPtrs);
 };

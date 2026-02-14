@@ -18,7 +18,8 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //																																						//
-//  (c) 2001-2003 Electronic Arts Inc.																				//
+//  (c) 2001-2003 Electronic Arts Inc.
+//  //
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -28,5 +29,5 @@
 
 #pragma once
 
-std::wstring MultiByteToWideCharSingleLine( const char *orig );
-std::string WideCharStringToMultiByte( const WideChar *orig );
+WideString MultiByteToWideCharSingleLine(const char *orig);
+std::string WideCharStringToMultiByte(const WideChar *orig);

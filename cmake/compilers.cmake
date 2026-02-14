@@ -38,6 +38,10 @@ else()
     # For MinGW, symbols will be stripped to separate .debug files (matching MSVC PDB workflow).
     string(APPEND CMAKE_CXX_FLAGS_RELEASE " -g")
     string(APPEND CMAKE_C_FLAGS_RELEASE " -g")
+
+    if (APPLE OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-fdeclspec -fms-extensions)
+    endif()
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

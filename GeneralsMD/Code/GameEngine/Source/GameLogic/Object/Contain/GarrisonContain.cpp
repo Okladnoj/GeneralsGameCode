@@ -218,7 +218,7 @@ void GarrisonContain::putObjectAtGarrisonPoint( Object *obj,
 
 /*
 UnicodeString msg;
-msg.format( L"Added object '%S'(%d) to point '%d'",
+msg.format( u"Added object '%S'(%d) to point '%d'",
 						obj->getTemplate()->getName().str(),
 						obj->getID(),
 						pointIndex );
@@ -490,7 +490,7 @@ void GarrisonContain::removeObjectFromGarrisonPoint( Object *obj, Int index )
 
 /*
 UnicodeString msg;
-msg.format( L"Removed object '%S'(%d) from point '%d'",
+msg.format( u"Removed object '%S'(%d) from point '%d'",
 						obj->getTemplate()->getName().str(),
 						obj->getID(),
 						removeIndex );

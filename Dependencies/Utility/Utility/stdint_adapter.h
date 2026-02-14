@@ -21,59 +21,59 @@
 #if defined(USING_STLPORT) || (defined(_MSC_VER) && _MSC_VER < 1300)
 /* 7.18.1.4  Integer types capable of holding object pointers */
 #ifdef _WIN64
-  typedef __int64 intptr_t;
-  typedef unsigned __int64 uintptr_t;
+typedef __int64 intptr_t;
+typedef unsigned __int64 uintptr_t;
 #else
-  typedef int intptr_t;
-  typedef unsigned int uintptr_t;
+typedef int intptr_t;
+typedef unsigned int uintptr_t;
 #endif
 
 /* 7.18.1.1  Exact-width integer types */
 typedef signed char int8_t;
-typedef unsigned char   uint8_t;
-typedef short  int16_t;
-typedef unsigned short  uint16_t;
-typedef int  int32_t;
-typedef unsigned int  uint32_t;
-typedef __int64  int64_t;
-typedef unsigned __int64   uint64_t;
+typedef unsigned char uint8_t;
+typedef short int16_t;
+typedef unsigned short uint16_t;
+typedef int int32_t;
+typedef unsigned int uint32_t;
+typedef __int64 int64_t;
+typedef unsigned __int64 uint64_t;
 /* 7.18.1.2  Minimum-width integer types */
 typedef signed char int_least8_t;
-typedef unsigned char   uint_least8_t;
-typedef short  int_least16_t;
-typedef unsigned short  uint_least16_t;
-typedef int  int_least32_t;
-typedef unsigned   uint_least32_t;
-typedef __int64  int_least64_t;
-typedef unsigned __int64   uint_least64_t;
+typedef unsigned char uint_least8_t;
+typedef short int_least16_t;
+typedef unsigned short uint_least16_t;
+typedef int int_least32_t;
+typedef unsigned uint_least32_t;
+typedef __int64 int_least64_t;
+typedef unsigned __int64 uint_least64_t;
 /*  7.18.1.3  Fastest minimum-width integer types
  *  Not actually guaranteed to be fastest for all purposes
  *  Here we use the exact-width types for 8 and 16-bit ints.
  */
 typedef signed char int_fast8_t;
 typedef unsigned char uint_fast8_t;
-typedef short  int_fast16_t;
-typedef unsigned short  uint_fast16_t;
-typedef int  int_fast32_t;
-typedef unsigned  int  uint_fast32_t;
-typedef __int64  int_fast64_t;
-typedef unsigned __int64   uint_fast64_t;
+typedef short int_fast16_t;
+typedef unsigned short uint_fast16_t;
+typedef int int_fast32_t;
+typedef unsigned int uint_fast32_t;
+typedef __int64 int_fast64_t;
+typedef unsigned __int64 uint_fast64_t;
 /* 7.18.1.5  Greatest-width integer types */
-typedef __int64  intmax_t;
-typedef unsigned __int64   uintmax_t;
+typedef __int64 intmax_t;
+typedef unsigned __int64 uintmax_t;
 /* 7.18.2  Limits of specified-width integer types */
 /* 7.18.2.1  Limits of exact-width integer types */
 #define INT8_MIN (-128)
 #define INT16_MIN (-32768)
 #define INT32_MIN (-2147483647 - 1)
-#define INT64_MIN  (-9223372036854775807i64 - 1)
+#define INT64_MIN (-9223372036854775807i64 - 1)
 #define INT8_MAX 127
 #define INT16_MAX 32767
 #define INT32_MAX 2147483647
 #define INT64_MAX 9223372036854775807i64
 #define UINT8_MAX 255
 #define UINT16_MAX 65535
-#define UINT32_MAX 0xffffffffU  /* 4294967295U */
+#define UINT32_MAX 0xffffffffU            /* 4294967295U */
 #define UINT64_MAX 0xffffffffffffffffUi64 /* 18446744073709551615ULL */
 /* 7.18.2.2  Limits of minimum-width integer types */
 #define INT_LEAST8_MIN INT8_MIN
@@ -135,7 +135,7 @@ typedef unsigned __int64   uintmax_t;
 #endif
 
 #define WCHAR_MIN 0
-#define WCHAR_MAX ((wchar_t)-1)
+#define WCHAR_MAX ((wchar_t) - 1)
 /*
  * wint_t is unsigned short for compatibility with MS runtime
  */
@@ -144,19 +144,19 @@ typedef unsigned __int64   uintmax_t;
 /* 7.18.4  Macros for integer constants */
 /* 7.18.4.1  Macros for minimum-width integer constants
     Accoding to Douglas Gwyn <gwyn@arl.mil>:
-	"This spec was changed in ISO/IEC 9899:1999 TC1; in ISO/IEC
-	9899:1999 as initially published, the expansion was required
-	to be an integer constant of precisely matching type, which
-	is impossible to accomplish for the shorter types on most
-	platforms, because C99 provides no standard way to designate
-	an integer constant with width less than that of type int.
-	TC1 changed this to require just an integer constant
-	*expression* with *promoted* type."
-	The trick used here is from Clive D W Feather.
+        "This spec was changed in ISO/IEC 9899:1999 TC1; in ISO/IEC
+        9899:1999 as initially published, the expansion was required
+        to be an integer constant of precisely matching type, which
+        is impossible to accomplish for the shorter types on most
+        platforms, because C99 provides no standard way to designate
+        an integer constant with width less than that of type int.
+        TC1 changed this to require just an integer constant
+        *expression* with *promoted* type."
+        The trick used here is from Clive D W Feather.
 */
-#define INT8_C(val) (INT_LEAST8_MAX-INT_LEAST8_MAX+(val))
-#define INT16_C(val) (INT_LEAST16_MAX-INT_LEAST16_MAX+(val))
-#define INT32_C(val) (INT_LEAST32_MAX-INT_LEAST32_MAX+(val))
+#define INT8_C(val) (INT_LEAST8_MAX - INT_LEAST8_MAX + (val))
+#define INT16_C(val) (INT_LEAST16_MAX - INT_LEAST16_MAX + (val))
+#define INT32_C(val) (INT_LEAST32_MAX - INT_LEAST32_MAX + (val))
 /*  The 'trick' doesn't work in C89 for long long because, without
     suffix, (val) will be evaluated as int, not intmax_t */
 #define INT64_C(val) val##i64
@@ -169,7 +169,9 @@ typedef unsigned __int64   uintmax_t;
 #define UINTMAX_C(val) val##ui64
 
 #else
-
+#ifdef __cplusplus
 #include <cstdint>
-
+#else
+#include <stdint.h>
+#endif
 #endif

@@ -3790,17 +3790,17 @@ Bool GameWindowManager::initTestGUI( void )
 																								100, 100,
 																								&instData,
 																								&listData, nullptr, TRUE );
-	GadgetListBoxAddEntryText( window, L"Listbox text",
+	GadgetListBoxAddEntryText( window, u"Listbox text",
 												 winMakeColor( 255, 255, 255, 255 ), -1, 0 );
-	GadgetListBoxAddEntryText( window, L"More text",
+	GadgetListBoxAddEntryText( window, u"More text",
 												 winMakeColor( 105, 105, 255, 255 ), -1, 0 );
-	GadgetListBoxAddEntryText( window, L"Nothing",
+	GadgetListBoxAddEntryText( window, u"Nothing",
 												 winMakeColor( 105, 105, 255, 255 ), -1, 0 );
-	GadgetListBoxAddEntryText( window, L"Seasons",
+	GadgetListBoxAddEntryText( window, u"Seasons",
 												 winMakeColor( 105, 205, 255, 255 ), -1, 0 );
-	GadgetListBoxAddEntryText( window, L"Misery",
+	GadgetListBoxAddEntryText( window, u"Misery",
 												 winMakeColor( 235, 105, 255, 255 ), -1, 0 );
-	GadgetListBoxAddEntryText( window, L"Natural",
+	GadgetListBoxAddEntryText( window, u"Natural",
 												 winMakeColor( 105, 205, 45, 255 ), -1, 0 );
 	window->winSetFont( TheFontLibrary->getFont( "Times New Roman", 12, FALSE ) );
 
@@ -3823,17 +3823,17 @@ Bool GameWindowManager::initTestGUI( void )
 																								100, 100,
 																								&instData,
 																								&listData, nullptr, TRUE );
-	GadgetListBoxAddEntryText( window, L"Listbox text",
+	GadgetListBoxAddEntryText( window, u"Listbox text",
 												 winMakeColor( 255, 255, 255, 255 ), -1, -1 );
-	GadgetListBoxAddEntryText( window, L"More text",
+	GadgetListBoxAddEntryText( window, u"More text",
 												 winMakeColor( 105, 105, 255, 255 ), -1, -1 );
-	GadgetListBoxAddEntryText( window, L"Nothing",
+	GadgetListBoxAddEntryText( window, u"Nothing",
 												 winMakeColor( 105, 105, 255, 255 ), -1, -1 );
-	GadgetListBoxAddEntryText( window, L"Seasons",
+	GadgetListBoxAddEntryText( window, u"Seasons",
 												 winMakeColor( 105, 205, 255, 255 ), -1, -1 );
-	GadgetListBoxAddEntryText( window, L"Misery",
+	GadgetListBoxAddEntryText( window, u"Misery",
 												 winMakeColor( 235, 105, 255, 255 ), -1, -1 );
-	GadgetListBoxAddEntryText( window, L"Natural",
+	GadgetListBoxAddEntryText( window, u"Natural",
 												 winMakeColor( 105, 205, 45, 255 ), -1, -1 );
 
 	// make a vert slider

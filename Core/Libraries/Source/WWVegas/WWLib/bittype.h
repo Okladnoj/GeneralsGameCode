@@ -37,27 +37,46 @@
 
 #pragma once
 
-typedef unsigned char	uint8;
-typedef unsigned short	uint16;
-typedef unsigned long	uint32;
-typedef unsigned int    uint;
+#include <Utility/stdint_adapter.h>
 
-typedef signed char		sint8;
-typedef signed short		sint16;
-typedef signed long		sint32;
-typedef signed int      sint;
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef unsigned int uint;
 
-typedef float				float32;
-typedef double				float64;
+typedef int8_t sint8;
+typedef int16_t sint16;
+typedef int32_t sint32;
+typedef signed int sint;
 
-typedef unsigned long   DWORD;
-typedef unsigned short	WORD;
-typedef unsigned char   BYTE;
-typedef int             BOOL;
-typedef unsigned short	USHORT;
-typedef const char *		LPCSTR;
-typedef unsigned int    UINT;
-typedef unsigned long   ULONG;
+typedef float float32;
+typedef double float64;
+
+#ifndef _WIN32
+#ifndef _WIN_COMPAT_H_
+typedef uint32_t DWORD;
+typedef uint16_t WORD;
+typedef uint8_t BYTE;
+#if defined(__APPLE__)
+#include <objc/objc.h>
+#else
+typedef int32_t BOOL;
+#endif
+typedef uint16_t USHORT;
+typedef const char *LPCSTR;
+typedef uint32_t UINT;
+typedef uint32_t ULONG;
+#endif
+#else
+typedef unsigned long DWORD;
+typedef unsigned short WORD;
+typedef unsigned char BYTE;
+typedef int BOOL;
+typedef unsigned short USHORT;
+typedef const char *LPCSTR;
+typedef unsigned int UINT;
+typedef unsigned long ULONG;
+#endif
 
 #if defined(_MSC_VER) && _MSC_VER < 1300
 #ifndef _WCHAR_T_DEFINED

@@ -18,440 +18,407 @@
 
 /* $Header: /Commando/Code/ww3d2/hanimmgr.cpp 3     1/16/02 9:51a Jani_p $ */
 /***********************************************************************************************
- ***                            Confidential - Westwood Studios                              ***
+ ***                            Confidential - Westwood Studios ***
  ***********************************************************************************************
  *                                                                                             *
- *                 Project Name : Commando / G 3D Library                                      *
+ *                 Project Name : Commando / G 3D Library *
  *                                                                                             *
- *                     $Archive:: /Commando/Code/ww3d2/hanimmgr.cpp                           $*
+ *                     $Archive:: /Commando/Code/ww3d2/hanimmgr.cpp $*
  *                                                                                             *
- *                       Author:: Greg_h                                                       *
+ *                       Author:: Greg_h *
  *                                                                                             *
- *                     $Modtime:: 1/16/02 9:49a                                               $*
+ *                     $Modtime:: 1/16/02 9:49a $*
  *                                                                                             *
- *                    $Revision:: 3                                                           $*
+ *                    $Revision:: 3 $*
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- *   HAnimManagerClass::HAnimManagerClass -- constructor                                       *
- *   HAnimManagerClass::~HAnimManagerClass -- destructor                                       *
- *   HAnimManagerClass::Load_Anim -- loads a set of motion data from a file                    *
- *   HAnimManagerClass::Get_Anim_ID -- looks up the ID of a named Hierarchy Animation          *
- *   HAnimManagerClass::Get_Anim -- returns a pointer to the specified animation data          *
- *   HAnimManagerClass::Get_Anim -- returns a pointer to the specified Hierarchy Animation     *
- *   HAnimManagerClass::Free -- de-allocate all memory in use                                  *
- *   HAnimManagerClass::Free_All_Anims -- de-allocate all currently loaded animations          *
- *   HAnimManagerClass::Load_Raw_Anim -- Load a raw anim                                       *
- *   HAnimManagerClass::Load_Compressed_Anim -- load a compressed animation                    *
- *	  HAnimManagerClass::Add_Anim -- Adds an externally created animation to the manager		  *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ * Functions: * HAnimManagerClass::HAnimManagerClass -- constructor *
+ *   HAnimManagerClass::~HAnimManagerClass -- destructor *
+ *   HAnimManagerClass::Load_Anim -- loads a set of motion data from a file *
+ *   HAnimManagerClass::Get_Anim_ID -- looks up the ID of a named Hierarchy
+ *Animation          * HAnimManagerClass::Get_Anim -- returns a pointer to the
+ *specified animation data          * HAnimManagerClass::Get_Anim -- returns a
+ *pointer to the specified Hierarchy Animation     * HAnimManagerClass::Free --
+ *de-allocate all memory in use                                  *
+ *   HAnimManagerClass::Free_All_Anims -- de-allocate all currently loaded
+ *animations          * HAnimManagerClass::Load_Raw_Anim -- Load a raw anim *
+ *   HAnimManagerClass::Load_Compressed_Anim -- load a compressed animation *
+ *	  HAnimManagerClass::Add_Anim -- Adds an externally created animation to
+ *the manager		  *
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *- - - - - - - */
 
 #include "hanimmgr.h"
+#include "animatedsoundmgr.h"
+#include "chunkio.h"
 #include "hanim.h"
-#include "hrawanim.h"
 #include "hcanim.h"
 #include "hmorphanim.h"
-#include "chunkio.h"
-#include "wwmemlog.h"
+#include "hrawanim.h"
 #include "w3dexclusionlist.h"
-#include "animatedsoundmgr.h"
-
+#include "wwmemlog.h"
 
 /***********************************************************************************************
- * HAnimManagerClass::HAnimManagerClass -- constructor                                         *
+ * HAnimManagerClass::HAnimManagerClass -- constructor *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/11/1997 GH  : Created.                                                                 *
+ * HISTORY: * 08/11/1997 GH  : Created. *
  *=============================================================================================*/
-HAnimManagerClass::HAnimManagerClass(void)
-{
-	// Create the hash tables
-	AnimPtrTable = W3DNEW HashTableClass( 2048 );
-	MissingAnimTable = W3DNEW HashTableClass( 2048 );
+HAnimManagerClass::HAnimManagerClass(void) {
+  // Create the hash tables
+  AnimPtrTable = W3DNEW HashTableClass(2048);
+  MissingAnimTable = W3DNEW HashTableClass(2048);
 }
 
-
 /***********************************************************************************************
- * HAnimManagerClass::~HAnimManagerClass -- destructor                                         *
+ * HAnimManagerClass::~HAnimManagerClass -- destructor *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/11/1997 GH  : Created.                                                                 *
+ * HISTORY: * 08/11/1997 GH  : Created. *
  *=============================================================================================*/
-HAnimManagerClass::~HAnimManagerClass(void)
-{
-	Free_All_Anims();
-	Reset_Missing();	// Jani: Deleting missing animations as well
+HAnimManagerClass::~HAnimManagerClass(void) {
+  Free_All_Anims();
+  Reset_Missing(); // Jani: Deleting missing animations as well
 
-	delete AnimPtrTable;
-	AnimPtrTable = nullptr;
+  delete AnimPtrTable;
+  AnimPtrTable = nullptr;
 
-	Reset_Missing();
-	delete MissingAnimTable;
-	MissingAnimTable = nullptr;
+  Reset_Missing();
+  delete MissingAnimTable;
+  MissingAnimTable = nullptr;
 }
 
-
 /***********************************************************************************************
- * HAnimManagerClass::Load_Anim -- loads a set of motion data from a file                      *
+ * HAnimManagerClass::Load_Anim -- loads a set of motion data from a file *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/11/1997 GH  : Created.                                                                 *
+ * HISTORY: * 08/11/1997 GH  : Created. *
  *=============================================================================================*/
-int HAnimManagerClass::Load_Anim(ChunkLoadClass & cload)
-{
-	WWMEMLOG(MEM_ANIMATION);
+int HAnimManagerClass::Load_Anim(ChunkLoadClass &cload) {
+  WWMEMLOG(MEM_ANIMATION);
 
-	switch (cload.Cur_Chunk_ID())
-	{
-	case W3D_CHUNK_ANIMATION:
-		return Load_Raw_Anim(cload);
-		break;
+  switch (cload.Cur_Chunk_ID()) {
+  case W3D_CHUNK_ANIMATION:
+    return Load_Raw_Anim(cload);
+    break;
 
-	case W3D_CHUNK_COMPRESSED_ANIMATION:
-		return Load_Compressed_Anim(cload);
-		break;
+  case W3D_CHUNK_COMPRESSED_ANIMATION:
+    return Load_Compressed_Anim(cload);
+    break;
 
-	case W3D_CHUNK_MORPH_ANIMATION:
-		return Load_Morph_Anim(cload);
-		break;
-	}
+  case W3D_CHUNK_MORPH_ANIMATION:
+    return Load_Morph_Anim(cload);
+    break;
+  }
 
-	return 0;
+  return 0;
 }
 
-
 /***********************************************************************************************
- * HAnimManagerClass::Load_Morph_Anim -- Load a HMorphAnimClass										  *
+ * HAnimManagerClass::Load_Morph_Anim -- Load a HMorphAnimClass
+ **
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   5/23/2000  pds : Created.                                                                 *
+ * HISTORY: * 5/23/2000  pds : Created. *
  *=============================================================================================*/
-int HAnimManagerClass::Load_Morph_Anim(ChunkLoadClass & cload)
-{
-	HMorphAnimClass * newanim = W3DNEW HMorphAnimClass;
+int HAnimManagerClass::Load_Morph_Anim(ChunkLoadClass &cload) {
+  HMorphAnimClass *newanim = SET_REF_OWNER(W3DNEW HMorphAnimClass);
 
-	if (newanim == nullptr) {
-		goto Error;
-	}
+  if (newanim == nullptr) {
+    goto Error;
+  }
 
-	SET_REF_OWNER( newanim );
+  if (newanim->Load_W3D(cload) != HMorphAnimClass::OK) {
+    // load failed!
+    newanim->Release_Ref();
+    goto Error;
+  } else if (Peek_Anim(newanim->Get_Name()) != nullptr) {
+    // duplicate exists!
+    newanim->Release_Ref(); // Release the one we just loaded
+    goto Error;
+  } else {
+    Add_Anim(newanim);
+    newanim->Release_Ref();
+  }
 
-	if (newanim->Load_W3D(cload) != HMorphAnimClass::OK) {
-		// load failed!
-		newanim->Release_Ref();
-		goto Error;
-	} else if (Peek_Anim(newanim->Get_Name()) != nullptr) {
-		// duplicate exists!
-		newanim->Release_Ref();	// Release the one we just loaded
-		goto Error;
-	} else {
-		Add_Anim( newanim );
-		newanim->Release_Ref();
-	}
-
-	return 0;
+  return 0;
 
 Error:
 
-	return 1;
+  return 1;
 }
 
-
 /***********************************************************************************************
- * HAnimManagerClass::Load_Raw_Anim -- Load a raw anim                                         *
+ * HAnimManagerClass::Load_Raw_Anim -- Load a raw anim *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   5/23/2000  gth : Created.                                                                 *
+ * HISTORY: * 5/23/2000  gth : Created. *
  *=============================================================================================*/
-int HAnimManagerClass::Load_Raw_Anim(ChunkLoadClass & cload)
-{
-	HRawAnimClass * newanim = W3DNEW HRawAnimClass;
+int HAnimManagerClass::Load_Raw_Anim(ChunkLoadClass &cload) {
+  HRawAnimClass *newanim = SET_REF_OWNER(W3DNEW HRawAnimClass);
 
-	if (newanim == nullptr) {
-		goto Error;
-	}
+  if (newanim == nullptr) {
+    goto Error;
+  }
 
-	SET_REF_OWNER( newanim );
+  if (newanim->Load_W3D(cload) != HRawAnimClass::OK) {
+    // load failed!
+    newanim->Release_Ref();
+    goto Error;
+  } else if (Peek_Anim(newanim->Get_Name()) != nullptr) {
+    // duplicate exists!
+    newanim->Release_Ref(); // Release the one we just loaded
+    goto Error;
+  } else {
+    Add_Anim(newanim);
+    newanim->Release_Ref();
+  }
 
-	if (newanim->Load_W3D(cload) != HRawAnimClass::OK) {
-		// load failed!
-		newanim->Release_Ref();
-		goto Error;
-	} else if (Peek_Anim(newanim->Get_Name()) != nullptr) {
-		// duplicate exists!
-		newanim->Release_Ref();	// Release the one we just loaded
-		goto Error;
-	} else {
-		Add_Anim( newanim );
-		newanim->Release_Ref();
-	}
-
-	return 0;
+  return 0;
 
 Error:
 
-	return 1;
+  return 1;
 }
 
-
 /***********************************************************************************************
- * HAnimManagerClass::Load_Compressed_Anim -- load a compressed animation                      *
+ * HAnimManagerClass::Load_Compressed_Anim -- load a compressed animation *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   5/23/2000  gth : Created.                                                                 *
+ * HISTORY: * 5/23/2000  gth : Created. *
  *=============================================================================================*/
-int HAnimManagerClass::Load_Compressed_Anim(ChunkLoadClass & cload)
-{
-	HCompressedAnimClass * newanim = W3DNEW HCompressedAnimClass;
+int HAnimManagerClass::Load_Compressed_Anim(ChunkLoadClass &cload) {
+  HCompressedAnimClass *newanim = SET_REF_OWNER(W3DNEW HCompressedAnimClass);
 
-	if (newanim == nullptr) {
-		goto Error;
-	}
+  if (newanim == nullptr) {
+    goto Error;
+  }
 
-	SET_REF_OWNER( newanim );
+  if (newanim->Load_W3D(cload) != HCompressedAnimClass::OK) {
+    // load failed!
+    newanim->Release_Ref();
+    goto Error;
+  } else if (Peek_Anim(newanim->Get_Name()) != nullptr) {
+    // duplicate exists!
+    newanim->Release_Ref(); // Release the one we just loaded
+    goto Error;
+  } else {
+    Add_Anim(newanim);
+    newanim->Release_Ref();
+  }
 
-	if (newanim->Load_W3D(cload) != HCompressedAnimClass::OK) {
-		// load failed!
-		newanim->Release_Ref();
-		goto Error;
-	} else if (Peek_Anim(newanim->Get_Name()) != nullptr) {
-		// duplicate exists!
-		newanim->Release_Ref();	// Release the one we just loaded
-		goto Error;
-	} else {
-		Add_Anim( newanim );
-		newanim->Release_Ref();
-	}
-
-	return 0;
+  return 0;
 
 Error:
 
-	return 1;
+  return 1;
 }
 
 /***********************************************************************************************
- * HAnimManagerClass::Peek_Anim -- returns a pointer to the specified animation data            *
+ * HAnimManagerClass::Peek_Anim -- returns a pointer to the specified animation
+ *data            *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/11/1997 GH  : Created.                                                                 *
+ * HISTORY: * 08/11/1997 GH  : Created. *
  *=============================================================================================*/
-HAnimClass * HAnimManagerClass::Peek_Anim(const char * name)
-{
-	return (HAnimClass*)AnimPtrTable->Find( name );
-}
-
-
-/***********************************************************************************************
- * HAnimManagerClass::Get_Anim -- returns a pointer to the specified animation data            *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/11/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
-HAnimClass * HAnimManagerClass::Get_Anim(const char * name)
-{
-	HAnimClass * anim = Peek_Anim( name );
-	if ( anim != nullptr ) {
-		anim->Add_Ref();
-	}
-	return anim;
-}
-
-
-/***********************************************************************************************
- * HAnimManagerClass::Free_All_Anims -- de-allocate all currently loaded animations            *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   08/11/1997 GH  : Created.                                                                 *
- *=============================================================================================*/
-void HAnimManagerClass::Free_All_Anims(void)
-{
-	// Make an iterator, and release all ptrs
-	HAnimManagerIterator it( *this );
-	for( it.First(); !it.Is_Done(); it.Next() ) {
-		HAnimClass *anim = it.Get_Current_Anim();
-		anim->Release_Ref();
-	}
-
-	// Then clear the table
-	AnimPtrTable->Reset();
+HAnimClass *HAnimManagerClass::Peek_Anim(const char *name) {
+  return (HAnimClass *)AnimPtrTable->Find(name);
 }
 
 /***********************************************************************************************
- * HAnimManagerClass::Free_All_Anims_With_Exclusion_List -- release animations not in the list *
+ * HAnimManagerClass::Get_Anim -- returns a pointer to the specified animation
+ *data            *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   12/12/2002 GH  : Created.                                                                 *
+ * HISTORY: * 08/11/1997 GH  : Created. *
  *=============================================================================================*/
-void HAnimManagerClass::Free_All_Anims_With_Exclusion_List(const W3DExclusionListClass & exclusion_list)
-{
-	// Remove and Release_Ref any animation not in the exclusion list.
-	HAnimManagerIterator it( *this );
-	for( it.First(); !it.Is_Done(); it.Next() ) {
-		HAnimClass *anim = it.Get_Current_Anim();
-
-		if ((anim->Num_Refs() == 1) && (exclusion_list.Is_Excluded(anim) == false)) {
-			//WWDEBUG_SAY(("deleting HAnim %s",anim->Get_Name()));
-			AnimPtrTable->Remove(anim);
-			anim->Release_Ref();
-		}
-		//else
-		//{
-		//	WWDEBUG_SAY(("keeping HAnim %s (ref %d)",anim->Get_Name(),anim->Num_Refs()));
-		//}
-	}
+HAnimClass *HAnimManagerClass::Get_Anim(const char *name) {
+  HAnimClass *anim = Peek_Anim(name);
+  if (anim != nullptr) {
+    anim->Add_Ref();
+  }
+  return anim;
 }
-
 
 /***********************************************************************************************
- * HAnimManagerClass::Create_Asset_List -- Create a list of the W3D files that are loaded      *
+ * HAnimManagerClass::Free_All_Anims -- de-allocate all currently loaded
+ *animations            *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   12/12/2002 GH  : Created.                                                                 *
+ * HISTORY: * 08/11/1997 GH  : Created. *
  *=============================================================================================*/
-void HAnimManagerClass::Create_Asset_List(DynamicVectorClass<StringClass> & exclusion_list)
-{
-	HAnimManagerIterator it( *this );
-	for( it.First(); !it.Is_Done(); it.Next() ) {
-		HAnimClass *anim = it.Get_Current_Anim();
+void HAnimManagerClass::Free_All_Anims(void) {
+  // Make an iterator, and release all ptrs
+  HAnimManagerIterator it(*this);
+  for (it.First(); !it.Is_Done(); it.Next()) {
+    HAnimClass *anim = it.Get_Current_Anim();
+    anim->Release_Ref();
+  }
 
-		// File that this anim came from should be the name after the '.'
-		// Anims are named in the format: <skeleton>.<animname>
-		const char * anim_name = anim->Get_Name();
-		const char * filename = strchr(anim_name,'.');
-		if (filename != nullptr) {
-			exclusion_list.Add(StringClass(filename+1));
-		}
-	}
+  // Then clear the table
+  AnimPtrTable->Reset();
 }
-
 
 /***********************************************************************************************
- * HAnimManagerClass::Add_Anim -- Adds an externally created animation to the manager			  *
+ * HAnimManagerClass::Free_All_Anims_With_Exclusion_List -- release animations
+ *not in the list *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   05/31/2000 PDS  : Created.                                                                *
+ * HISTORY: * 12/12/2002 GH  : Created. *
  *=============================================================================================*/
-bool HAnimManagerClass::Add_Anim(HAnimClass *new_anim)
-{
-	WWASSERT (new_anim != nullptr);
+void HAnimManagerClass::Free_All_Anims_With_Exclusion_List(
+    const W3DExclusionListClass &exclusion_list) {
+  // Remove and Release_Ref any animation not in the exclusion list.
+  HAnimManagerIterator it(*this);
+  for (it.First(); !it.Is_Done(); it.Next()) {
+    HAnimClass *anim = it.Get_Current_Anim();
 
-	// Increment the refcount on the W3DNEW animation and add it to our table.
-	new_anim->Add_Ref ();
-	AnimPtrTable->Add( new_anim );
-
-	return true;
+    if ((anim->Num_Refs() == 1) &&
+        (exclusion_list.Is_Excluded(anim) == false)) {
+      // WWDEBUG_SAY(("deleting HAnim %s",anim->Get_Name()));
+      AnimPtrTable->Remove(anim);
+      anim->Release_Ref();
+    }
+    // else
+    //{
+    //	WWDEBUG_SAY(("keeping HAnim %s (ref
+    //%d)",anim->Get_Name(),anim->Num_Refs()));
+    // }
+  }
 }
 
+/***********************************************************************************************
+ * HAnimManagerClass::Create_Asset_List -- Create a list of the W3D files that
+ *are loaded      *
+ *                                                                                             *
+ * INPUT: *
+ *                                                                                             *
+ * OUTPUT: *
+ *                                                                                             *
+ * WARNINGS: *
+ *                                                                                             *
+ * HISTORY: * 12/12/2002 GH  : Created. *
+ *=============================================================================================*/
+void HAnimManagerClass::Create_Asset_List(
+    DynamicVectorClass<StringClass> &exclusion_list) {
+  HAnimManagerIterator it(*this);
+  for (it.First(); !it.Is_Done(); it.Next()) {
+    HAnimClass *anim = it.Get_Current_Anim();
+
+    // File that this anim came from should be the name after the '.'
+    // Anims are named in the format: <skeleton>.<animname>
+    const char *anim_name = anim->Get_Name();
+    const char *filename = strchr(anim_name, '.');
+    if (filename != nullptr) {
+      exclusion_list.Add(StringClass(filename + 1));
+    }
+  }
+}
+
+/***********************************************************************************************
+ * HAnimManagerClass::Add_Anim -- Adds an externally created animation to the
+ *manager			  *
+ *                                                                                             *
+ * INPUT: *
+ *                                                                                             *
+ * OUTPUT: *
+ *                                                                                             *
+ * WARNINGS: *
+ *                                                                                             *
+ * HISTORY: * 05/31/2000 PDS  : Created. *
+ *=============================================================================================*/
+bool HAnimManagerClass::Add_Anim(HAnimClass *new_anim) {
+  WWASSERT(new_anim != nullptr);
+
+  // Increment the refcount on the W3DNEW animation and add it to our table.
+  new_anim->Add_Ref();
+  AnimPtrTable->Add(new_anim);
+
+  return true;
+}
 
 /*
 ** Missing Anims
 **
-** The idea here, allow the system to register which anims are determined to be missing
-** so that if they are asked for again, we can quickly return nullptr, without searching the
+** The idea here, allow the system to register which anims are determined to be
+*missing
+** so that if they are asked for again, we can quickly return nullptr, without
+*searching the
 ** disk again.
 */
-void	HAnimManagerClass::Register_Missing( const char * name )
-{
-	MissingAnimTable->Add( W3DNEW MissingAnimClass( name ) );
+void HAnimManagerClass::Register_Missing(const char *name) {
+  MissingAnimTable->Add(W3DNEW MissingAnimClass(name));
 }
 
-bool	HAnimManagerClass::Is_Missing( const char * name )
-{
-	return ( MissingAnimTable->Find( name ) != nullptr );
+bool HAnimManagerClass::Is_Missing(const char *name) {
+  return (MissingAnimTable->Find(name) != nullptr);
 }
 
-void	HAnimManagerClass::Reset_Missing( void )
-{
-	// Make an iterator, and release all ptrs
-	HashTableIteratorClass it( *MissingAnimTable );
-	for( it.First(); !it.Is_Done(); it.Next() ) {
-		MissingAnimClass *missing = (MissingAnimClass *)it.Get_Current();
-		delete missing;
-	}
+void HAnimManagerClass::Reset_Missing(void) {
+  // Make an iterator, and release all ptrs
+  HashTableIteratorClass it(*MissingAnimTable);
+  for (it.First(); !it.Is_Done(); it.Next()) {
+    MissingAnimClass *missing = (MissingAnimClass *)it.Get_Current();
+    delete missing;
+  }
 
-	// Then clear the table
-	MissingAnimTable->Reset();
+  // Then clear the table
+  MissingAnimTable->Reset();
 }
-
 
 /*
 ** Iterator converter from HashableClass to HAnimClass
 */
-HAnimClass * HAnimManagerIterator::Get_Current_Anim( void )
-{
-	return (HAnimClass *)Get_Current();
+HAnimClass *HAnimManagerIterator::Get_Current_Anim(void) {
+  return (HAnimClass *)Get_Current();
 }
-

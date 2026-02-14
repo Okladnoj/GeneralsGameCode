@@ -313,7 +313,7 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 							obi = (*bmi)->getOverchargeBehaviorInterface();
 							if( obi )
 							{
-								descrip.concat( L"\n" );
+								descrip.concat( u"\n" );
 								if( obi->isOverchargeActive() )
 									descrip.concat( TheGameText->fetch( "TOOLTIP:TooltipNukeReactorOverChargeIsOn" ) );
 								else
@@ -330,23 +330,23 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 					switch( makeType )
 					{
 						case CANMAKE_NO_MONEY:
-							descrip.concat( L"\n\n" );
+							descrip.concat( u"\n\n" );
 							descrip.concat( TheGameText->fetch( "TOOLTIP:TooltipNotEnoughMoneyToBuild" ) );
 							break;
 						case CANMAKE_QUEUE_FULL:
-							descrip.concat( L"\n\n" );
+							descrip.concat( u"\n\n" );
 							descrip.concat( TheGameText->fetch( "TOOLTIP:TooltipCannotPurchaseBecauseQueueFull" ) );
 							break;
 						case CANMAKE_PARKING_PLACES_FULL:
-							descrip.concat( L"\n\n" );
+							descrip.concat( u"\n\n" );
 							descrip.concat( TheGameText->fetch( "TOOLTIP:TooltipCannotBuildUnitBecauseParkingFull" ) );
 							break;
 						case CANMAKE_MAXED_OUT_FOR_PLAYER:
-							descrip.concat( L"\n\n" );
+							descrip.concat( u"\n\n" );
 							descrip.concat( TheGameText->fetch( "TOOLTIP:TooltipCannotBuildUnitBecauseMaximumNumber" ) );
 							break;
 						//case CANMAKE_NO_PREREQ:
-						//	descrip.concat( L"\n\n" );
+						//	descrip.concat( u"\n\n" );
 						//	descrip.concat( TheGameText->fetch( "TOOLTIP:TooltipCannotBuildDueToPrerequisites" ) );
 						//	break;
 					}
@@ -361,12 +361,12 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 						ProductionUpdateInterface *pui = selectedObject->getProductionUpdateInterface();
 						if( pui && pui->getProductionCount() == MAX_BUILD_QUEUE_BUTTONS )
 						{
-							descrip.concat( L"\n\n" );
+							descrip.concat( u"\n\n" );
 							descrip.concat( TheGameText->fetch( "TOOLTIP:TooltipCannotPurchaseBecauseQueueFull" ) );
 						}
 						else if( !TheUpgradeCenter->canAffordUpgrade( ThePlayerList->getLocalPlayer(), upgradeTemplate, FALSE ) )
 						{
-							descrip.concat( L"\n\n" );
+							descrip.concat( u"\n\n" );
 							descrip.concat( TheGameText->fetch( "TOOLTIP:TooltipNotEnoughMoneyToBuild" ) );
 						}
 					}
@@ -398,7 +398,7 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 					if (firstRequirement)
 						firstRequirement = false;
 					else
-						requiresFormat.concat(L", ");
+						requiresFormat.concat(u", ");
 				}
 				requiresFormat.concat(requiresList);
 			}
@@ -407,7 +407,7 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 				UnicodeString requireFormat = TheGameText->fetch("CONTROLBAR:Requirements");
 				requiresFormat.format(requireFormat.str(), requiresFormat.str());
 				if(!descrip.isEmpty())
-					descrip.concat(L"\n");
+					descrip.concat(u"\n");
 				descrip.concat(requiresFormat);
 
 			}
@@ -489,7 +489,7 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 						if (firstRequirement)
 							firstRequirement = false;
 						else
-							requiresFormat.concat(L", ");
+							requiresFormat.concat(u", ");
 					}
 					requiresFormat.concat(requiresList);
 				}
@@ -498,7 +498,7 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 					UnicodeString requireFormat = TheGameText->fetch("CONTROLBAR:Requirements");
 					requiresFormat.format(requireFormat.str(), requiresFormat.str());
 					if(!descrip.isEmpty())
-						descrip.concat(L"\n");
+						descrip.concat(u"\n");
 					descrip.concat(requiresFormat);
 				}
 			}

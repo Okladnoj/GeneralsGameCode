@@ -17,29 +17,31 @@
 */
 
 /***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
+ ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S
+ ****
  ***********************************************************************************************
  *                                                                                             *
- *                 Project Name : Command & Conquer                                            *
+ *                 Project Name : Command & Conquer *
  *                                                                                             *
- *                     $Archive:: /Commando/Code/wwlib/readline.h                             $*
+ *                     $Archive:: /Commando/Code/wwlib/readline.h $*
  *                                                                                             *
- *                      $Author:: Jani_p                                                      $*
+ *                      $Author:: Jani_p $*
  *                                                                                             *
- *                     $Modtime:: 6/14/01 7:24p                                               $*
+ *                     $Modtime:: 6/14/01 7:24p $*
  *                                                                                             *
- *                    $Revision:: 3                                                           $*
+ *                    $Revision:: 3 $*
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ * Functions: *
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *- - - - - - - */
 
 #pragma once
 
 #include "STRAW.h"
 #include "WWFILE.h"
-#include <wchar.h>
+#include "win.h"
 
-int Read_Line(FileClass & file, char * buffer, int len, bool & eof);
-int Read_Line(Straw & file, char * buffer, int len, bool & eof);
-int Read_Line(Straw & file, wchar_t * buffer, int len, bool & eof);
+int Read_Line(FileClass &file, char *buffer, int len, bool &eof);
+int Read_Line(Straw &file, char *buffer, int len, bool &eof);
+int Read_Line(Straw &file, WCHAR *buffer, int len, bool &eof);

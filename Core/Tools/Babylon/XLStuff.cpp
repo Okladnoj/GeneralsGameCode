@@ -53,7 +53,7 @@ static VARIANT GetCell ( int row, int column )
 	V_VT ( &cell ) = VT_EMPTY;
 
 	assert ( column > 0 );
-	swprintf ( cellname, L"%c%d", 'A'+column -1 , row );
+	swprintf ( cellname, u"%c%d", 'A'+column -1 , row );
  	V_VT ( &cell ) = VT_BSTR;
  	V_BSTR ( &cell ) = SysAllocString (cellname);
 
@@ -96,7 +96,7 @@ int PutCell ( int row, int column, const OLECHAR *string, int val )
 	V_VT ( &cell ) = VT_EMPTY;
 
 	assert ( column > 0 );
-	swprintf ( cellname, L"%c%d", 'A'+column-1, row );
+	swprintf ( cellname, u"%c%d", 'A'+column-1, row );
  	V_VT ( &cell ) = VT_BSTR;
  	V_BSTR ( &cell ) = SysAllocString (cellname);
 
@@ -178,8 +178,8 @@ int PutSeparator ( int row )
   }
 
 	assert ( row > 0 );
-	swprintf ( cellname1, L"A%d", row );
-	swprintf ( cellname2, L"%c%d", 'A'+CELL_LAST-1-1, row );
+	swprintf ( cellname1, u"A%d", row );
+	swprintf ( cellname2, u"%c%d", 'A'+CELL_LAST-1-1, row );
  	V_VT ( &cell1 ) = VT_BSTR;
  	V_BSTR ( &cell1 ) = SysAllocString (cellname1);
 
@@ -253,8 +253,8 @@ int PutSection ( int row, OLECHAR *title )
   }
 
 	assert ( row > 0 );
-	swprintf ( cellname1, L"A%d", row );
-	swprintf ( cellname2, L"%c%d", 'A'+CELL_LAST-1-1, row );
+	swprintf ( cellname1, u"A%d", row );
+	swprintf ( cellname2, u"%c%d", 'A'+CELL_LAST-1-1, row );
  	V_VT ( &cell1 ) = VT_BSTR;
  	V_BSTR ( &cell1 ) = SysAllocString (cellname1);
 
@@ -348,7 +348,7 @@ int PutSection ( int row, OLECHAR *title )
 	interior->SetColorIndex ( yellow );
 	interior->SetPattern ( solid );
 
-	PutCell ( row, 1, L"Section", 0 );
+	PutCell ( row, 1, u"Section", 0 );
 	PutCell ( row, 2, title, 0 );
 
 	ok = TRUE;
@@ -533,7 +533,7 @@ int NewWorkBook ( const char *path )
 		{
 			if ( !(finfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) )
 			{
-				swprintf ( buffer, L"%S", tfile );
+				swprintf ( buffer, u"%S", tfile );
 				V_VT ( &temp ) = VT_BSTR;
 				V_BSTR ( &temp ) = SysAllocString ( buffer );
 			}
@@ -564,7 +564,7 @@ int SaveWorkBook ( const char *filename, int protect )
 	VARIANT name, fileformat, rc;
 
 	V_VT ( &name ) = VT_BSTR;
-	swprintf ( buffer, L"%S", filename );
+	swprintf ( buffer, u"%S", filename );
 	V_BSTR ( &name ) = SysAllocString ( buffer );
 
 	V_VT ( &fileformat ) = VT_I4;
@@ -578,7 +578,7 @@ int SaveWorkBook ( const char *filename, int protect )
 	{
 		VARIANT password;
 		V_VT ( &password ) = VT_BSTR;
-		V_BSTR ( &password ) = SysAllocString ( L"" );
+		V_BSTR ( &password ) = SysAllocString ( u"" );
 
 		ws->Protect ( password, yes, yes, yes, no );
 		VariantClear ( &password );

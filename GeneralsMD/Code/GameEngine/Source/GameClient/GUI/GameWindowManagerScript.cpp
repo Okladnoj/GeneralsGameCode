@@ -480,7 +480,7 @@ static Bool parseTooltip( const char *token, WinInstanceData *instData,
 													char *buffer, void *data )
 {
 	UnicodeString tooltip;
-	tooltip.set(L"Need tooltip translation");
+	tooltip.set(u"Need tooltip translation");
 	/// @todo need to parse the tooltip in multibyte here
 
 	instData->setTooltipText( tooltip );
@@ -1553,7 +1553,7 @@ static Bool parseData( void **data, char *type, char *buffer )
 		the following line and remove the WideChar assignment when
 		we have it */
 //		text = StringManagerFetch( c );
-//		text = L"Need StrManager, Remove me!";
+//		text = u"Need StrManager, Remove me!";
 //		TheWindowManager->winStrcpy( tData.text, text );
 
 		*data = &tData;

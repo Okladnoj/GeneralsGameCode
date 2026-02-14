@@ -205,23 +205,23 @@ void LANAPI::handleRequestGameInfo( LANMessage *msg, UnsignedInt senderIP )
 
 static Bool IsInvalidCharForPlayerName(const WideChar c)
 {
-	return c < L' ' // C0 control chars
-		|| c == L',' || c == L':' || c == L';' // chars used for strtok in ParseAsciiStringToGameInfo
-		|| (c >= L'\x007f' && c <= L'\x009f') // DEL + C1 control chars
-		|| c == L'\x2028' || c == L'\x2029' // line and paragraph separators
-		|| (c >= L'\xdc00' && c <= L'\xdfff') // low surrogate, for chars beyond the Unicode Basic Multilingual Plane
-		|| (c >= L'\xd800' && c <= L'\xdbff'); // high surrogate, for chars beyond the BMP
+	return c < u' ' // C0 control chars
+		|| c == u',' || c == u':' || c == u';' // chars used for strtok in ParseAsciiStringToGameInfo
+		|| (c >= u'\x007f' && c <= u'\x009f') // DEL + C1 control chars
+		|| c == u'\x2028' || c == u'\x2029' // line and paragraph separators
+		|| (c >= u'\xdc00' && c <= u'\xdfff') // low surrogate, for chars beyond the Unicode Basic Multilingual Plane
+		|| (c >= u'\xd800' && c <= u'\xdbff'); // high surrogate, for chars beyond the BMP
 }
 
 static Bool IsSpaceCharacter(const WideChar c)
 {
-	return c == L' ' // space
-		|| c == L'\xA0' // no-break space
-		|| c == L'\x1680' // ogham space mark
-		|| (c >= L'\x2000' && c <= L'\x200A') // en/em spaces, figure, punctuation, thin, hair
-		|| c == L'\x202F' // narrow no-break space
-		|| c == L'\x205F' // medium mathematical space
-		|| c == L'\x3000'; // ideographic space
+	return c == u' ' // space
+		|| c == u'\xA0' // no-break space
+		|| c == u'\x1680' // ogham space mark
+		|| (c >= u'\x2000' && c <= u'\x200A') // en/em spaces, figure, punctuation, thin, hair
+		|| c == u'\x202F' // narrow no-break space
+		|| c == u'\x205F' // medium mathematical space
+		|| c == u'\x3000'; // ideographic space
 }
 
 static Bool ContainsInvalidChars(const WideChar* playerName)

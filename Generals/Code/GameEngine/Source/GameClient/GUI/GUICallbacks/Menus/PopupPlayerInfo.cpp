@@ -557,7 +557,7 @@ static void populateBattleHonors(const PSPlayerStats& stats, Int battleHonors, I
 	row = 3;
 
 	UnicodeString uStr;
-	uStr.format(L"%10d", stats.maxWinsInARow);
+	uStr.format(u"%10d", stats.maxWinsInARow);
 	if(BitIsSet(battleHonors, BATTLE_HONOR_STREAK_25))
 	{
 		InsertBattleHonor(list, TheMappedImageCollection->findImageByName("HonorStreak_G"), TRUE,
@@ -805,32 +805,32 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 	win = findWindow(nullptr, parentWindowName, "StaticTextGamesPlayedValue");
 	if(win)
 	{
-		uStr.format(L"%d", numGames);
+		uStr.format(u"%d", numGames);
 		GadgetStaticTextSetText(win, uStr);
 	}
 	win = findWindow(nullptr, parentWindowName, "StaticTextWinsValue");
 	if(win)
 	{
-		uStr.format(L"%d", numWins);
+		uStr.format(u"%d", numWins);
 		GadgetStaticTextSetText(win, uStr);
 	}
 	win = findWindow(nullptr, parentWindowName, "StaticTextLossesValue");
 	if(win)
 	{
-		uStr.format(L"%d", numLosses);
+		uStr.format(u"%d", numLosses);
 		GadgetStaticTextSetText(win, uStr);
 	}
 	win = findWindow(nullptr, parentWindowName, "StaticTextDisconnectsValue");
 	if(win)
 	{
-		uStr.format(L"%d", numDiscons);
+		uStr.format(u"%d", numDiscons);
 		GadgetStaticTextSetText(win, uStr);
 	}
 
 	win = findWindow(nullptr, parentWindowName, "StaticTextBestStreakValue");
 	if (win)
 	{
-		uStr.format(L"%d", stats.maxWinsInARow);
+		uStr.format(u"%d", stats.maxWinsInARow);
 		GadgetStaticTextSetText(win, uStr);
 	}
 
@@ -850,7 +850,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 	if(win)
 	{
 		Int streak = max(stats.lossesInARow, stats.winsInARow);
-		uStr.format(L"%d", streak);
+		uStr.format(u"%d", streak);
 		GadgetStaticTextSetText(win, uStr);
 	}
 
@@ -894,7 +894,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 		{
 			numGames += it->second;
 		}
-		uStr.format(L"%d", numGames);
+		uStr.format(u"%d", numGames);
 		GadgetStaticTextSetText(win, uStr);
 	}
 	win = findWindow(nullptr, parentWindowName, "StaticTextTotalDeathsValue");
@@ -905,7 +905,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 		{
 			numGames += it->second;
 		}
-		uStr.format(L"%d", numGames);
+		uStr.format(u"%d", numGames);
 		GadgetStaticTextSetText(win, uStr);
 	}
 	win = findWindow(nullptr, parentWindowName, "StaticTextTotalBuiltValue");
@@ -916,7 +916,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 		{
 			numGames += it->second;
 		}
-		uStr.format(L"%d", numGames);
+		uStr.format(u"%d", numGames);
 		GadgetStaticTextSetText(win, uStr);
 	}
 	win = findWindow(nullptr, parentWindowName, "StaticTextBuildingsKilledValue");
@@ -927,7 +927,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 		{
 			numGames += it->second;
 		}
-		uStr.format(L"%d", numGames);
+		uStr.format(u"%d", numGames);
 		GadgetStaticTextSetText(win, uStr);
 	}
 	win = findWindow(nullptr, parentWindowName, "StaticTextBuildingsLostValue");
@@ -938,7 +938,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 		{
 			numGames += it->second;
 		}
-		uStr.format(L"%d", numGames);
+		uStr.format(u"%d", numGames);
 		GadgetStaticTextSetText(win, uStr);
 	}
 	win = findWindow(nullptr, parentWindowName, "StaticTextBuildingsBuiltValue");
@@ -949,7 +949,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 		{
 			numGames += it->second;
 		}
-		uStr.format(L"%d", numGames);
+		uStr.format(u"%d", numGames);
 		GadgetStaticTextSetText(win, uStr);
 	}
 
@@ -1105,7 +1105,7 @@ void HandlePersistentStorageResponses( void )
 					}
 					DEBUG_LOG(("PopulatePlayerInfoWindows() - lookAtPlayerID is %d, got %d", lookAtPlayerID, resp.player.id));
 					PopulatePlayerInfoWindows("PopupPlayerInfo.wnd");
-					//GadgetListBoxAddEntryText(listboxInfo, L"Got info!", GameSpyColor[GSCOLOR_DEFAULT], -1);
+					//GadgetListBoxAddEntryText(listboxInfo, u"Got info!", GameSpyColor[GSCOLOR_DEFAULT], -1);
 
 					// also update info for player list in lobby
 					PlayerInfoMap::iterator it = TheGameSpyInfo->getPlayerInfoMap()->begin();
@@ -1202,7 +1202,7 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 
 	isOverlayActive = true;
 
-	//GadgetListBoxAddEntryText(listboxInfo, L"Working", GameSpyColor[GSCOLOR_DEFAULT], -1);
+	//GadgetListBoxAddEntryText(listboxInfo, u"Working", GameSpyColor[GSCOLOR_DEFAULT], -1);
 
 	GameSpyCloseOverlay(GSOVERLAY_BUDDY);
 	raiseMessageBox = true;

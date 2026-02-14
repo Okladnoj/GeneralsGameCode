@@ -17,7 +17,8 @@
 */
 
 /////////////////////////////////////////////////////////////////////////EA-V1
-// $File: //depot/GeneralsMD/Staging/code/Libraries/Source/debug/debug_internal.cpp $
+// $File:
+// //depot/GeneralsMD/Staging/code/Libraries/Source/debug/debug_internal.cpp $
 // $Author: mhoffe $
 // $Revision: #1 $
 // $DateTime: 2003/07/03 11:55:26 $
@@ -28,61 +29,86 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "debug.h"
+#ifndef _WIN32
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <unistd.h>
+#else
 #include <windows.h>
+#endif
 
-void DebugInternalAssert(const char *file, int line, const char *expr)
-{
+void DebugInternalAssert(const char *file, int line, const char *expr) {
   // dangerous as well but since this function is used in this
   // module only we know how long stuff can get
+#ifdef _WIN32
   char buf[512];
-  wsprintf(buf,"File %s, line %i:\n%s",file,line,expr);
-  MessageBox(nullptr,buf,"Internal assert failed",
-                        MB_OK|MB_ICONSTOP|MB_TASKMODAL|MB_SETFOREGROUND);
+  wsprintf(buf, "File %s, line %i:\n%s", file, line, expr);
+  MessageBox(nullptr, buf, "Internal assert failed",
+             MB_OK | MB_ICONSTOP | MB_TASKMODAL | MB_SETFOREGROUND);
 
   // stop right now!
-  TerminateProcess(GetCurrentProcess(),666);
+  TerminateProcess(GetCurrentProcess(), 666);
+#else
+  fprintf(stderr, "Internal assert failed: File %s, line %d:\n%s\n", file, line,
+          expr);
+  abort();
+#endif
 }
 
-void *DebugAllocMemory(unsigned numBytes)
-{
-  HGLOBAL h=GlobalAlloc(GMEM_FIXED,numBytes);
+void *DebugAllocMemory(unsigned numBytes) {
+#ifdef _WIN32
+  HGLOBAL h = GlobalAlloc(GMEM_FIXED, numBytes);
+#else
+  void *h = malloc(numBytes);
+#endif
   if (!h)
     DCRASH_RELEASE("Debug mem alloc failed");
   return (void *)h;
 }
 
-void *DebugReAllocMemory(void *oldPtr, unsigned newSize)
-{
+void *DebugReAllocMemory(void *oldPtr, unsigned newSize) {
   // Windows doesn't like ReAlloc with null handle/ptr...
   if (!oldPtr)
-    return newSize?DebugAllocMemory(newSize):nullptr;
+    return newSize ? DebugAllocMemory(newSize) : nullptr;
 
   // Shrinking to 0 size is basically freeing memory
-  if (!newSize)
-  {
+  if (!newSize) {
+#ifdef _WIN32
     GlobalFree((HGLOBAL)oldPtr);
+#else
+    free(oldPtr);
+#endif
     return nullptr;
   }
 
+#ifdef _WIN32
   // now try GlobalReAlloc first
-  HGLOBAL h=GlobalReAlloc((HGLOBAL)oldPtr,newSize,0);
-  if (!h)
-  {
+  HGLOBAL h = GlobalReAlloc((HGLOBAL)oldPtr, newSize, 0);
+  if (!h) {
     // this failed (Windows doesn't like ReAlloc'ing larger
     // fixed memory blocks) - go with Alloc/Free instead
-    h=GlobalAlloc(GMEM_FIXED,newSize);
+    h = GlobalAlloc(GMEM_FIXED, newSize);
     if (!h)
       DCRASH_RELEASE("Debug mem realloc failed");
-    unsigned oldSize=GlobalSize((HGLOBAL)oldPtr);
-    memcpy((void *)h,oldPtr,oldSize<newSize?oldSize:newSize);
+    unsigned oldSize = GlobalSize((HGLOBAL)oldPtr);
+    memcpy((void *)h, oldPtr, oldSize < newSize ? oldSize : newSize);
     GlobalFree((HGLOBAL)oldPtr);
   }
-
   return (void *)h;
+#else
+  void *h = realloc(oldPtr, newSize);
+  if (!h)
+    DCRASH_RELEASE("Debug mem realloc failed");
+  return h;
+#endif
 }
 
-void DebugFreeMemory(void *ptr)
-{
+void DebugFreeMemory(void *ptr) {
   if (ptr)
+#ifdef _WIN32
     GlobalFree((HGLOBAL)ptr);
+#else
+    free(ptr);
+#endif
 }

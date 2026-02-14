@@ -41,6 +41,7 @@ set_target_properties(core_wwsaveload PROPERTIES OUTPUT_NAME wwsaveload)
 target_sources(core_wwsaveload PRIVATE ${WWSAVELOAD_SRC})
 
 target_link_libraries(core_wwsaveload PRIVATE
+    core_wwlib
     core_wwcommon
     corei_always
 )

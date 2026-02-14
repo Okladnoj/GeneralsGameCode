@@ -8,7 +8,7 @@
 //   - StringClass::Get_Length() == 0  -> StringClass::Is_Empty()
 //   - WideStringClass::Get_Length() == 0 -> WideStringClass::Is_Empty()
 //   - AsciiString::compare("") == 0  -> AsciiString::isEmpty()
-//   - UnicodeString::compare(L"") == 0 -> UnicodeString::isEmpty()
+//   - UnicodeString::compare(u"") == 0 -> UnicodeString::isEmpty()
 //   - AsciiString::compare(AsciiString::TheEmptyString) == 0 -> AsciiString::isEmpty()
 //   - UnicodeString::compare(UnicodeString::TheEmptyString) == 0 -> UnicodeString::isEmpty()
 //
@@ -182,7 +182,7 @@ void UseIsEmptyCheck::check(const MatchFinder::MatchResult &Result) {
     const auto *TheEmptyString = Result.Nodes.getNodeAs<MemberExpr>("theEmptyStringArg");
 
     if (StringLit) {
-      // Check if string literal is actually empty ("" or L"")
+      // Check if string literal is actually empty ("" or u"")
       StringRef Str = StringLit->getString();
       if (!Str.empty()) {
         return; // Not an empty string literal

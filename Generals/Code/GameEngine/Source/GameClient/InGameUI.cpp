@@ -100,11 +100,11 @@ static UnicodeString formatMoneyValue(UnsignedInt amount)
 	UnicodeString result;
 	if (amount >= 100000)
 	{
-		result.format(L"%uk", amount / 1000);
+		result.format(u"%uk", amount / 1000);
 	}
 	else
 	{
-		result.format(L"%u", amount);
+		result.format(u"%u", amount);
 	}
 	return result;
 }
@@ -114,15 +114,15 @@ static UnicodeString formatIncomeValue(UnsignedInt cashPerMin)
 	UnicodeString result;
 	if (cashPerMin >= 10000)
 	{
-		result.format(L"%uk", cashPerMin / 1000);
+		result.format(u"%uk", cashPerMin / 1000);
 	}
 	else if (cashPerMin >= 1000)
 	{
-		result.format(L"%u", (cashPerMin / 100) * 100);
+		result.format(u"%u", (cashPerMin / 100) * 100);
 	}
 	else
 	{
-		result.format(L"%u", (cashPerMin / 10) * 10);
+		result.format(u"%u", (cashPerMin / 10) * 10);
 	}
 	return result;
 }
@@ -976,10 +976,10 @@ void InGameUI::PlayerInfoList::init(const AsciiString &fontName, Int pointSize, 
 
 	lastValues = LastValues();
 
-	labels[LabelType_Team]->setText(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:PlayerInfoListLabelTeam", L"T"));
-	labels[LabelType_Money]->setText(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:PlayerInfoListLabelMoney", L"$"));
-	labels[LabelType_Rank]->setText(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:PlayerInfoListLabelRank", L"*"));
-	labels[LabelType_Xp]->setText(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:PlayerInfoListLabelXp", L"XP"));
+	labels[LabelType_Team]->setText(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:PlayerInfoListLabelTeam", u"T"));
+	labels[LabelType_Money]->setText(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:PlayerInfoListLabelMoney", u"$"));
+	labels[LabelType_Rank]->setText(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:PlayerInfoListLabelRank", u"*"));
+	labels[LabelType_Xp]->setText(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:PlayerInfoListLabelXp", u"XP"));
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1886,7 +1886,7 @@ void InGameUI::update( void )
 				// first grab the letter we want to add
 				WideChar tempWChar = m_militarySubtitle->subtitle.getCharAt(m_militarySubtitle->index);
 				// if that letter is a return, add a new line
-				if(tempWChar == L'\n')
+				if(tempWChar == u'\n')
 				{
 					// increment the Block position's Y value to draw it on the next line
 					Int height;
@@ -2002,7 +2002,7 @@ void InGameUI::update( void )
 				UnicodeString moneyStr = formatMoneyValue(currentMoney);
 				UnicodeString incomeStr = formatIncomeValue(cashPerMin);
 
-				buffer.format(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ControlBarMoneyDisplayIncome", L"$ %ls +%ls/min", moneyStr.str(), incomeStr.str()));
+				buffer.format(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ControlBarMoneyDisplayIncome", u"$ %ls +%ls/min", moneyStr.str(), incomeStr.str()));
 				GadgetStaticTextSetText(moneyWin, buffer);
 				lastMoney = currentMoney;
 				lastIncome = cashPerMin;
@@ -2597,7 +2597,7 @@ void InGameUI::createMouseoverHint( const GameMessage *msg )
 				AsciiString txtTemp;
 				txtTemp.format("ThingTemplate:%s", obj->getTemplate()->getName().str());
 				str = TheGameText->fetch(txtTemp);
-				//str.format(L"ThingTemplate:'%hs'", obj->getTemplate()->getName().str());
+				//str.format(u"ThingTemplate:'%hs'", obj->getTemplate()->getName().str());
 			}
 
 #ifdef AI_DEBUG_TOOLTIPS
@@ -2628,21 +2628,21 @@ void InGameUI::createMouseoverHint( const GameMessage *msg )
 				{
 					if (!teamName.isEmpty())
 					{
-						str.format(L"%hs(%hs): %s", teamName.str(), objName.str(), str.str());
+						str.format(u"%hs(%hs): %s", teamName.str(), objName.str(), str.str());
 					}
 					else
 					{
-						str.format(L"%hs: %s", objName.str(), str.str());
+						str.format(u"%hs: %s", objName.str(), str.str());
 					}
 				}
 				else
 				{
 					if (!teamName.isEmpty())
 					{
-						str.format(L"%hs: %s", teamName.str(), str.str());
+						str.format(u"%hs: %s", teamName.str(), str.str());
 					}
 				}
-				str.format(L"%s - %hs", str.str(), stateName.str());
+				str.format(u"%s - %hs", str.str(), stateName.str());
 
 			}
 #endif
@@ -2663,7 +2663,7 @@ void InGameUI::createMouseoverHint( const GameMessage *msg )
 				UnicodeString tooltip;
 				//if (TheRecorder->isMultiplayer() && player->getPlayerType() == PLAYER_HUMAN)
 				if (TheRecorder->isMultiplayer() && player->isPlayableSide())
-					tooltip.format(L"%s\n%s", str.str(), ((Player *)player)->getPlayerDisplayName().str());
+					tooltip.format(u"%s\n%s", str.str(), ((Player *)player)->getPlayerDisplayName().str());
 				else
 					tooltip = str;
 
@@ -3796,7 +3796,7 @@ void InGameUI::postDraw( void )
 						if ( startY >= bottomMargin)
 						{
 							UnicodeString ellipsis;
-							ellipsis.format(L"...");
+							ellipsis.format(u"...");
 							info->setText( ellipsis, ellipsis );
 							info->setFont( m_superweaponReadyFont, m_superweaponNormalPointSize, m_superweaponNormalBold );
 							info->drawTime( startX,	startY, m_superweaponFlashColor, bgColor );
@@ -3857,8 +3857,8 @@ void InGameUI::postDraw( void )
 									AsciiString strIndex;
 									strIndex.format("GUI:%s", templateName.str());
 									UnicodeString name, time;
-									name.format(L"%ls: ", TheGameText->fetch(strIndex.str()).str());
-									time.format(L"%d:%2.2d", min, sec);
+									name.format(u"%ls: ", TheGameText->fetch(strIndex.str()).str());
+									time.format(u"%d:%2.2d", min, sec);
 									info->setText(name, time);
 								}
 
@@ -3956,13 +3956,13 @@ void InGameUI::postDraw( void )
 					Int sec = readySecs - min*60;
 
 					if (!info->isCountdown)
-						line.format(L"%s %d", info->timerText.str(), framesLeft);
+						line.format(u"%s %d", info->timerText.str(), framesLeft);
 					else
 					{
 						if (sec >= 10)
-							line.format(L"%s %d:%d", info->timerText.str(), min, sec);
+							line.format(u"%s %d:%d", info->timerText.str(), min, sec);
 						else
-							line.format(L"%s %d:0%d", info->timerText.str(), min, sec);
+							line.format(u"%s %d:0%d", info->timerText.str(), min, sec);
 					}
 					info->displayString->setText(line);
 				}
@@ -5778,7 +5778,7 @@ void InGameUI::showIdleWorkerLayout( void )
 //	else
 //	{
 //		UnicodeString number;
-//		number.format(L"%d",m_currentIdleWorkerDisplay);
+//		number.format(u"%d",m_currentIdleWorkerDisplay);
 //		GadgetButtonSetText(m_idleWorkerWin, number);
 //	}
 }
@@ -5980,7 +5980,7 @@ void InGameUI::updateRenderFpsString()
 	if (renderFps != m_lastRenderFps)
 	{
 		UnicodeString fpsStr;
-		fpsStr.format(L"%u", renderFps);
+		fpsStr.format(u"%u", renderFps);
 		m_renderFpsString->setText(fpsStr);
 		m_lastRenderFps = renderFps;
 	}
@@ -5993,7 +5993,7 @@ void InGameUI::drawNetworkLatency(Int &x, Int &y)
 	if (networkLatencyFrames != m_lastNetworkLatencyFrames)
 	{
 		UnicodeString latencyStr;
-		latencyStr.format(L"%u", networkLatencyFrames);
+		latencyStr.format(u"%u", networkLatencyFrames);
 		m_networkLatencyString->setText(latencyStr);
 		m_lastNetworkLatencyFrames = networkLatencyFrames;
 	}
@@ -6039,7 +6039,7 @@ void InGameUI::drawRenderFps(Int &x, Int &y)
 	if (renderFpsLimit != m_lastRenderFpsLimit)
 	{
 		UnicodeString fpsLimitStr;
-		fpsLimitStr.format(L"[%u]", renderFpsLimit);
+		fpsLimitStr.format(u"[%u]", renderFpsLimit);
 		m_renderFpsLimitString->setText(fpsLimitStr);
 		m_lastRenderFpsLimit = renderFpsLimit;
 	}
@@ -6068,7 +6068,7 @@ void InGameUI::drawSystemTime(Int &x, Int &y)
 	GetLocalTime( &systemTime );
 
 	UnicodeString TimeString;
-	TimeString.format(L"%2.2d:%2.2d:%2.2d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
+	TimeString.format(u"%2.2d:%2.2d:%2.2d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
 	m_systemTimeString->setText(TimeString);
 
 	// TheSuperHackers @info at the HUD anchor this draws inline and advances x otherwise uses configured position
@@ -6093,11 +6093,11 @@ void InGameUI::drawGameTime()
 	Int frame = currentFrame % 30;
 
     UnicodeString gameTimeString;
-    gameTimeString.format(L"%2.2d:%2.2d:%2.2d", hours, minutes, seconds);
+    gameTimeString.format(u"%2.2d:%2.2d:%2.2d", hours, minutes, seconds);
     m_gameTimeString->setText(gameTimeString);
 
 	UnicodeString gameTimeFrameString;
-    gameTimeFrameString.format(L".%2.2d", frame);
+    gameTimeFrameString.format(u".%2.2d", frame);
     m_gameTimeFrameString->setText(gameTimeFrameString);
 
 	// TheSuperHackers @info this implicitly offsets the game timer from the right instead of left of the screen
@@ -6146,7 +6146,7 @@ void InGameUI::drawPlayerInfoList()
 			UnsignedInt &lastValue = m_playerInfoList.lastValues.values[column][row];
 			if (lastValue != currentValues[column])
 			{
-				playerInfoListValue.format(L"%u", currentValues[column]);
+				playerInfoListValue.format(u"%u", currentValues[column]);
 				m_playerInfoList.values[column][row]->setText(playerInfoListValue);
 				lastValue = currentValues[column];
 			}

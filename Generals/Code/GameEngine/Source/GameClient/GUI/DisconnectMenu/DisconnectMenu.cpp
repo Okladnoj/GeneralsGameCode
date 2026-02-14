@@ -133,7 +133,7 @@ void DisconnectMenu::setPlayerName(Int playerNum, UnicodeString name) {
 
 	if (control != nullptr) {
 		if (!name.isEmpty()) {
-			GadgetStaticTextSetText(control, L"");
+			GadgetStaticTextSetText(control, u"");
 		}
 	}
 
@@ -241,7 +241,7 @@ void DisconnectMenu::showPacketRouterTimeout() {
 	control = TheWindowManager->winGetWindowFromId(nullptr, id);
 
 	if (control != nullptr) {
-		GadgetStaticTextSetText(control, L""); // start it off with a blank string.
+		GadgetStaticTextSetText(control, u""); // start it off with a blank string.
 		control->winHide(FALSE);
 	}
 }

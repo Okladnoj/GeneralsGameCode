@@ -1,0 +1,80 @@
+#pragma once
+
+#ifndef _WIN32
+
+#include "win_compat.h"
+
+typedef struct _IMAGEHLP_SYMBOL {
+  DWORD SizeOfStruct;
+  DWORD Address;
+  DWORD Size;
+  DWORD Flags;
+  DWORD MaxNameLength;
+  CHAR Name[1];
+} IMAGEHLP_SYMBOL, *PIMAGEHLP_SYMBOL;
+
+typedef struct _IMAGEHLP_LINE {
+  DWORD SizeOfStruct;
+  PVOID Key;
+  DWORD LineNumber;
+  PCHAR FileName;
+  DWORD Address;
+} IMAGEHLP_LINE, *PIMAGEHLP_LINE;
+
+typedef enum {
+  AddrMode1616,
+  AddrMode1632,
+  AddrModeReal,
+  AddrModeFlat
+} ADDRESS_MODE;
+
+typedef struct _ADDRESS {
+  DWORD Offset;
+  WORD Segment;
+  ADDRESS_MODE Mode;
+} ADDRESS, *LPADDRESS;
+
+typedef struct _STACKFRAME {
+  ADDRESS AddrPC;
+  ADDRESS AddrReturn;
+  ADDRESS AddrFrame;
+  ADDRESS AddrStack;
+  PVOID FuncTableEntry;
+  DWORD Params[4];
+  BOOL Far;
+  BOOL Virtual;
+  DWORD Reserved[3];
+  void *KdHelp;
+  ADDRESS AddrBStore;
+} STACKFRAME, *LPSTACKFRAME;
+
+#define IMAGE_FILE_MACHINE_I386 0x014c
+
+typedef BOOL(CALLBACK *PREAD_PROCESS_MEMORY_ROUTINE)(HANDLE, DWORD, LPVOID,
+                                                     DWORD, LPDWORD);
+typedef LPVOID(CALLBACK *PFUNCTION_TABLE_ACCESS_ROUTINE)(HANDLE, DWORD);
+typedef DWORD(CALLBACK *PGET_MODULE_BASE_ROUTINE)(HANDLE, DWORD);
+typedef DWORD(CALLBACK *PTRANSLATE_ADDRESS_ROUTINE)(HANDLE, HANDLE, LPADDRESS);
+
+#define SYMOPT_DEFERRED_LOADS 0x00000004
+#define SYMOPT_LOAD_LINES 0x00000010
+
+typedef enum _MINIDUMP_TYPE { MiniDumpNormal = 0x00000000 } MINIDUMP_TYPE;
+
+typedef struct _MINIDUMP_EXCEPTION_INFORMATION {
+  DWORD ThreadId;
+  PVOID ExceptionPointers;
+  BOOL ClientPointers;
+} MINIDUMP_EXCEPTION_INFORMATION, *PMINIDUMP_EXCEPTION_INFORMATION;
+
+typedef struct _MINIDUMP_USER_STREAM_INFORMATION {
+  ULONG UserStreamCount;
+  PVOID UserStreamArray;
+} MINIDUMP_USER_STREAM_INFORMATION, *PMINIDUMP_USER_STREAM_INFORMATION;
+
+typedef struct _MINIDUMP_CALLBACK_INFORMATION {
+  PVOID CallbackRoutine;
+  PVOID CallbackParam;
+} MINIDUMP_CALLBACK_INFORMATION, *PMINIDUMP_CALLBACK_INFORMATION;
+
+#endif

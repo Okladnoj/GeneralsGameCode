@@ -392,7 +392,7 @@ void setFPSTextBox( Int sliderPos )
 	if(sliderPos > GREATER_NO_FPS_LIMIT)
 	{
 		// set static text to --
-		text.set(L"--");
+		text.set(u"--");
 		GadgetStaticTextSetText(staticTextGameSpeed, text);
 		return;
 	}
@@ -401,7 +401,7 @@ void setFPSTextBox( Int sliderPos )
 		// set different color
 		staticTextGameSpeed->winEnable(FALSE);
 	}
-	text.format(L"%2d", sliderPos);
+	text.format(u"%2d", sliderPos);
 	GadgetStaticTextSetText(staticTextGameSpeed, text);
 }
 
@@ -1710,25 +1710,25 @@ void populateSkirmishBattleHonors(void)
 	GameWindow *streakWindow = TheWindowManager->winGetWindowFromId( nullptr, NAMEKEY("SkirmishGameOptionsMenu.wnd:StaticTextStreakValue") );
 	if (streakWindow)
 	{
-		uStr.format(L"%d", stats.getWinStreak());
+		uStr.format(u"%d", stats.getWinStreak());
 		GadgetStaticTextSetText(streakWindow, uStr);
 	}
 	GameWindow *bestStreakWindow = TheWindowManager->winGetWindowFromId( nullptr, NAMEKEY("SkirmishGameOptionsMenu.wnd:StaticTextBestStreakValue") );
 	if (bestStreakWindow)
 	{
-		uStr.format(L"%d", stats.getBestWinStreak());
+		uStr.format(u"%d", stats.getBestWinStreak());
 		GadgetStaticTextSetText(bestStreakWindow, uStr);
 	}
 	GameWindow *winsWindow = TheWindowManager->winGetWindowFromId( nullptr, NAMEKEY("SkirmishGameOptionsMenu.wnd:StaticTextWinsValue") );
 	if (winsWindow)
 	{
-		uStr.format(L"%d", stats.getWins());
+		uStr.format(u"%d", stats.getWins());
 		GadgetStaticTextSetText(winsWindow, uStr);
 	}
 	GameWindow *lossesWindow = TheWindowManager->winGetWindowFromId( nullptr, NAMEKEY("SkirmishGameOptionsMenu.wnd:StaticTextLossesValue") );
 	if (lossesWindow)
 	{
-		uStr.format(L"%d", stats.getLosses());
+		uStr.format(u"%d", stats.getLosses());
 		GadgetStaticTextSetText(lossesWindow, uStr);
 	}
 
@@ -1817,7 +1817,7 @@ void populateSkirmishBattleHonors(void)
 			BATTLE_HONOR_BLITZ10, row, column);
 	}
 
-	uStr.format(L"%10d", stats.getBestWinStreak());
+	uStr.format(u"%10d", stats.getBestWinStreak());
 	if(honors & BATTLE_HONOR_STREAK_25)
 	{
 		InsertBattleHonor(list, TheMappedImageCollection->findImageByName("HonorStreak_G"), TRUE,

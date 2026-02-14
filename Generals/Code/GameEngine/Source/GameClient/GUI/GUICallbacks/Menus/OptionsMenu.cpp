@@ -77,7 +77,7 @@
 #include "ww3d.h"
 
 // This is for non-RC builds only!!!
-#define VERBOSE_VERSION L"Release"
+#define VERBOSE_VERSION u"Release"
 
 
 
@@ -1933,7 +1933,7 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 	for( i = 0; i < numResolutions; ++i )
 	{	Int xres,yres,bitDepth;
 		TheDisplay->getDisplayModeDescription(i,&xres,&yres,&bitDepth);
-		str.format(L"%d x %d",xres,yres);
+		str.format(u"%d x %d",xres,yres);
 		GadgetComboBoxAddEntry( comboBoxResolution, str, color);
 		// TheSuperHackers @bugfix xezon 12/06/2025 Now makes a selection with the active display resolution
 		// instead of the resolution read from the Option Preferences, because the active display resolution
@@ -1948,7 +1948,7 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 		// This avoids force changing the resolution when the user has set a custom resolution in the Option Preferences.
 		Int xres = displayWidth;
 		Int yres = displayHeight;
-		str.format(L"%d x %d",xres,yres);
+		str.format(u"%d x %d",xres,yres);
 		GadgetComboBoxAddEntry( comboBoxResolution, str, color );
 		selectedResIndex = GadgetComboBoxGetLength( comboBoxResolution ) - 1;
 	}
@@ -1966,7 +1966,7 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 	GadgetComboBoxAddEntry(comboBoxDetail, TheGameText->fetch("GUI:Low"), color);
 	GadgetComboBoxAddEntry(comboBoxDetail, TheGameText->fetch("GUI:Medium"), color);
 	GadgetComboBoxAddEntry(comboBoxDetail, TheGameText->fetch("GUI:High"), color);
-	GadgetComboBoxAddEntry(comboBoxDetail, TheGameText->FETCH_OR_SUBSTITUTE("GUI:VeryHigh", L"Very High"), color);
+	GadgetComboBoxAddEntry(comboBoxDetail, TheGameText->FETCH_OR_SUBSTITUTE("GUI:VeryHigh", u"Very High"), color);
 	GadgetComboBoxAddEntry(comboBoxDetail, TheGameText->fetch("GUI:Custom"), color);
 	static_assert(STATIC_GAME_LOD_COUNT == 5, "Wrong combo box count");
 

@@ -86,6 +86,7 @@ set_target_properties(core_wwmath PROPERTIES OUTPUT_NAME wwmath)
 target_sources(core_wwmath PRIVATE ${WWMATH_SRC})
 
 target_link_libraries(core_wwmath PRIVATE
+    core_wwlib
     core_wwcommon
     corei_always
     core_wwsaveload

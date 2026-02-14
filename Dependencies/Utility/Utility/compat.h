@@ -42,10 +42,7 @@
 #define __cdecl
 #endif
 
-// OutputDebugString
-#ifndef OutputDebugString
-#define OutputDebugString(str) printf("%s\n", str)
-#endif
+// OutputDebugString is defined in win_compat.h
 
 // _MAX_DRIVE, _MAX_DIR, _MAX_FNAME, _MAX_EXT, _MAX_PATH
 #ifndef _MAX_DRIVE
@@ -71,5 +68,6 @@
 #include "thread_compat.h"
 #include "time_compat.h"
 #include "wchar_compat.h"
+#include "win_compat.h"
 
 #endif

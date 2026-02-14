@@ -210,7 +210,7 @@ static UnicodeString buildReplayTooltip(RecorderClass::ReplayHeader header, Repl
 	UnsignedInt mins = (totalSeconds % 3600) / 60;
 	UnsignedInt secs = totalSeconds % 60;
 	Real fps = totalSeconds > 0 ? header.frameCount / totalSeconds : 0;
-	tooltipStr.format(L"%02u:%02u:%02u (%g fps)", hours, mins, secs, fps);
+	tooltipStr.format(u"%02u:%02u:%02u (%g fps)", hours, mins, secs, fps);
 
 	if (header.localPlayerIndex >= 0)
 	{
@@ -220,7 +220,7 @@ static UnicodeString buildReplayTooltip(RecorderClass::ReplayHeader header, Repl
 			const GameSlot* slot = info.getConstSlot(i);
 			if (slot && slot->isHuman())
 			{
-				tooltipStr.concat(L"\n");
+				tooltipStr.concat(u"\n");
 				tooltipStr.concat(info.getConstSlot(i)->getName());
 			}
 		}
@@ -292,7 +292,7 @@ void PopulateReplayFileListbox(GameWindow *listbox)
 
 			// TheSuperHackers @tweak Caball009 07/02/2025 Display both time and date instead of only time.
 			UnicodeString displayDateTimeBuffer;
-			displayDateTimeBuffer.format(L"%s %s", getUnicodeTimeBuffer(header.timeVal).str(), getUnicodeDateBuffer(header.timeVal).str());
+			displayDateTimeBuffer.format(u"%s %s", getUnicodeTimeBuffer(header.timeVal).str(), getUnicodeDateBuffer(header.timeVal).str());
 
 			// version (no-op)
 
@@ -406,7 +406,7 @@ void ReplayMenuInit( WindowLayout *layout, void *userData )
 	instData.init();
 	BitSet( instData.m_style, GWS_PUSH_BUTTON | GWS_MOUSE_TRACK );
 	instData.m_textLabelString = "Debug: Analyze Replay";
-	instData.setTooltipText(L"Only Used in Debug and Internal!");
+	instData.setTooltipText(u"Only Used in Debug and Internal!");
 	buttonAnalyzeReplay = TheWindowManager->gogoGadgetPushButton( parentReplayMenu,
 																									 WIN_STATUS_ENABLED | WIN_STATUS_IMAGE,
 																									 4, 4,
@@ -564,8 +564,8 @@ static void loadReplay(UnicodeString filename)
 	{
 		// TheSuperHackers @bugfix Prompts a message box when the replay was deleted by the user while the Replay Menu was opened.
 
-		UnicodeString title = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ReplayFileNotFoundTitle", L"REPLAY NOT FOUND");
-		UnicodeString body = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ReplayFileNotFound", L"This replay cannot be loaded because the file no longer exists on this device.");
+		UnicodeString title = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ReplayFileNotFoundTitle", u"REPLAY NOT FOUND");
+		UnicodeString body = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ReplayFileNotFound", u"This replay cannot be loaded because the file no longer exists on this device.");
 
 		MessageBoxOk(title, body, nullptr);
 	}
@@ -573,8 +573,8 @@ static void loadReplay(UnicodeString filename)
 	{
 		// TheSuperHackers @bugfix Prompts a message box when the map used by the replay was not found.
 
-		UnicodeString title = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ReplayMapNotFoundTitle", L"MAP NOT FOUND");
-		UnicodeString body = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ReplayMapNotFound", L"This replay cannot be loaded because the map was not found on this device.");
+		UnicodeString title = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ReplayMapNotFoundTitle", u"MAP NOT FOUND");
+		UnicodeString body = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ReplayMapNotFound", u"This replay cannot be loaded because the map was not found on this device.");
 
 		MessageBoxOk(title, body, nullptr);
 	}
@@ -666,7 +666,7 @@ WindowMsgHandledType ReplayMenuSystem( GameWindow *window, UnsignedInt msg,
 					GadgetListBoxGetSelected( listboxReplayFiles,  &selected );
 					if(selected < 0)
 					{
-						MessageBoxOk(L"Blah Blah",L"Please select something munkee boy", nullptr);
+						MessageBoxOk(u"Blah Blah",u"Please select something munkee boy", nullptr);
 						break;
 					}
 

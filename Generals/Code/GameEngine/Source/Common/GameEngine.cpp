@@ -190,7 +190,7 @@ static void updateWindowTitle()
 	if (rts::ClientInstance::getInstanceId() > 1u)
 	{
 		UnicodeString str;
-		str.format(L"Instance:%.2u", rts::ClientInstance::getInstanceId());
+		str.format(u"Instance:%.2u", rts::ClientInstance::getInstanceId());
 		title.concat(str);
 	}
 
@@ -199,14 +199,14 @@ static void updateWindowTitle()
 	if (!productString.isEmpty())
 	{
 		if (!title.isEmpty())
-			title.concat(L" ");
+			title.concat(u" ");
 		title.concat(productString);
 	}
 
 #if RTS_GENERALS
-	const WideChar* defaultGameTitle = L"Command and Conquer Generals";
+	const WideChar* defaultGameTitle = u"Command and Conquer Generals";
 #elif RTS_ZEROHOUR
-	const WideChar* defaultGameTitle = L"Command and Conquer Generals Zero Hour";
+	const WideChar* defaultGameTitle = u"Command and Conquer Generals Zero Hour";
 #endif
 	UnicodeString gameTitle = TheGameText->FETCH_OR_SUBSTITUTE("GUI:Command&ConquerGenerals", defaultGameTitle);
 
@@ -221,14 +221,14 @@ static void updateWindowTitle()
 		}
 		else
 		{
-			UnicodeString gameTitleFormat = TheGameText->FETCH_OR_SUBSTITUTE("Version:GameTitle", L"for %ls");
+			UnicodeString gameTitleFormat = TheGameText->FETCH_OR_SUBSTITUTE("Version:GameTitle", u"for %ls");
 			gameTitleFinal.format(gameTitleFormat.str(), gameTitle.str());
 		}
 
 		if (!title.isEmpty())
-			title.concat(L" ");
+			title.concat(u" ");
 		title.concat(gameTitleFinal.str());
-		title.concat(L" ");
+		title.concat(u" ");
 		title.concat(gameVersion.str());
 	}
 

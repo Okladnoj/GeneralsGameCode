@@ -24,7 +24,7 @@
 
 #define 	vIFF_ID_FORM		MakeID('F','O','R','M')
 #define 	vIFF_ID_CAT			MakeID('C','A','T',' ')
-#define 	vIFF_ID_LIST		MakeID('L','I','S','T')
+#define 	vIFF_ID_LIST		MakeID('u','I','S','T')
 #define		vIFF_ID_PROP		MakeID('P','R','O','P')
 #define		vIFF_ID_FILLER	W_MakeID(' ',' ',' ',' ')
 

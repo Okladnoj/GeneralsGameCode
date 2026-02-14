@@ -176,7 +176,7 @@ void Fix_Single_Ampersands ( wchar_t *pszString, bool upper_case )
 ////////////////		} else {
 ////////////////			retval.concat(string.getCharAt(i));
 ////////////////		}
-////////////////		if (string.getCharAt(i) == L'&') {
+////////////////		if (string.getCharAt(i) == u'&') {
 ////////////////			retval.concat(string.getCharAt(i));
 ////////////////		}
 ////////////////		++i;
@@ -404,7 +404,7 @@ wchar_t *Path_Add_Back_Slash ( wchar_t *path )
 {
 	if ( path != nullptr && *path != '\0' ) {
 		if ( path[ wcslen( path )-1 ] != '\\' ) {
-			 wcscat( path, L"\\" );
+			 wcscat( path, u"\\" );
 		}
 	}
 	return( path );
@@ -437,8 +437,8 @@ char *Path_Remove_Back_Slash ( char *path )
 wchar_t *Path_Remove_Back_Slash ( wchar_t *path )
 {
 	if ( path != nullptr && *path != '\0' ) {
-		if ( path[ wcslen( path )-1 ] == L'\\' ) {
-			 path[ wcslen( path )-1 ] = L'\0';
+		if ( path[ wcslen( path )-1 ] == u'\\' ) {
+			 path[ wcslen( path )-1 ] = u'\0';
 		}
 	}
 	return( path );
@@ -622,7 +622,7 @@ void PlugInProductName ( wchar_t *szString, const wchar_t *szName )
 	wcscpy( szTextBuf, szString );
 	nMsgLength	= wcslen( szTextBuf );
 	nCount		= 0;
-	temp 		= wcsstr( szTextBuf, L"%s" );
+	temp 		= wcsstr( szTextBuf, u"%s" );
 
 	//-------------------------------------------------------------
 	// Substitute each "%P" with "%s".  nStrReturn is the index
@@ -631,7 +631,7 @@ void PlugInProductName ( wchar_t *szString, const wchar_t *szName )
 	while ( temp != nullptr && nCount < 6) {
 		next	= temp+1;
 		nCount	= nCount + 1;
-		temp	= wcsstr( next, L"%s" );
+		temp	= wcsstr( next, u"%s" );
 	}
 
 	//-------------------------------------------------------------

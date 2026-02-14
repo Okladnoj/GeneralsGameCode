@@ -753,12 +753,12 @@ static void StartPressed(void)
 	Bool willTransfer = TRUE;
 	if (mapData)
 	{
-		mapDisplayName.format(L"%ls", mapData->m_displayName.str());
+		mapDisplayName.format(u"%ls", mapData->m_displayName.str());
 		willTransfer = !mapData->m_isOfficial;
 	}
 	else
 	{
-		mapDisplayName.format(L"%hs", myGame->getMap().str());
+		mapDisplayName.format(u"%hs", myGame->getMap().str());
 		willTransfer = WouldMapTransfer(myGame->getMap());
 	}
 	int i = 0;
@@ -1868,7 +1868,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 										if (slot && slot->isHuman())
 										{
 											UnicodeString munkee;
-											munkee.format(L"\t%d: %ls", i, slot->getName().str());
+											munkee.format(u"\t%d: %ls", i, slot->getName().str());
 											SLOTLIST_DEBUG_LOG(("%ls", munkee.str()));
 										}
 									}
@@ -1902,12 +1902,12 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 										Bool willTransfer = TRUE;
 										if (mapData)
 										{
-											mapDisplayName.format(L"%ls", mapData->m_displayName.str());
+											mapDisplayName.format(u"%ls", mapData->m_displayName.str());
 											willTransfer = !mapData->m_isOfficial;
 										}
 										else
 										{
-											mapDisplayName.format(L"%hs", TheGameState->getMapLeafName(game->getMap()).str());
+											mapDisplayName.format(u"%hs", TheGameState->getMapLeafName(game->getMap()).str());
 											willTransfer = WouldMapTransfer(game->getMap());
 										}
 										if (willTransfer)
@@ -2050,12 +2050,12 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 									Bool willTransfer = TRUE;
 									if (mapData)
 									{
-										mapDisplayName.format(L"%ls", mapData->m_displayName.str());
+										mapDisplayName.format(u"%ls", mapData->m_displayName.str());
 										willTransfer = !mapData->m_isOfficial;
 									}
 									else
 									{
-										mapDisplayName.format(L"%hs", game->getMap().str());
+										mapDisplayName.format(u"%hs", game->getMap().str());
 										willTransfer = WouldMapTransfer(game->getMap());
 									}
 									UnicodeString text;
@@ -2308,7 +2308,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	if (token == "host")
 	{
 		UnicodeString s;
-		s.format(L"Hosting qr2:%d thread:%d", getQR2HostingStatus(), isThreadHosting);
+		s.format(u"Hosting qr2:%d thread:%d", getQR2HostingStatus(), isThreadHosting);
 		TheGameSpyInfo->addText(s, GameSpyColor[GSCOLOR_DEFAULT], nullptr);
 		return TRUE; // was a slash command
 	}
@@ -2321,7 +2321,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	else if (token == "slots")
 	{
 		g_debugSlots = !g_debugSlots;
-		TheGameSpyInfo->addText(L"Toggled SlotList debug", GameSpyColor[GSCOLOR_DEFAULT], nullptr);
+		TheGameSpyInfo->addText(u"Toggled SlotList debug", GameSpyColor[GSCOLOR_DEFAULT], nullptr);
 		return TRUE; // was a slash command
 	}
 	else if (token == "discon")

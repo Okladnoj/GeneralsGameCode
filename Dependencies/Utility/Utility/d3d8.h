@@ -1,0 +1,51 @@
+#pragma once
+#include "win_compat.h"
+
+typedef struct IDirect3D8 *LPDIRECT3D8;
+typedef struct IDirect3DDevice8 *LPDIRECT3DDEVICE8;
+typedef struct IDirect3DResource8 *LPDIRECT3DRESOURCE8;
+typedef struct IDirect3DBaseTexture8 *LPDIRECT3DBASETEXTURE8;
+typedef struct IDirect3DTexture8 *LPDIRECT3DTEXTURE8;
+typedef struct IDirect3DCubeTexture8 *LPDIRECT3DCUBETEXTURE8;
+typedef struct IDirect3DVolumeTexture8 *LPDIRECT3DVOLUMETEXTURE8;
+typedef struct IDirect3DSurface8 *LPDIRECT3DSURFACE8;
+typedef struct IDirect3DVolume8 *LPDIRECT3DVOLUME8;
+typedef struct IDirect3DSwapChain8 *LPDIRECT3DSWAPCHAIN8;
+typedef struct IDirect3DVertexBuffer8 *LPDIRECT3DVERTEXBUFFER8;
+typedef struct IDirect3DIndexBuffer8 *LPDIRECT3DINDEXBUFFER8;
+
+#define D3D_SDK_VERSION 220
+
+#define D3DFVF_RESERVED0 0x001
+#define D3DFVF_XYZ 0x002
+#define D3DFVF_XYZRHW 0x004
+#define D3DFVF_XYZB1 0x006
+#define D3DFVF_XYZB2 0x008
+#define D3DFVF_XYZB3 0x00a
+#define D3DFVF_XYZB4 0x00c
+#define D3DFVF_XYZB5 0x00e
+#define D3DFVF_NORMAL 0x010
+#define D3DFVF_PSIZE 0x020
+#define D3DFVF_DIFFUSE 0x040
+#define D3DFVF_SPECULAR 0x080
+#define D3DFVF_TEX0 0x000
+#define D3DFVF_TEX1 0x100
+#define D3DFVF_TEX2 0x200
+#define D3DFVF_TEX3 0x300
+#define D3DFVF_TEX4 0x400
+#define D3DFVF_TEX5 0x500
+#define D3DFVF_TEX6 0x600
+#define D3DFVF_TEX7 0x700
+#define D3DFVF_TEX8 0x800
+
+#define D3DFVF_TEXTUREFORMAT2 0x0
+#define D3DFVF_TEXTUREFORMAT1 0x3
+#define D3DFVF_TEXTUREFORMAT3 0x1
+#define D3DFVF_TEXTUREFORMAT4 0x2
+
+#define D3DFVF_TEXCOORDSIZE3(Index) (D3DFVF_TEXTUREFORMAT3 << (Index * 2 + 16))
+#define D3DFVF_TEXCOORDSIZE2(Index) (D3DFVF_TEXTUREFORMAT2 << (Index * 2 + 16))
+#define D3DFVF_TEXCOORDSIZE4(Index) (D3DFVF_TEXTUREFORMAT4 << (Index * 2 + 16))
+#define D3DFVF_TEXCOORDSIZE1(Index) (D3DFVF_TEXTUREFORMAT1 << (Index * 2 + 16))
+
+#define D3DDP_MAXTEXCOORD 8

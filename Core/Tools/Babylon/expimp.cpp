@@ -202,9 +202,9 @@ static void writeText ( BabylonText *text, int row )
 	PutCell ( row, CELL_ENGLISH, olebuf , 0);
 	PutCell ( row, CELL_MAXLEN, nullptr , maxlen );
 
-	swprintf ( buffer, L"=LEN(%c%d)",'A' + CELL_LOCALIZED -1,  row );
+	swprintf ( buffer, u"=LEN(%c%d)",'A' + CELL_LOCALIZED -1,  row );
 	PutCell ( row, CELL_STRLEN, buffer , 0);
-	swprintf ( buffer, L"=IF(%c%d>%c%d,\"Too long!\",\" \")", 'A' + CELL_STRLEN -1,  row, 'A' + CELL_MAXLEN -1,  row );
+	swprintf ( buffer, u"=IF(%c%d>%c%d,\"Too long!\",\" \")", 'A' + CELL_STRLEN -1,  row, 'A' + CELL_MAXLEN -1,  row );
 	PutCell ( row, CELL_LENCHECK ,buffer , 0);
 	PutCell ( row, CELL_REVISION , 0, text->Revision ());
 	PutCell ( row, CELL_STRINGID , 0, text->ID ());
@@ -239,10 +239,10 @@ static int export_trans ( TransDB *db, LangID langid, TROPTIONS *options, void (
 	{
 		OLECHAR buffer[100];
 
-		swprintf ( buffer, L"%S", GetLangName ( langid ));
+		swprintf ( buffer, u"%S", GetLangName ( langid ));
 		PutCell ( ROW_LANGUAGE, COLUMN_LANGUAGE,buffer,0);
 
-		swprintf ( buffer, L"%S Translation", GetLangName ( langid ));
+		swprintf ( buffer, u"%S Translation", GetLangName ( langid ));
 		PutCell ( 2, CELL_LOCALIZED,buffer,0);
 	}
 
@@ -334,7 +334,7 @@ static int export_trans ( TransDB *db, LangID langid, TROPTIONS *options, void (
 					writeText ( text, row );
 					if ( text->IsDialog ())
 					{
-						swprintf  ( buffer, L"%s%S.wav", text->Wave (), linfo->character );
+						swprintf  ( buffer, u"%s%S.wav", text->Wave (), linfo->character );
 						wcsupr ( buffer );
 						PutCell ( row, CELL_WAVEFILE , buffer, 0);
 					}
@@ -358,19 +358,19 @@ static int export_trans ( TransDB *db, LangID langid, TROPTIONS *options, void (
 							PutCell ( row, CELL_LOCALIZED, olebuf, 0);
 							if ( bad_format || too_long)
 							{
-									wcscpy ( olebuf, L"ERROR: " );
+									wcscpy ( olebuf, u"ERROR: " );
 									if ( too_long )
 									{
-										wcscat ( olebuf, L"too long" );
+										wcscat ( olebuf, u"too long" );
 										if ( bad_format )
 										{
-											wcscat ( olebuf, L"and " );
+											wcscat ( olebuf, u"and " );
 										}
 									}
 
 									if ( bad_format )
 									{
-										wcscat ( olebuf, L"bad format" );
+										wcscat ( olebuf, u"bad format" );
 									}
 
 									PutCell ( row, CELL_COMMENT, olebuf , 0);
@@ -1208,7 +1208,7 @@ static int generate_csf ( TransDB *db, const char *filename, LangID langid, GNOP
 							if ( options->untranslated == GN_USEIDS )
 							{
 								string = olebuf2;
-								swprintf (olebuf2, L"%d", text->ID ());
+								swprintf (olebuf2, u"%d", text->ID ());
 							}
 							else
 							{
@@ -1217,7 +1217,7 @@ static int generate_csf ( TransDB *db, const char *filename, LangID langid, GNOP
 						}
 						else
 						{
-							string = L"";
+							string = u"";
 						}
 					}
 				}
@@ -1431,7 +1431,7 @@ void ProcessWaves ( TransDB *db, const char *filename, CBabylonDlg *dlg )
 
 				wcslwr ( olebuf );
 
-				if ( wcsstr ( olebuf, L".wav" ) )
+				if ( wcsstr ( olebuf, u".wav" ) )
 				{
 					last_row = row;
 

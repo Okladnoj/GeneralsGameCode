@@ -49,7 +49,7 @@ inline int vswprintf(wchar_t* _Buffer, size_t _BufferCount, const wchar_t* _Form
 	// Deal with errors and edge cases.
 	if (result == -1 || (size_t)result == _BufferCount)
 	{
-		_Buffer[_BufferCount - 1] = L'\0';
+		_Buffer[_BufferCount - 1] = u'\0';
 		return -1;
 	}
 	return result;

@@ -17,22 +17,24 @@
 */
 
 /***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
+ ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S
+ ****
  ***********************************************************************************************
  *                                                                                             *
- *                 Project Name : WWSaveLoad                                                   *
+ *                 Project Name : WWSaveLoad *
  *                                                                                             *
- *                     $Archive:: /Commando/Code/wwsaveload/pointerremap.h                    $*
+ *                     $Archive:: /Commando/Code/wwsaveload/pointerremap.h $*
  *                                                                                             *
- *                       Author:: Greg Hjelstrom                                               *
+ *                       Author:: Greg Hjelstrom *
  *                                                                                             *
- *                     $Modtime:: 4/30/01 1:54p                                               $*
+ *                     $Modtime:: 4/30/01 1:54p $*
  *                                                                                             *
- *                    $Revision:: 6                                                           $*
+ *                    $Revision:: 6 $*
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ * Functions: *
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *- - - - - - - */
 
 #pragma once
 
@@ -40,66 +42,71 @@
 #include "osdep/osdep.h"
 #endif
 
-#include "always.h"
 #include "Vector.h"
+#include "always.h"
 
 class RefCountClass;
 
+class PointerRemapClass {
+public:
+  PointerRemapClass(void);
+  ~PointerRemapClass(void);
 
-class PointerRemapClass
-{
-	public:
+  void Reset(void);
+  void Process(void);
 
-		PointerRemapClass(void);
-		~PointerRemapClass(void);
-
-		void		Reset(void);
-		void		Process(void);
-
-		void		Register_Pointer (void *old_pointer, void *new_pointer);
+  void Register_Pointer(void *old_pointer, void *new_pointer);
 
 #ifdef WWDEBUG
-		void		Request_Pointer_Remap (void **pointer_to_convert,const char * file,int line);
-		void		Request_Ref_Counted_Pointer_Remap (RefCountClass **pointer_to_convert,const char * file, int line);
+  void Request_Pointer_Remap(void **pointer_to_convert, const char *file,
+                             int line);
+  void Request_Ref_Counted_Pointer_Remap(RefCountClass **pointer_to_convert,
+                                         const char *file, int line);
 #else
-		void		Request_Pointer_Remap (void **pointer_to_convert);
-		void		Request_Ref_Counted_Pointer_Remap (RefCountClass **pointer_to_convert);
+  void Request_Pointer_Remap(void **pointer_to_convert);
+  void Request_Ref_Counted_Pointer_Remap(RefCountClass **pointer_to_convert);
 #endif
 
-	private:
+private:
+  struct PtrPairStruct {
+    PtrPairStruct(void) {}
+    PtrPairStruct(void *oldptr, void *newptr)
+        : OldPointer(oldptr), NewPointer(newptr) {}
+    bool operator==(const PtrPairStruct &that) {
+      return ((OldPointer == that.OldPointer) &&
+              (NewPointer == that.NewPointer));
+    }
+    bool operator!=(const PtrPairStruct &that) { return !(*this == that); }
 
-		struct PtrPairStruct
-		{
-			PtrPairStruct(void) {}
-			PtrPairStruct(void * oldptr,void * newptr) : OldPointer(oldptr),NewPointer(newptr) {}
-			bool operator == (const PtrPairStruct & that) { return ((OldPointer == that.OldPointer) && (NewPointer == that.NewPointer)); }
-			bool operator != (const PtrPairStruct & that) { return !(*this == that); }
+    void *OldPointer;
+    void *NewPointer;
+  };
 
-			void *		OldPointer;
-			void *		NewPointer;
-		};
+  struct PtrRemapStruct {
+    PtrRemapStruct(void) {}
+    bool operator==(const PtrRemapStruct &that) {
+      return (PointerToRemap == that.PointerToRemap);
+    }
+    bool operator!=(const PtrRemapStruct &that) { return !(*this == that); }
 
-		struct PtrRemapStruct
-		{
-			PtrRemapStruct(void) {}
-			bool operator == (const PtrRemapStruct & that) { return (PointerToRemap == that.PointerToRemap); }
-			bool operator != (const PtrRemapStruct & that) { return !(*this == that); }
-
-			void **			PointerToRemap;
+    void **PointerToRemap;
 #ifdef WWDEBUG
-			const char *	File;
-			int				Line;
+    const char *File;
+    int Line;
 #endif
-		};
+  };
 
-		void		Process_Request_Table(DynamicVectorClass<PtrRemapStruct> & request_table,bool refcount);
-		static int __cdecl ptr_pair_compare_function(void const * ptr1, void const * ptr2);
-		static int __cdecl ptr_request_compare_function(void const * ptr1, void const * ptr2);
+  void Process_Request_Table(DynamicVectorClass<PtrRemapStruct> &request_table,
+                             bool refcount);
+  static int __cdecl ptr_pair_compare_function(void const *ptr1,
+                                               void const *ptr2);
+  static int __cdecl ptr_request_compare_function(void const *ptr1,
+                                                  void const *ptr2);
 
-		/*
-		**	Array of pointers associated with ID values to assist in swizzling.
-		*/
-		DynamicVectorClass<PtrPairStruct>	PointerPairTable;
-		DynamicVectorClass<PtrRemapStruct>	PointerRequestTable;
-		DynamicVectorClass<PtrRemapStruct>	RefCountRequestTable;
+  /*
+  **	Array of pointers associated with ID values to assist in swizzling.
+  */
+  DynamicVectorClass<PtrPairStruct> PointerPairTable;
+  DynamicVectorClass<PtrRemapStruct> PointerRequestTable;
+  DynamicVectorClass<PtrRemapStruct> RefCountRequestTable;
 };

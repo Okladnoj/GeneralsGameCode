@@ -224,7 +224,7 @@ void __cdecl Msg( int line, const char *filename, const wchar_t *fmt, UINT codep
 	// format message with header
 	//----------------------------------------------------------------------
 	vswprintf( szBuffer2, fmt, va );
-	swprintf( szBuffer1, L"%4d %14s %s\n", line, szFile, szBuffer2 );
+	swprintf( szBuffer1, u"%4d %14s %s\n", line, szFile, szBuffer2 );
 
 	//----------------------------------------------------------------------
 	// Open debug file and write to it.

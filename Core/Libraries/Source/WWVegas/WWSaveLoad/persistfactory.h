@@ -17,115 +17,112 @@
 */
 
 /***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
+ ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S
+ ****
  ***********************************************************************************************
  *                                                                                             *
- *                 Project Name : WWSaveLoad                                                   *
+ *                 Project Name : WWSaveLoad *
  *                                                                                             *
- *                     $Archive:: /Commando/Code/wwsaveload/persistfactory.h                  $*
+ *                     $Archive:: /Commando/Code/wwsaveload/persistfactory.h $*
  *                                                                                             *
- *                       Author:: Greg Hjelstrom                                               *
+ *                       Author:: Greg Hjelstrom *
  *                                                                                             *
- *                     $Modtime:: 5/04/01 8:42p                                               $*
+ *                     $Modtime:: 5/04/01 8:42p $*
  *                                                                                             *
- *                    $Revision:: 11                                                          $*
+ *                    $Revision:: 11 $*
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ * Functions: *
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *- - - - - - - */
 
 #pragma once
 
 #include "always.h"
 #include "bittype.h"
 #include "chunkio.h"
-#include "wwdebug.h"
-#include "saveload.h"
 #include "persist.h"
+#include "saveload.h"
+#include "wwdebug.h"
 
 /*
 ** PersistFactoryClass
 ** Create a PersistFactoryClass for each concrete derived PersistClass.  These
-** factories automatically register with the SaveLoadSystem in their constructors
+** factories automatically register with the SaveLoadSystem in their
+*constructors
 ** and should be accessible through the virtual Get_Factory method of any
 ** derived PersistClass.
 */
 
-class PersistFactoryClass
-{
+class PersistFactoryClass {
 public:
+  PersistFactoryClass(void);
+  virtual ~PersistFactoryClass(void);
 
-	PersistFactoryClass(void);
-	virtual ~PersistFactoryClass(void);
-
-	virtual uint32				Chunk_ID(void) const												= 0;
-	virtual PersistClass *	Load(ChunkLoadClass & cload) const	 						= 0;
-	virtual void				Save(ChunkSaveClass & csave,PersistClass * obj)	const	= 0;
+  virtual uint32 Chunk_ID(void) const = 0;
+  virtual PersistClass *Load(ChunkLoadClass &cload) const = 0;
+  virtual void Save(ChunkSaveClass &csave, PersistClass *obj) const = 0;
 
 private:
-
-	PersistFactoryClass * NextFactory;
-	friend class SaveLoadSystemClass;
+  PersistFactoryClass *NextFactory;
+  friend class SaveLoadSystemClass;
 };
-
-
-
 
 /*
 ** SimplePersistFactoryClass
-** This template automates the creation of a PersistFactory for any type of Persist
-** object.  Simply instantiate a single static instance of this template with the
+** This template automates the creation of a PersistFactory for any type of
+*Persist
+** object.  Simply instantiate a single static instance of this template with
+*the
 ** type and chunkid in the .cpp file of your class.
 */
-template <class T,int CHUNKID> class SimplePersistFactoryClass : public PersistFactoryClass
-{
+template <class T, int CHUNKID>
+class SimplePersistFactoryClass : public PersistFactoryClass {
 public:
+  virtual uint32 Chunk_ID(void) const { return CHUNKID; }
+  virtual PersistClass *Load(ChunkLoadClass &cload) const;
+  virtual void Save(ChunkSaveClass &csave, PersistClass *obj) const;
 
-	virtual uint32				Chunk_ID(void) const										{ return CHUNKID; }
-	virtual PersistClass *	Load(ChunkLoadClass & cload) const;
-	virtual void				Save(ChunkSaveClass & csave,PersistClass * obj) const;
-
-	/*
-	** Internal chunk id's
-	*/
-	enum
-	{
-		SIMPLEFACTORY_CHUNKID_OBJPOINTER		=	 0x00100100,
-		SIMPLEFACTORY_CHUNKID_OBJDATA
-	};
+  /*
+  ** Internal chunk id's
+  */
+  enum {
+    SIMPLEFACTORY_CHUNKID_OBJPOINTER = 0x00100100,
+    SIMPLEFACTORY_CHUNKID_OBJDATA
+  };
 };
 
+template <class T, int CHUNKID>
+PersistClass *
+SimplePersistFactoryClass<T, CHUNKID>::Load(ChunkLoadClass &cload) const {
+  T *new_obj = W3DNEW T;
+  T *old_obj = nullptr;
 
-template<class T, int CHUNKID> PersistClass *
-SimplePersistFactoryClass<T,CHUNKID>::Load(ChunkLoadClass & cload) const
-{
-	T * new_obj = W3DNEW T;
-	T * old_obj = nullptr;
+  uint32 old_obj_id = 0;
+  cload.Open_Chunk();
+  WWASSERT(cload.Cur_Chunk_ID() == SIMPLEFACTORY_CHUNKID_OBJPOINTER);
+  cload.Read(&old_obj_id, sizeof(uint32));
+  old_obj = (T *)(uintptr_t)old_obj_id;
+  cload.Close_Chunk();
 
-	cload.Open_Chunk();
-	WWASSERT(cload.Cur_Chunk_ID() == SIMPLEFACTORY_CHUNKID_OBJPOINTER);
-	cload.Read(&old_obj,sizeof(T *));
-	cload.Close_Chunk();
+  cload.Open_Chunk();
+  WWASSERT(cload.Cur_Chunk_ID() == SIMPLEFACTORY_CHUNKID_OBJDATA);
+  new_obj->Load(cload);
+  cload.Close_Chunk();
 
-	cload.Open_Chunk();
-	WWASSERT(cload.Cur_Chunk_ID() == SIMPLEFACTORY_CHUNKID_OBJDATA);
-	new_obj->Load(cload);
-	cload.Close_Chunk();
-
-	SaveLoadSystemClass::Register_Pointer(old_obj,new_obj);
-	return new_obj;
+  SaveLoadSystemClass::Register_Pointer(old_obj, new_obj);
+  return new_obj;
 }
 
+template <class T, int CHUNKID>
+void SimplePersistFactoryClass<T, CHUNKID>::Save(ChunkSaveClass &csave,
+                                                 PersistClass *obj) const {
+  uint32 objptr = (uint32)(uintptr_t)obj;
+  csave.Begin_Chunk(SIMPLEFACTORY_CHUNKID_OBJPOINTER);
+  csave.Write(&objptr, sizeof(uint32));
+  csave.End_Chunk();
 
-template<class T, int CHUNKID> void
-SimplePersistFactoryClass<T,CHUNKID>::Save(ChunkSaveClass & csave,PersistClass * obj) const
-{
-	uint32 objptr = (uint32)obj;
-	csave.Begin_Chunk(SIMPLEFACTORY_CHUNKID_OBJPOINTER);
-	csave.Write(&objptr,sizeof(uint32));
-	csave.End_Chunk();
-
-	csave.Begin_Chunk(SIMPLEFACTORY_CHUNKID_OBJDATA);
-	obj->Save(csave);
-	csave.End_Chunk();
+  csave.Begin_Chunk(SIMPLEFACTORY_CHUNKID_OBJDATA);
+  obj->Save(csave);
+  csave.End_Chunk();
 }

@@ -830,7 +830,7 @@ void WOLLoginMenuUpdate( WindowLayout * layout, void *userData)
 					room.m_groupID = resp.groupRoom.id;
 					room.m_maxWaiting = resp.groupRoom.maxWaiting;
 					room.m_name = resp.groupRoomName.c_str();
-					room.m_translatedName = L"TEST";
+					room.m_translatedName = u"TEST";
 					room.m_numGames = resp.groupRoom.numGames;
 					room.m_numPlaying = resp.groupRoom.numPlaying;
 					room.m_numWaiting = resp.groupRoom.numWaiting;
@@ -952,13 +952,13 @@ WindowMsgHandledType WOLLoginMenuInput( GameWindow *window, UnsignedInt msg,
 
 static Bool isNickOkay(UnicodeString nick)
 {
-	static const WideChar * legalIRCChars = L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]`_^{|}-";
+	static const WideChar * legalIRCChars = u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]`_^{|}-";
 
 	Int len = nick.getLength();
 	if (len == 0)
 		return TRUE;
 
-	if (len == 1 && nick.getCharAt(0) == L'-')
+	if (len == 1 && nick.getCharAt(0) == u'-')
 		return FALSE;
 
 	WideChar newChar = nick.getCharAt(len-1);
@@ -1066,13 +1066,13 @@ WindowMsgHandledType WOLLoginMenuSystem( GameWindow *window, UnsignedInt msg,
 				trimmedEmail.trim();
 				if (!trimmedNick.isEmpty())
 				{
-					trimmedNick.trimEnd(L'\\');
-					trimmedNick.trimEnd(L'/');
+					trimmedNick.trimEnd(u'\\');
+					trimmedNick.trimEnd(u'/');
 				}
 				if (!trimmedEmail.isEmpty())
 				{
-					trimmedEmail.trimEnd(L'\\');
-					trimmedEmail.trimEnd(L'/');
+					trimmedEmail.trimEnd(u'\\');
+					trimmedEmail.trimEnd(u'/');
 				}
 				if (trimmedEmail.getLength() != uEmail.getLength())
 				{

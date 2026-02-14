@@ -17,98 +17,101 @@
 */
 
 /***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
+ ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S
+ ****
  ***********************************************************************************************
  *                                                                                             *
- *                 Project Name : Command & Conquer                                            *
+ *                 Project Name : Command & Conquer *
  *                                                                                             *
- *                     $Archive:: /Commando/Code/wwlib/trim.cpp                               $*
+ *                     $Archive:: /Commando/Code/wwlib/trim.cpp $*
  *                                                                                             *
- *                      $Author:: Denzil_l                                                    $*
+ *                      $Author:: Denzil_l $*
  *                                                                                             *
- *                     $Modtime:: 11/08/01 11:35a                                             $*
+ *                     $Modtime:: 11/08/01 11:35a $*
  *                                                                                             *
- *                    $Revision:: 4                                                           $*
+ *                    $Revision:: 4 $*
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ * Functions: *
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *- - - - - - - */
 
-#include	"always.h"
-#include	"trim.h"
+#include "trim.h"
+#include "always.h"
 
 #ifdef _UNIX
-#include	<wctype.h>
+#include <Utility/wchar_compat.h>
+#include <wctype.h>
 #endif // _UNIX
 
 /***********************************************************************************************
- * strtrim -- Trim leading and trailing white space off of string.                             *
+ * strtrim -- Trim leading and trailing white space off of string. *
  *                                                                                             *
- *    This routine will remove the leading and trailing whitespace from the string specified.  *
- *    The string is modified in place.                                                         *
+ *    This routine will remove the leading and trailing whitespace from the
+ *string specified.  * The string is modified in place. *
  *                                                                                             *
- * INPUT:   buffer   -- Pointer to the string to be trimmed.                                   *
+ * INPUT:   buffer   -- Pointer to the string to be trimmed. *
  *                                                                                             *
- * OUTPUT:  none                                                                               *
+ * OUTPUT:  none *
  *                                                                                             *
- * WARNINGS:   none                                                                            *
+ * WARNINGS:   none *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   02/06/1997 JLB : Created.                                                                 *
+ * HISTORY: * 02/06/1997 JLB : Created. *
  *=============================================================================================*/
-char* strtrim(char* buffer)
-{
-	if (buffer) {
-		/* Strip leading white space from the string. */
-		char* source = buffer;
+char *strtrim(char *buffer) {
+  if (buffer) {
+    /* Strip leading white space from the string. */
+    char *source = buffer;
 
-		while ((*source != 0) && ((unsigned char)*source <= 32)) {
-			++source;
-		}
+    while ((*source != 0) && ((unsigned char)*source <= 32)) {
+      ++source;
+    }
 
-		if (source != buffer) {
-			// TheSuperHackers @fix Mauller 04/04/2025 Replace strcpy with safer memmove as memory regions can overlap when part of string is copied to itself
-			memmove(buffer, source, strlen(source) +1);
-		}
+    if (source != buffer) {
+      // TheSuperHackers @fix Mauller 04/04/2025 Replace strcpy with safer
+      // memmove as memory regions can overlap when part of string is copied to
+      // itself
+      memmove(buffer, source, strlen(source) + 1);
+    }
 
-		/* Clip trailing white space from the string. */
-		for (int index = strlen(buffer) - 1; index >= 0; --index) {
-			if ((*source != 0) && ((unsigned char)buffer[index] <= 32)) {
-				buffer[index] = '\0';
-			} else {
-				break;
-			}
-		}
-	}
+    /* Clip trailing white space from the string. */
+    for (int index = (int)strlen(buffer) - 1; index >= 0; --index) {
+      if (((unsigned char)buffer[index] <= 32)) {
+        buffer[index] = '\0';
+      } else {
+        break;
+      }
+    }
+  }
 
-	return buffer;
+  return buffer;
 }
 
+WCHAR *wcstrim(WCHAR *buffer) {
+  if (buffer) {
+    /* Strip leading white space from the string. */
+    WCHAR *source = buffer;
 
-wchar_t* wcstrim(wchar_t* buffer)
-{
-	if (buffer) {
-		/* Strip leading white space from the string. */
-		wchar_t* source = buffer;
+    while ((*source != 0) && ((unsigned int)*source <= 32)) {
+      ++source;
+    }
 
-		while ((*source != 0) && ((unsigned int)*source <= 32)) {
-			++source;
-		}
+    if (source != buffer) {
+      // TheSuperHackers @fix Mauller 04/04/2025 Replace wcscpy with safer
+      // memmove as memory regions can overlap when part of string is copied to
+      // itself
+      memmove(buffer, source, (wcslen(source) + 1) * sizeof(WCHAR));
+    }
 
-		if (source != buffer) {
-			// TheSuperHackers @fix Mauller 04/04/2025 Replace wcscpy with safer memmove as memory regions can overlap when part of string is copied to itself
-			memmove(buffer, source, (wcslen(source) + 1) * sizeof(wchar_t));
-		}
+    /* Clip trailing white space from the string. */
+    for (int index = (int)wcslen(buffer) - 1; index >= 0; --index) {
+      if (((unsigned int)buffer[index] <= 32)) {
+        buffer[index] = (WCHAR)0;
+      } else {
+        break;
+      }
+    }
+  }
 
-		/* Clip trailing white space from the string. */
-		for (int index = wcslen(buffer) - 1; index >= 0; --index) {
-			if ((*source != 0) && ((unsigned int)buffer[index] <= 32)) {
-				buffer[index] = L'\0';
-			} else {
-				break;
-			}
-		}
-	}
-
-	return buffer;
+  return buffer;
 }

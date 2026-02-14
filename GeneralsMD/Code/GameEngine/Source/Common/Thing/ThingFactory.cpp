@@ -536,7 +536,7 @@ void ThingFactory::postProcessLoad()
 		{
 			reportMissingNameInTemplate( thingTemplate->getName() );
 		}
-		else if (wcsstr(thingTemplate->getDisplayName().str(), L"MISSING:"))
+		else if (wcsstr(thingTemplate->getDisplayName().str(), u"MISSING:"))
 		{
 			AsciiString asciiName;
 			asciiName.translate(thingTemplate->getDisplayName());

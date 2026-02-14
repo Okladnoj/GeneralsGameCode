@@ -46,26 +46,26 @@
 
 const wchar_t *localeStringsMissing[ MISSING_STRING_HINTS_MAX ] =
 {
-	{ L"0 MissingInstall"		},
-	{ L"1 MissingExplore"		},
-	{ L"2 MissingPreviews"		},
-	{ L"3 MissingCancel"		},
-	{ L"4 MissingAutoRunTitle"		},
-	{ L"5 MissingNoExplorer"		},
-	{ L"6 MissingWinVersionText"		},
-	{ L"7 MissingWinVersionTitle"		},
-	{ L"8 MissingCantFind"		},
-	{ L"9 MissingUninstall"		},
-	{ L"10 MissingWebsite"	},
-	{ L"11 MissingCheckForUpdates"	},
-	{ L"12 MissingWorldBuilder"	},
-	{ L"13 MissingPlay"	},
-	{ L"14 MissingGameTitle"	},
-	{ L"15 MissingFullGameTitle"	},
-	{ L"16 MissingRegistryKey"	},
-	{ L"17 MissingMainWindow"	},
-	{ L"18 MissingThing"	},
-	{ L"19 UNKNOWN MESSAGE"	}
+	{ u"0 MissingInstall"		},
+	{ u"1 MissingExplore"		},
+	{ u"2 MissingPreviews"		},
+	{ u"3 MissingCancel"		},
+	{ u"4 MissingAutoRunTitle"		},
+	{ u"5 MissingNoExplorer"		},
+	{ u"6 MissingWinVersionText"		},
+	{ u"7 MissingWinVersionTitle"		},
+	{ u"8 MissingCantFind"		},
+	{ u"9 MissingUninstall"		},
+	{ u"10 MissingWebsite"	},
+	{ u"11 MissingCheckForUpdates"	},
+	{ u"12 MissingWorldBuilder"	},
+	{ u"13 MissingPlay"	},
+	{ u"14 MissingGameTitle"	},
+	{ u"15 MissingFullGameTitle"	},
+	{ u"16 MissingRegistryKey"	},
+	{ u"17 MissingMainWindow"	},
+	{ u"18 MissingThing"	},
+	{ u"19 UNKNOWN MESSAGE"	}
 };
 
 
@@ -342,7 +342,7 @@ const wchar_t* Locale_GetString( const char *id, wchar_t *buffer, int size )
 		}
 		return fetched;
 	}
-	return L"No String Manager";
+	return u"No String Manager";
 }
 
 /*

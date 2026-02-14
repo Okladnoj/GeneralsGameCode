@@ -18,91 +18,89 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //																																						//
-//  (c) 2001-2003 Electronic Arts Inc.																				//
+//  (c) 2001-2003 Electronic Arts Inc.
+//  //
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
 //
-// FEBDispatch class is a template class which, when inherited from, can implement the
-// IDispatch for a COM object with a type library.
+// FEBDispatch class is a template class which, when inherited from, can
+// implement the IDispatch for a COM object with a type library.
 //
 
 #pragma once
 
+#ifdef _WIN32
 #if defined __MINGW32__
 #include "Utility/atl_compat.h"
-#include "Utility/comsupp_compat.h" 
+#include "Utility/comsupp_compat.h"
 #endif
 
 #include <atlbase.h>
 extern CComModule _Module;
 #include <atlcom.h>
-#include <comutil.h>    // For _bstr_t.
+#include <comutil.h> // For _bstr_t.
 
 #include "oleauto.h"
 
 template <class T, class C, const IID *I>
-class FEBDispatch :
-public CComObjectRootEx<CComSingleThreadModel>,
-public CComCoClass<T>,
-public C
-{
+class FEBDispatch : public CComObjectRootEx<CComSingleThreadModel>,
+                    public CComCoClass<T>,
+                    public C {
 public:
+  BEGIN_COM_MAP(T)
+  COM_INTERFACE_ENTRY(C)
+  COM_INTERFACE_ENTRY_AGGREGATE(IID_IDispatch, m_dispatch)
+  END_COM_MAP()
 
-	BEGIN_COM_MAP(T)
-		COM_INTERFACE_ENTRY(C)
-		COM_INTERFACE_ENTRY_AGGREGATE(IID_IDispatch, m_dispatch)
-	END_COM_MAP()
+  FEBDispatch() {
+    m_ptinfo = nullptr;
+    m_dispatch = nullptr;
 
-		FEBDispatch()
-	{
-		m_ptinfo = nullptr;
-		m_dispatch = nullptr;
+    ITypeLib *ptlib;
+    HRESULT hr;
+    HRESULT TypeLibraryLoadResult;
+    char filename[256];
 
-		ITypeLib *ptlib;
-		HRESULT hr;
-		HRESULT TypeLibraryLoadResult;
-		char filename[256];
+    GetModuleFileName(nullptr, filename, sizeof(filename));
+    _bstr_t bstr(filename);
 
-		GetModuleFileName(nullptr, filename, sizeof(filename));
-		_bstr_t bstr(filename);
+    TypeLibraryLoadResult = LoadTypeLib(bstr, &ptlib);
 
-		TypeLibraryLoadResult = LoadTypeLib(bstr, &ptlib);
+    DEBUG_ASSERTCRASH(TypeLibraryLoadResult == 0,
+                      ("Can't load type library for Embedded Browser"));
 
-		DEBUG_ASSERTCRASH(TypeLibraryLoadResult == 0, ("Can't load type library for Embedded Browser"));
+    if (TypeLibraryLoadResult == S_OK) {
+      hr = ptlib->GetTypeInfoOfGuid(*I, &m_ptinfo);
+      ptlib->Release();
 
-		if (TypeLibraryLoadResult == S_OK)
-		{
-			hr = ptlib->GetTypeInfoOfGuid(*I, &m_ptinfo);
-			ptlib->Release();
+      if (hr == S_OK) {
+        hr = CreateStdDispatch(static_cast<IUnknown *>(this),
+                               static_cast<C *>(this), m_ptinfo, &m_dispatch);
 
-			if (hr == S_OK)
-			{
-				hr = CreateStdDispatch(static_cast<IUnknown*>(this), static_cast<C*>(this), m_ptinfo, &m_dispatch);
+        m_dispatch->AddRef();
+        // Don't release the IUnknown from CreateStdDispatch without calling
+        // AddRef. It looks like CreateStdDispatch doesn't call AddRef on the
+        // IUnknown it returns.
+      }
+    }
 
-				m_dispatch->AddRef();
-				// Don't release the IUnknown from CreateStdDispatch without calling AddRef.
-				// It looks like CreateStdDispatch doesn't call AddRef on the IUnknown it returns.
-			}
-		}
+    if (m_dispatch == nullptr) {
+      DEBUG_LOG(("Error creating Dispatch for Web interface"));
+    }
+  }
 
-		if ( m_dispatch == nullptr )
-		{
-			DEBUG_LOG(("Error creating Dispatch for Web interface"));
-		}
-	}
+  virtual ~FEBDispatch() {
+    if (m_ptinfo)
+      m_ptinfo->Release();
 
-	virtual ~FEBDispatch()
-	{
-		if (m_ptinfo)
-			m_ptinfo->Release();
+    if (m_dispatch)
+      m_dispatch->Release();
+  }
 
-		if (m_dispatch)
-			m_dispatch->Release();
-	}
-
-	IUnknown *m_dispatch;
+  IUnknown *m_dispatch;
 
 private:
-	ITypeInfo *m_ptinfo;
+  ITypeInfo *m_ptinfo;
 };
+#endif

@@ -18,7 +18,8 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //																																						//
-//  (c) 2001-2003 Electronic Arts Inc.																				//
+//  (c) 2001-2003 Electronic Arts Inc.
+//  //
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -37,8 +38,8 @@
 
 // USER INCLUDES //////////////////////////////////////////////////////////////
 #include "GameLogic/GameLogic.h"
-#include "W3DDevice/GameLogic/W3DTerrainLogic.h"
 #include "W3DDevice/GameLogic/W3DGhostObject.h"
+#include "W3DDevice/GameLogic/W3DTerrainLogic.h"
 
 class W3DGhostObjectManager;
 ///////////////////////////////////////////////////////////////////////////////
@@ -50,15 +51,11 @@ class W3DGhostObjectManager;
 //-----------------------------------------------------------------------------
 /** W3D specific functionality for game logic */
 //-----------------------------------------------------------------------------
-class W3DGameLogic : public GameLogic
-{
+class W3DGameLogic : public GameLogic {
 
 public:
-
 protected:
-
-	/// factory for TheTerrainLogic, called from init()
-	virtual TerrainLogic *createTerrainLogic( void ) { return NEW W3DTerrainLogic; };
-	virtual GhostObjectManager *createGhostObjectManager(void) { return NEW W3DGhostObjectManager; }
-
+  /// factory for TheTerrainLogic, called from init()
+  virtual TerrainLogic *createTerrainLogic(void);
+  virtual GhostObjectManager *createGhostObjectManager(void);
 };

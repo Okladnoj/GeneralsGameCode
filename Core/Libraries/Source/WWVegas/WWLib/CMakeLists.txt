@@ -151,14 +151,16 @@ set(WWLIB_SRC
     XSTRAW.h
 )
 
+    list(APPEND WWLIB_SRC
+        registry.cpp
+        registry.h
+    )
 if(WIN32)
     list(APPEND WWLIB_SRC
         mpu.cpp
         MPU.h
         rcfile.cpp
         rcfile.h
-        registry.cpp
-        registry.h
         verchk.cpp
         verchk.h
         WWCOMUtil.cpp
@@ -182,8 +184,13 @@ target_precompile_headers(core_wwlib PRIVATE
     win.h
     WWCommon.h
     wwstring.h
-    <windows.h>
 )
+
+if(WIN32)
+    target_precompile_headers(core_wwlib PRIVATE
+        <windows.h>
+    )
+endif()
 
 target_link_libraries(core_wwlib PRIVATE
     core_wwcommon

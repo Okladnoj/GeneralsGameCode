@@ -171,10 +171,10 @@ int ReplaySimulation::simulateReplaysInWorkerProcesses(const std::vector<AsciiSt
 			UnicodeString filenameWide;
 			filenameWide.translate(filenames[filenamePositionStarted]);
 			UnicodeString command;
-			command.format(L"\"%s\"%s%s -replay \"%s\"",
+			command.format(u"\"%s\"%s%s -replay \"%s\"",
 				exePath,
-				TheGlobalData->m_windowed ? L" -win" : L"",
-				TheGlobalData->m_headless ? L" -headless" : L"",
+				TheGlobalData->m_windowed ? u" -win" : u"",
+				TheGlobalData->m_headless ? u" -headless" : u"",
 				filenameWide.str());
 
 			processes.push_back(WorkerProcess());

@@ -8,7 +8,7 @@
 //   - StringClass::Get_Length() == 0  -> StringClass::Is_Empty()
 //   - WideStringClass::Get_Length() == 0 -> WideStringClass::Is_Empty()
 //   - AsciiString::compare("") == 0  -> AsciiString::isEmpty()
-//   - UnicodeString::compare(L"") == 0 -> UnicodeString::isEmpty()
+//   - UnicodeString::compare(u"") == 0 -> UnicodeString::isEmpty()
 //   - AsciiString::compare(AsciiString::TheEmptyString) == 0 -> AsciiString::isEmpty()
 //   - UnicodeString::compare(UnicodeString::TheEmptyString) == 0 -> UnicodeString::isEmpty()
 //

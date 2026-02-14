@@ -16,18 +16,9 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// This file contains thread related functions for compatibility with non-windows platforms.
+// This file contains thread related functions for compatibility with
+// non-windows platforms.
 #pragma once
-#include <pthread.h>
-#include <unistd.h>
+#include "win_compat.h"
 
-inline int GetCurrentThreadId()
-{
-  return pthread_self();
-}
-
-inline void Sleep(int ms)
-{
-  usleep(ms * 1000);
-}
-
+// GetCurrentThreadId and Sleep are now in win_compat.h

@@ -17,10 +17,9 @@
 */
 
 /////////////////////////////////////////////////////////////////////////EA-V1
-// $File: //depot/GeneralsMD/Staging/code/Libraries/Source/profile/profile_funclevel.h $
-// $Author: mhoffe $
-// $Revision: #3 $
-// $DateTime: 2003/07/09 10:57:23 $
+// $File:
+// //depot/GeneralsMD/Staging/code/Libraries/Source/profile/profile_funclevel.h
+// $ $Author: mhoffe $ $Revision: #3 $ $DateTime: 2003/07/09 10:57:23 $
 //
 // (c) 2003 Electronic Arts
 //
@@ -36,25 +35,23 @@
   is not RTS_PROFILE. In these cases all calls will simply return
   empty data.
 */
-class ProfileFuncLevel
-{
+class ProfileFuncLevel {
   friend class Profile;
 
   // no, no copying allowed!
-  ProfileFuncLevel(const ProfileFuncLevel&);
-  ProfileFuncLevel& operator=(const ProfileFuncLevel&);
+  ProfileFuncLevel(const ProfileFuncLevel &);
+  ProfileFuncLevel &operator=(const ProfileFuncLevel &);
 
 public:
   class Id;
   class Thread;
 
   /// \brief A list of function level profile IDs
-  class IdList
-  {
+  class IdList {
     friend Id;
 
   public:
-    IdList(void): m_ptr(0) {}
+    IdList(void) : m_ptr(0) {}
 
     /**
       \brief Enumerates the list of IDs.
@@ -66,26 +63,23 @@ public:
       \param countPtr return buffer for count, if given
       \return true if ID found at given index, false if not
     */
-    bool Enum(unsigned index, Id &id, unsigned *countPtr=0) const;
+    bool Enum(unsigned index, Id &id, unsigned *countPtr = 0) const;
 
   private:
-
     /// internal value
     void *m_ptr;
   };
 
   /// \brief A function level profile ID.
-  class Id
-  {
+  class Id {
     friend IdList;
     friend Thread;
 
   public:
-    Id(void): m_funcPtr(0) {}
+    Id(void) : m_funcPtr(0) {}
 
     /// special 'frame' numbers
-    enum
-    {
+    enum {
       /// return the total value/count
       Total = 0xffffffff
     };
@@ -157,12 +151,11 @@ public:
   };
 
   /// \brief a profiled thread
-  class Thread
-  {
+  class Thread {
     friend ProfileFuncLevel;
 
   public:
-    Thread(void): m_threadID(0) {}
+    Thread(void) : m_threadID(0) {}
 
     /**
       \brief Enumerates the list of known function level profile values.
@@ -180,10 +173,7 @@ public:
 
       \return profile thread ID
     */
-    unsigned GetId(void) const
-    {
-      return unsigned(m_threadID);
-    }
+    unsigned GetId(void) const { return unsigned((uintptr_t)m_threadID); }
 
   private:
     /// internal thread ID
@@ -202,7 +192,6 @@ public:
   static bool EnumThreads(unsigned index, Thread &thread);
 
 private:
-
   /** \internal
 
     Undocumented default constructor. Initializes function-level profiler.

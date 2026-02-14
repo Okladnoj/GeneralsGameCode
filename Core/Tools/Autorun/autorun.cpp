@@ -2701,7 +2701,7 @@ BOOL CALLBACK  Dialog_Box_Proc( HWND window_handle, UINT message, WPARAM w_param
 
 //				Locale_GetString( EA_LICENSE_MSG1, szString1 );
 //				Locale_GetString( EA_LICENSE_MSG2, szString2 );
-//				swprintf( szWholeString, L"%s %s", szString1, szString2 );
+//				swprintf( szWholeString, u"%s %s", szString1, szString2 );
 
 //				memset( szWSMsg1,		'\0', _MAX_PATH );
 				memset( szWSMsg2,		'\0', _MAX_PATH );
@@ -2713,7 +2713,7 @@ BOOL CALLBACK  Dialog_Box_Proc( HWND window_handle, UINT message, WPARAM w_param
 //				PlugInProductName( szWSMsg1, (wchar_t *)(fullProductName.str()) );
 //				PlugInProductName( (wchar_t *)(wsMsg1.str()), (wchar_t *)(fullProductName.str()) );
 //				wsMsg1 = Fix_Single_Ampersands ( wsMsg1, false );
-//				swprintf( szWholeWSMsg, L"%s", wsMsg1.str() );
+//				swprintf( szWholeWSMsg, u"%s", wsMsg1.str() );
 
 //				memset( szInstallWarningMsg, '\0', _MAX_PATH );
 
@@ -5425,7 +5425,7 @@ int Show_Message ( HWND window_handle, const char * message1, const char * messa
 	string2 = TheGameText->fetch(message2);
 
 	wcscpy( szString3, string1.str() );
-	wcscat( szString3, L" " );
+	wcscat( szString3, u" " );
 	wcscat( szString3, string2.str() );
 
 	WideCharToMultiByte( CodePage, 0, szString3, _MAX_PATH, szBuffer, _MAX_PATH, nullptr, nullptr );

@@ -217,12 +217,12 @@ void LANDisplayGameList( GameWindow *gameListbox, LANGameInfo *gameList )
 			UnicodeString txtGName;
 			if( gameList->isGameInProgress() )
 			{
-				txtGName.concat(L"[");
+				txtGName.concat(u"[");
 			}
 			txtGName.concat(gameList->getPlayerName(0));
 			if( gameList->isGameInProgress() )
 			{
-				txtGName.concat(L"]");
+				txtGName.concat(u"]");
 			}
 			Int addedIndex = GadgetListBoxAddEntryText(gameListbox, txtGName, (gameList->isGameInProgress())?gameInProgressColor:gameColor, -1, -1);
 			GadgetListBoxSetItemData(gameListbox, (void *)gameList, addedIndex, 0 );

@@ -113,8 +113,8 @@ void UpdateRemoteIPList()
 //	UnicodeString newEntry = prefs.getRemoteIPEntry(0);
 	UnicodeString newEntry = unisel;
 	UnicodeString newIP;
-	newEntry.nextToken(&newIP, L":");
-	Int numFields = swscanf(newIP.str(), L"%d.%d.%d.%d", &(n1[0]), &(n1[1]), &(n1[2]), &(n1[3]));
+	newEntry.nextToken(&newIP, u":");
+	Int numFields = swscanf(newIP.str(), u"%d.%d.%d.%d", &(n1[0]), &(n1[1]), &(n1[2]), &(n1[3]));
 
 	if (numFields != 4) {
 		// this is not a properly formatted IP, don't change a thing.
@@ -140,9 +140,9 @@ void UpdateRemoteIPList()
 			{
 				UnicodeString oldEntry = uni;
 				UnicodeString oldIP;
-				oldEntry.nextToken(&oldIP, L":");
+				oldEntry.nextToken(&oldIP, u":");
 
-				swscanf(oldIP.str(), L"%d.%d.%d.%d", &(n2[0]), &(n2[1]), &(n2[2]), &(n2[3]));
+				swscanf(oldIP.str(), u"%d.%d.%d.%d", &(n2[0]), &(n2[1]), &(n2[2]), &(n2[3]));
 
 				Bool isEqual = TRUE;
 				for (Int i = 0; (i < 4) && (isEqual == TRUE); ++i) {
@@ -188,7 +188,7 @@ void HostDirectConnectGame()
 
 	UnsignedInt localIP = TheLAN->GetLocalIP();
 	UnicodeString localIPString;
-	localIPString.format(L"%d.%d.%d.%d", PRINTF_IP_AS_4_INTS(localIP));
+	localIPString.format(u"%d.%d.%d.%d", PRINTF_IP_AS_4_INTS(localIP));
 
 	UnicodeString name;
 	name = GadgetTextEntryGetText(editPlayerName);
@@ -338,7 +338,7 @@ void NetworkDirectConnectInit( WindowLayout *layout, void *userData )
 	}
 
 	UnsignedInt ip = TheLAN->GetLocalIP();
-	ipstr.format(L"%d.%d.%d.%d", PRINTF_IP_AS_4_INTS(ip));
+	ipstr.format(u"%d.%d.%d.%d", PRINTF_IP_AS_4_INTS(ip));
 	GadgetStaticTextSetText(staticLocalIP, ipstr);
 
 	TheLAN->RequestLobbyLeave(true);

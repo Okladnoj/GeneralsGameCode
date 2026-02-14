@@ -296,7 +296,7 @@ void PlayerListDlg::OnNewplayer()
 	Int num = 1;
 	do {
 		pname.format("player%04d",num);
-		pnameu.format(L"Player %04d's Display Name",num);
+		pnameu.format(u"Player %04d's Display Name",num);
 		num++;
 	} while (m_sides.findSideInfo(pname));
 
@@ -850,7 +850,7 @@ void PlayerListDlg::OnAddskirmishplayers()
 	AsciiString addedPTName = "FactionCivilian";
 	AsciiString pname = "PlyrCivilian";
 	UnicodeString pnameu;
-	pnameu = L"PlyrCivilian";
+	pnameu = u"PlyrCivilian";
 
 	if (!m_sides.findSideInfo(pname)) {
 
@@ -872,7 +872,7 @@ void PlayerListDlg::OnAddskirmishplayers()
 
 	addedPTName = "FactionAmerica";
 	pname = "SkirmishAmerica";
-	pnameu = L"SkirmishAmerica";
+	pnameu = u"SkirmishAmerica";
 
 	if (!m_sides.findSideInfo(pname)) {
 
@@ -894,7 +894,7 @@ void PlayerListDlg::OnAddskirmishplayers()
 
 	addedPTName = "FactionChina";
 	pname = "SkirmishChina";
-	pnameu = L"SkirmishChina";
+	pnameu = u"SkirmishChina";
 
 	if (!m_sides.findSideInfo(pname)) {
 
@@ -916,7 +916,7 @@ void PlayerListDlg::OnAddskirmishplayers()
 
 	addedPTName = "FactionGLA";
 	pname = "SkirmishGLA";
-	pnameu = L"SkirmishGLA";
+	pnameu = u"SkirmishGLA";
 
 	if (!m_sides.findSideInfo(pname)) {
 

@@ -47,12 +47,12 @@ const UnsignedInt LANAPI::s_resendDelta = 10 * 1000;	///< This is how often we a
 /*
 LANGame::LANGame( void )
 {
-	m_gameName = L"";
+	m_gameName = u"";
 
 	int player;
 	for (player = 0; player < MAX_SLOTS; ++player)
 	{
-		m_playerName[player] = L"";
+		m_playerName[player] = u"";
 		m_playerIP[player]= 0;
 		m_playerAccepted[player] = false;
 	}
@@ -74,7 +74,7 @@ LANAPI::LANAPI( void ) : m_transport(nullptr)
 	//
 	m_lobbyPlayers = nullptr;
 	m_games = nullptr;
-	m_name = L""; // safe default?
+	m_name = u""; // safe default?
 	m_pendingAction = ACT_NONE;
 	m_expiration = 0;
 	m_localIP = 0;
@@ -308,7 +308,7 @@ void LANAPI::checkMOTD( void )
 
 				UnicodeString uniLine;
 				uniLine.translate(line);
-				OnChat( L"MOTD", 0, uniLine, LANCHAT_SYSTEM );
+				OnChat( u"MOTD", 0, uniLine, LANCHAT_SYSTEM );
 			}
 		}
 	}
@@ -760,20 +760,20 @@ void LANAPI::RequestHasMap( void )
 		Bool willTransfer = TRUE;
 		if (mapData)
 		{
-			mapDisplayName.format(L"%ls", mapData->m_displayName.str());
+			mapDisplayName.format(u"%ls", mapData->m_displayName.str());
 			if (mapData->m_isOfficial)
 				willTransfer = FALSE;
 		}
 		else
 		{
-			mapDisplayName.format(L"%hs", TheGameState->getMapLeafName(m_currentGame->getMap()).str());
+			mapDisplayName.format(u"%hs", TheGameState->getMapLeafName(m_currentGame->getMap()).str());
 			willTransfer = WouldMapTransfer(m_currentGame->getMap());
 		}
 		if (willTransfer)
 			text.format(TheGameText->fetch("GUI:LocalPlayerNoMapWillTransfer"), mapDisplayName.str());
 		else
 			text.format(TheGameText->fetch("GUI:LocalPlayerNoMap"), mapDisplayName.str());
-		OnChat(L"SYSTEM", m_localIP, text, LANCHAT_SYSTEM);
+		OnChat(u"SYSTEM", m_localIP, text, LANCHAT_SYSTEM);
 	}
 }
 
@@ -781,7 +781,7 @@ void LANAPI::RequestChat( UnicodeString message, ChatType format )
 {
 	LANMessage msg;
 	fillInLANMessage( &msg );
-	wcslcpy(msg.Chat.gameName, (m_currentGame) ? m_currentGame->getName().str() : L"", ARRAY_SIZE(msg.Chat.gameName));
+	wcslcpy(msg.Chat.gameName, (m_currentGame) ? m_currentGame->getName().str() : u"", ARRAY_SIZE(msg.Chat.gameName));
 	msg.messageType = LANMessage::MSG_CHAT;
 	msg.Chat.chatType = format;
 	wcslcpy(msg.Chat.message, message.str(), ARRAY_SIZE(msg.Chat.message));
@@ -886,7 +886,7 @@ void LANAPI::RequestGameCreate( UnicodeString gameName, Bool isDirectConnect )
 //	myGame->setInProgress(false);
 	myGame->enterGame();
 	UnicodeString s;
-	s.format(L"%8.8X%8.8X", m_localIP, myGame->getSeed());
+	s.format(u"%8.8X%8.8X", m_localIP, myGame->getSeed());
 	if (gameName.isEmpty())
 		s.concat(m_name);
 	else
@@ -921,7 +921,7 @@ void LANAPI::RequestGameCreate( UnicodeString gameName, Bool isDirectConnect )
 /// @todo: Need to initialize the players elsewere.
 /*	for (int player = 1; player < MAX_SLOTS; ++player)
 	{
-		myGame->setPlayerName(player, L"");
+		myGame->setPlayerName(player, u"");
 		myGame->setIP(player, 0);
 		myGame->setAccepted(player, false);
 	}*/

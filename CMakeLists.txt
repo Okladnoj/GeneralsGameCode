@@ -49,11 +49,13 @@ if(MINGW)
 endif()
 
 # Find/Add build dependencies and stubs shared by all projects
-if((WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows") AND ${CMAKE_SIZEOF_VOID_P} EQUAL 4)
-    include(cmake/miles.cmake)
-    include(cmake/bink.cmake)
-    include(cmake/dx8.cmake)
+include(cmake/miles.cmake)
+if(NOT WIN32)
+    target_include_directories(milesstub PRIVATE "${CMAKE_SOURCE_DIR}/Dependencies/Utility")
+    target_include_directories(milescleanup PRIVATE "${CMAKE_SOURCE_DIR}/Dependencies/Utility")
 endif()
+include(cmake/bink.cmake)
+include(cmake/dx8.cmake)
 
 # Define a dummy stlport target when not on VC6.
 if (IS_VS6_BUILD)
@@ -77,6 +79,9 @@ add_subdirectory(Dependencies/Utility)
 if (IS_VS6_BUILD)
     include_directories(Dependencies/Utility)
     add_compile_options(/FIUtility/CppMacros.h)
+elseif(NOT WIN32)
+    include_directories(${CMAKE_SOURCE_DIR}/Dependencies/Utility)
+    add_compile_options(-include Utility/CppMacros.h)
 endif()
 
 add_subdirectory(resources)

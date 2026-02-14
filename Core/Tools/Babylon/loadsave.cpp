@@ -26,13 +26,13 @@
 #include "BabylonDlg.h"
 
 #define FORM_BABYLONDB			MakeID ('N','X','D','B')
-#define FORM_LABEL			MakeID ('N','L','B','L')
+#define FORM_LABEL			MakeID ('N','u','B','u')
 #define FORM_TEXT				MakeID ('N','T','X','T')
 #define FORM_TRANS			MakeID ('N','T','R','N')
 #define CHUNK_COMMENT		MakeID ('C','M','N','T')
 #define CHUNK_CONTEXT		MakeID ('C','T','X','T')
 #define CHUNK_SPEAKER		MakeID ('S','P','K','R')
-#define CHUNK_LISTENER	MakeID ('L','T','N','R')
+#define CHUNK_LISTENER	MakeID ('u','T','N','R')
 #define CHUNK_TEXT			MakeID ('T','E','X','T')
 #define CHUNK_WAVE			MakeID ('W','A','V','E')
 #define CHUNK_WAVE_INFO	MakeID ('W','V','I','N')

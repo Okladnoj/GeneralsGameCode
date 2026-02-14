@@ -26,13 +26,13 @@ target_include_directories(corei_imagepacker INTERFACE
 )
 
 target_link_libraries(corei_imagepacker INTERFACE
-    comctl32
+    $<$<PLATFORM_ID:Windows>:comctl32>
     core_debug
     core_profile
     core_wwcommon
-    imm32
-    vfw32
-    winmm
+    $<$<PLATFORM_ID:Windows>:imm32>
+    $<$<PLATFORM_ID:Windows>:vfw32>
+    $<$<PLATFORM_ID:Windows>:winmm>
 )
 
 if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")

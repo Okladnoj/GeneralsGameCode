@@ -26,7 +26,7 @@
 // Class to encapsulate height map.
 // Author: John Ahlquist, April 2001
 
-#define INSTANTIATE_WELL_KNOWN_KEYS
+// #define INSTANTIATE_WELL_KNOWN_KEYS
 
 #include "windows.h"
 #include "stdlib.h"
@@ -80,6 +80,7 @@ public:
 
 
 /* ********* MapObject class ****************************/
+#if 0
 /*static*/ MapObject *MapObject::TheMapObjectListPtr = nullptr;
 /*static*/ Dict MapObject::TheWorldDict;
 
@@ -362,6 +363,7 @@ const ThingTemplate *MapObject::getThingTemplate( void ) const
 
 	return nullptr;
 }
+#endif
 
 
 /* ********* WorldHeightMap class ****************************/

@@ -423,7 +423,7 @@ void W3DTankTruckDraw::updateTreadObjects(void)
 							//Commented out since on vehicles with wheels, it makes no sense to turn with treads.
 /*							switch (meshName[6])	//check next character after 'TREADS'
 							{
-								case 'L':
+								case 'u':
 								case 'l':	m_treads[m_treadCount].m_type = TREAD_LEFT;
 										break;
 								case 'R':

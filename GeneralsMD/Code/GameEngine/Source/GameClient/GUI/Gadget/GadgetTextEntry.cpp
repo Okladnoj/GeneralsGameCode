@@ -132,7 +132,7 @@ WindowMsgHandledType GadgetTextEntryInput( GameWindow *window, UnsignedInt msg,
 				if( e->charPos < e->maxTextLen-1 )
 				{
 						e->text->appendChar( ch );
-						e->sText->appendChar( L'*' );
+						e->sText->appendChar( u'*' );
 						e->charPos++;
 						TheWindowManager->winSendSystemMsg( window->winGetOwner(),
 																						GEM_UPDATE_TEXT,
@@ -340,7 +340,7 @@ WindowMsgHandledType GadgetTextEntrySystem( GameWindow *window, UnsignedInt msg,
 			e->sText->setText( UnicodeString::TheEmptyString );
 			Int len = ustr->getLength();
 			for( Int i = 0; i < len; i++ )
-				e->sText->appendChar( L'*' );
+				e->sText->appendChar( u'*' );
 
 			break;
 
@@ -459,16 +459,16 @@ void InformEntry( WideChar c )
 		// we must eat the following keys
 		switch( c )
 		{
-			case L'\a':
-			case L'\b':
-			case L'\f':
-			case L'\t':
-			case L'\v':
+			case u'\a':
+			case u'\b':
+			case u'\f':
+			case u'\t':
+			case u'\v':
 				return;
 
 			// we must completely ignore the return key
-			case L'\r':
-			case L'\n':
+			case u'\r':
+			case u'\n':
 				e->receivedUnichar = FALSE;
 				return;
 		}

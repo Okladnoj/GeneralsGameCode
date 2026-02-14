@@ -1111,7 +1111,7 @@ void PathfindCellInfo::forceCleanPathFindCellInfos()
 
 void Pathfinder::forceCleanCells()
 {
-	UnicodeString pathfinderFailoverMessage = TheGameText->FETCH_OR_SUBSTITUTE("GUI:PathfindingCrashPrevented", L"A pathfinding crash was prevented, now switching to the crash fixed pathfinding.");
+	UnicodeString pathfinderFailoverMessage = TheGameText->FETCH_OR_SUBSTITUTE("GUI:PathfindingCrashPrevented", u"A pathfinding crash was prevented, now switching to the crash fixed pathfinding.");
 	TheInGameUI->message(pathfinderFailoverMessage);
 
 	TheAudio->addAudioEvent(&TheAudio->getMiscAudio()->m_allCheerSound);

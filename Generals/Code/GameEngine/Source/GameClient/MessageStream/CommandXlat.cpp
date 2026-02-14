@@ -198,11 +198,11 @@ bool changeMaxRenderFps(FpsValueChange change)
 
 	if (TheWritableGlobalData->m_useFpsLimit)
 	{
-		message = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:SetMaxRenderFps", L"Max Render FPS is %u", maxRenderFps);
+		message = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:SetMaxRenderFps", u"Max Render FPS is %u", maxRenderFps);
 	}
 	else
 	{
-		message = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:SetUncappedRenderFps", L"Max Render FPS is uncapped");
+		message = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:SetUncappedRenderFps", u"Max Render FPS is uncapped");
 	}
 
 	TheInGameUI->messageNoFormat(message);
@@ -256,12 +256,12 @@ bool changeLogicTimeScale(FpsValueChange change)
 
 	if (TheFramePacer->isLogicTimeScaleEnabled())
 	{
-		message = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:SetLogicTimeScaleFps", L"Logic Time Scale FPS is %u (actual %u, ratio %.02f)",
+		message = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:SetLogicTimeScaleFps", u"Logic Time Scale FPS is %u (actual %u, ratio %.02f)",
 			logicTimeScaleFps, actualLogicTimeScaleFps, actualLogicTimeScaleRatio);
 	}
 	else
 	{
-		message = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:SetUncappedLogicTimeScaleFps", L"Logic Time Scale FPS is uncapped (actual %u, ratio %.02f)",
+		message = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:SetUncappedLogicTimeScaleFps", u"Logic Time Scale FPS is uncapped (actual %u, ratio %.02f)",
 			actualLogicTimeScaleFps, actualLogicTimeScaleRatio);
 	}
 
@@ -3316,8 +3316,8 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				{
 					TheWritableGlobalData->m_TiVOFastMode = 1 - TheGlobalData->m_TiVOFastMode;
 					TheInGameUI->messageNoFormat( TheGlobalData->m_TiVOFastMode
-						? TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_ON", L"Fast Forward is on")
-						: TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_OFF", L"Fast Forward is off")
+						? TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_ON", u"Fast Forward is on")
+						: TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_OFF", u"Fast Forward is off")
 					);
 				}
 			}
@@ -3799,7 +3799,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		{
 			const Int level = clamp(0, WW3D::Get_Texture_Reduction() - 1, 4);
 			TheGameClient->setTextureLOD(level);
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugDecreaseLOD", L"Decrease LOD") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugDecreaseLOD", u"Decrease LOD") );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -3810,7 +3810,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		{
 			const Int level = clamp(0, WW3D::Get_Texture_Reduction() + 1, 4);
 			TheGameClient->setTextureLOD(level);
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugIncreaseLOD", L"Increase LOD") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugIncreaseLOD", u"Increase LOD") );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -4037,7 +4037,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheGameLODManager->setDynamicLODLevel((DynamicGameLODLevel)level);
 
 			const char* lodLevelName = TheGameLODManager->getDynamicGameLODLevelName((DynamicGameLODLevel)level);
-			TheInGameUI->message( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugDynamicLODLevel", L"Dynamic Game Detail %hs", lodLevelName) );
+			TheInGameUI->message( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugDynamicLODLevel", u"Dynamic Game Detail %hs", lodLevelName) );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4060,9 +4060,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_useShadowDecals = !TheGlobalData->m_useShadowDecals;
 
 			if (TheWritableGlobalData->m_useShadowVolumes)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugShadowVolumesOn", L"Shadow Volumes is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugShadowVolumesOn", u"Shadow Volumes is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugShadowVolumesOff", L"Shadow Volumes is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugShadowVolumesOff", u"Shadow Volumes is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4075,9 +4075,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_fogOfWarOn = !TheGlobalData->m_fogOfWarOn;
 
 			if (TheWritableGlobalData->m_fogOfWarOn)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugFogOfWarOn", L"Fog of War is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugFogOfWarOn", u"Fog of War is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugFogOfWarOff", L"Fog of War is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugFogOfWarOff", u"Fog of War is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4161,7 +4161,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		case GameMessage::MSG_META_DEBUG_INCR_ANIM_SKATE_SPEED:
 		{
 			TheSkateDistOverride += 0.25f;
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugAnimSkateSpeed", L"Skate Distance Override is now %f", TheSkateDistOverride ) );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugAnimSkateSpeed", u"Skate Distance Override is now %f", TheSkateDistOverride ) );
 			break;
 		}
 
@@ -4170,7 +4170,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		case GameMessage::MSG_META_DEBUG_DECR_ANIM_SKATE_SPEED:
 		{
 			TheSkateDistOverride -= 0.25f;
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugAnimSkateSpeed", L"Skate Distance Override is now %f", TheSkateDistOverride ) );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugAnimSkateSpeed", u"Skate Distance Override is now %f", TheSkateDistOverride ) );
 			break;
 		}
 
@@ -4243,7 +4243,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 						newGeometry.tweakExtents(extentModType, extentModAmount);
 
 						TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugExtent",
-							L"Extent %hs --> %hs   %d %g", oldGeometry.getDescriptiveString().str(), newGeometry.getDescriptiveString().str(), extentModType, extentModAmount ) );
+							u"Extent %hs --> %hs   %d %g", oldGeometry.getDescriptiveString().str(), newGeometry.getDescriptiveString().str(), extentModType, extentModAmount ) );
 
 						DEBUG_LOG(("Extent %s --> %s   %d %g", oldGeometry.getDescriptiveString().str(), newGeometry.getDescriptiveString().str(), extentModType, extentModAmount));
 
@@ -4297,12 +4297,12 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				TheDisplay->stopMovie();
 				TheInGameUI->stopMovie();
 				TheAudio->setOn(false, AudioAffect_All);
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSoundOff", L"Sound is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSoundOff", u"Sound is OFF") );
 			}
 			else
 			{
 				TheAudio->setOn(true, AudioAffect_All);
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSoundOn", L"Sound is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSoundOn", u"Sound is ON") );
 			}
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4315,9 +4315,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_makeTrackMarks = !TheGlobalData->m_makeTrackMarks;
 
 			if (TheGlobalData->m_makeTrackMarks)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugTrackMarksOn", L"Track Marks is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugTrackMarksOn", u"Track Marks is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugTrackMarksOff", L"Track Marks is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugTrackMarksOff", u"Track Marks is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4330,9 +4330,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_useWaterPlane = !TheGlobalData->m_useWaterPlane;
 
 			if (TheGlobalData->m_useWaterPlane)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugWaterPlaneOn", L"Water Plane is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugWaterPlaneOn", u"Water Plane is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugWaterPlaneOff", L"Water Plane is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugWaterPlaneOff", u"Water Plane is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4361,7 +4361,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 						}
 					}
 				}
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugTimeOfDay", L"Time of Day set to %hs", TimeOfDayNames[tod]) );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugTimeOfDay", u"Time of Day set to %hs", TimeOfDayNames[tod]) );
 			}
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4383,9 +4383,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			}
 
 			if (enable)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugIgnorePrereqOn", L"Ignore Prerequisites is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugIgnorePrereqOn", u"Ignore Prerequisites is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugIgnorePrereqOff", L"Ignore Prerequisites is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugIgnorePrereqOff", u"Ignore Prerequisites is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4409,9 +4409,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				}
 
 				if (enable)
-					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugInstantBuildOn", L"Instant Build is ON") );
+					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugInstantBuildOn", u"Instant Build is ON") );
 				else
-					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugInstantBuildOff", L"Instant Build is OFF") );
+					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugInstantBuildOff", u"Instant Build is OFF") );
 
 				disp = DESTROY_MESSAGE;
 			}
@@ -4434,9 +4434,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			}
 
 			if (enable)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugFreeBuildOn", L"Free Build is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugFreeBuildOn", u"Free Build is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugFreeBuildOff", L"Free Build is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugFreeBuildOff", u"Free Build is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4457,7 +4457,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			Player *localPlayer = ThePlayerList->getLocalPlayer();
 			Money *money = localPlayer->getMoney();
 			money->deposit( 10000 );
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugAddCash", L"Add Cash") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugAddCash", u"Add Cash") );
 			break;
 		}
 
@@ -4479,7 +4479,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				AsciiString scriptName;
 				scriptName.format("KEY_F%d", script);
 				TheScriptEngine->runScript(scriptName);
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugRunScript", L"Run script %d", script) );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugRunScript", u"Run script %d", script) );
 			}
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4525,7 +4525,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				AsciiString name;
 				name.format("DemoObjective%02d", m_objective);
 				TheInGameUI->playMovie(name);
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugObjectiveMove", L"Objective Movie %d", m_objective) );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugObjectiveMove", u"Objective Movie %d", m_objective) );
 			}
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4548,11 +4548,11 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			if (TheAudio->isMusicPlaying())
 			{
 				TheAudio->stopAudio(AudioAffect_Music);
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugMusicOn", L"Music is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugMusicOn", u"Music is OFF") );
 			} else
 			{
 				TheAudio->resumeAudio(AudioAffect_Music);
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugMusicOff", L"Music is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugMusicOff", u"Music is ON") );
 			}
 
 			disp = DESTROY_MESSAGE;
@@ -4564,7 +4564,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		case GameMessage::MSG_META_DEMO_MUSIC_NEXT_TRACK:
 		{
 			TheAudio->nextMusicTrack();
-			TheInGameUI->message( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugMusicTrack", L"Playing Track: %hs", TheAudio->getMusicTrackName().str()) );
+			TheInGameUI->message( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugMusicTrack", u"Playing Track: %hs", TheAudio->getMusicTrackName().str()) );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -4574,7 +4574,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		case GameMessage::MSG_META_DEMO_MUSIC_PREV_TRACK:
 		{
 			TheAudio->prevMusicTrack();
-			TheInGameUI->message( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugMusicTrack", L"Playing Track: %hs", TheAudio->getMusicTrackName().str()) );
+			TheInGameUI->message( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugMusicTrack", u"Playing Track: %hs", TheAudio->getMusicTrackName().str()) );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -4603,11 +4603,11 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				TheWritableGlobalData->m_debugAI=AI_DEBUG_NONE;
 
 			UnicodeString line;
-			line.format(L"Level %d", TheGlobalData->m_debugAI);
+			line.format(u"Level %d", TheGlobalData->m_debugAI);
 			if (TheGlobalData->m_debugAI != AI_DEBUG_NONE)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugAiDebugOn", L"Debug AI Mode is %s", line.str()) );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugAiDebugOn", u"Debug AI Mode is %s", line.str()) );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugAiDebugOff", L"Debug AI Mode is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugAiDebugOff", u"Debug AI Mode is OFF") );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -4620,7 +4620,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			if (player)
 				player->addSciencePurchasePoints(1);
 
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugGiveSciencePurchasePoint", L"Adding a SciencePurchasePoint") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugGiveSciencePurchasePoint", u"Adding a SciencePurchasePoint") );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -4637,7 +4637,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 					giveAllSciences(player);
 			}
 
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugGiveAllSciences", L"Granting all sciences!") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugGiveAllSciences", u"Granting all sciences!") );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -4650,7 +4650,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			if (player)
 				player->setRankLevel(player->getRankLevel() + 1);
 
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugAddRankLevel", L"Adding a Rank Level") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugAddRankLevel", u"Adding a Rank Level") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4664,7 +4664,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			if (player)
 				player->setRankLevel(player->getRankLevel() - 1);
 
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSubRankLevel", L"Subtracting a Rank Level") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSubRankLevel", u"Subtracting a Rank Level") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4677,9 +4677,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_debugCamera = !TheGlobalData->m_debugCamera;
 
 			if (TheTacticalView->isZoomLimited())
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCameraModeOn", L"Debug Camera Mode is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCameraModeOn", u"Debug Camera Mode is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCameraModeOff", L"Debug Camera Mode is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCameraModeOff", u"Debug Camera Mode is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4757,9 +4757,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_debugVisibility = !TheGlobalData->m_debugVisibility;
 
 			if (TheGlobalData->m_debugVisibility)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugVisionModeOn", L"Debug Vision Mode is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugVisionModeOn", u"Debug Vision Mode is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugVisionModeOff", L"Debug Vision Mode is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugVisionModeOff", u"Debug Vision Mode is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4772,9 +4772,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_debugProjectilePath = !TheGlobalData->m_debugProjectilePath;
 
 			if (TheGlobalData->m_debugProjectilePath)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugProjectilePathModeOn", L"Debug Projectile Path Mode is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugProjectilePathModeOn", u"Debug Projectile Path Mode is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugProjectilePathModeOff", L"Debug Projectile Path Mode is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugProjectilePathModeOff", u"Debug Projectile Path Mode is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4790,9 +4790,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			}
 
 			if (TheGlobalData->m_debugThreatMap)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugThreadMapOn", L"Debug Threat Map is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugThreadMapOn", u"Debug Threat Map is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugThreadMapOff", L"Debug Threat Map is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugThreadMapOff", u"Debug Threat Map is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4808,9 +4808,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			}
 
 			if (TheGlobalData->m_debugCashValueMap)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCashValueMapOn", L"Debug Cash Value Map is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCashValueMapOn", u"Debug Cash Value Map is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCashValueMapOff", L"Debug Cash Value Map is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCashValueMapOff", u"Debug Cash Value Map is OFF") );
 
 			disp = DESTROY_MESSAGE;
 			break;
@@ -4831,9 +4831,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_showCollisionExtents = 1 - TheGlobalData->m_showCollisionExtents;
 
 			if (TheGlobalData->m_showCollisionExtents)
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugObjectExtentsOn", L"Show Object Extents is ON") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugObjectExtentsOn", u"Show Object Extents is ON") );
 			else
-				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugObjectExtentsOff", L"Show Object Extents is OFF") );
+				TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugObjectExtentsOff", u"Show Object Extents is OFF") );
 
 			break;
 
@@ -4845,9 +4845,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_showObjectHealth = 1 - TheGlobalData->m_showObjectHealth;
 
 				if (TheGlobalData->m_showObjectHealth)
-					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugObjectHealthOn", L"Object Health is ON") );
+					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugObjectHealthOn", u"Object Health is ON") );
 				else
-					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugObjectHealthOff", L"Object Health is OFF") );
+					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugObjectHealthOff", u"Object Health is OFF") );
 			break;
 
 		}
@@ -4878,9 +4878,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				TheTacticalView->setZoomLimited( !TheTacticalView->isZoomLimited() );
 
 				if (TheTacticalView->isZoomLimited())
-					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCameraZoomLimitOn", L"Camera Zoom Limit is ON") );
+					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCameraZoomLimitOn", u"Camera Zoom Limit is ON") );
 				else
-					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCameraZoomLimitOff", L"Camera Zoom Limit is OFF") );
+					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugCameraZoomLimitOff", u"Camera Zoom Limit is OFF") );
 
 			}
 
@@ -4900,9 +4900,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				TheWritableGlobalData->m_specialPowerUsesDelay = 1 - TheGlobalData->m_specialPowerUsesDelay;
 
 				if (TheGlobalData->m_specialPowerUsesDelay)
-					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSpecialPowerDelaysOn", L"Special Power (Superweapon) Delay is ON") );
+					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSpecialPowerDelaysOn", u"Special Power (Superweapon) Delay is ON") );
 				else
-					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSpecialPowerDelaysOff", L"Special Power (Superweapon) Delay is OFF") );
+					TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugSpecialPowerDelaysOff", u"Special Power (Superweapon) Delay is OFF") );
 
 			}
 
@@ -4949,7 +4949,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		case GameMessage::MSG_META_DEBUG_VTUNE_ON:
 		{
 			TheScriptEngine->setEnableVTune(true);
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugVTuneOff", L"VTune Gathering is ON") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugVTuneOff", u"VTune Gathering is ON") );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -4960,7 +4960,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		case GameMessage::MSG_META_DEBUG_VTUNE_OFF:
 		{
 			TheScriptEngine->setEnableVTune(false);
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugVTuneOff", L"VTune Gathering is OFF") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugVTuneOff", u"VTune Gathering is OFF") );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -4983,7 +4983,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		{
 			TheScriptEngine->debugVictory();
 
-			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugWin", L"Instant Win") );
+			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE("GUI:DebugWin", u"Instant Win") );
 			disp = DESTROY_MESSAGE;
 			break;
 		}
@@ -5028,7 +5028,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			TheWritableGlobalData->m_dumpPerformanceStatistics = TRUE;
 
 			TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:DebugPerformStatisticalDump",
-				L"Statistics dump made on frame: %d", TheGameLogic->getFrame() ) );
+				u"Statistics dump made on frame: %d", TheGameLogic->getFrame() ) );
 			break;
 #endif // DUMP_PERF_STATS
 

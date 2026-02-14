@@ -209,7 +209,7 @@ static void gameTooltip(GameWindow *window,
 		return;
 	}
 
-	Int gameID = (Int)GadgetListBoxGetItemData(window, row, 0);
+	Int gameID = (uintptr_t)GadgetListBoxGetItemData(window, row, 0);
 	GameSpyStagingRoom *room = TheGameSpyInfo->findStagingRoomByID(gameID);
 	if (!room)
 	{
@@ -221,7 +221,7 @@ static void gameTooltip(GameWindow *window,
 	{
 #if 0 //def DEBUG_LOGGING
 		UnicodeString s;
-		s.format(L"Ping is %d ms (cutoffs are %d ms and %d ms\n%hs local pings\n%hs remote pings",
+		s.format(u"Ping is %d ms (cutoffs are %d ms and %d ms\n%hs local pings\n%hs remote pings",
 			room->getPingAsInt(), TheGameSpyConfig->getPingCutoffGood(), TheGameSpyConfig->getPingCutoffBad(),
 			TheGameSpyInfo->getPingString().str(), room->getPingString().str()
 		);
@@ -241,8 +241,8 @@ static void gameTooltip(GameWindow *window,
 		if (room->getHasPassword())
 		{
 			UnicodeString checkTooltip =TheGameText->fetch("TOOTIP:Password");
-			if(!checkTooltip.compare(L"Password required to joing game"))
-				checkTooltip.set(L"Password required to join game");
+			if(!checkTooltip.compare(u"Password required to joing game"))
+				checkTooltip.set(u"Password required to join game");
 			TheMouse->setCursorTooltip( checkTooltip, 10, nullptr, 2.0f ); // the text and width are the only params used.  the others are the default values.
 		}
 		else
@@ -326,15 +326,15 @@ static void gameTooltip(GameWindow *window,
 			switch(slot->getState())
 			{
 			case SLOT_EASY_AI:
-				tooltip.concat(L'\n');
+				tooltip.concat(u'\n');
 				tooltip.concat(TheGameText->fetch("GUI:EasyAI"));
 				break;
 			case SLOT_MED_AI:
-				tooltip.concat(L'\n');
+				tooltip.concat(u'\n');
 				tooltip.concat(TheGameText->fetch("GUI:MediumAI"));
 				break;
 			case SLOT_BRUTAL_AI:
-				tooltip.concat(L'\n');
+				tooltip.concat(u'\n');
 				tooltip.concat(TheGameText->fetch("GUI:HardAI"));
 				break;
 			}
@@ -613,11 +613,11 @@ static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
 	}
 	else
 	{
-		GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_MAP);
-		GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_LADDER);
+		GadgetListBoxAddEntryText(win, u" ", gameColor, index, COLUMN_MAP);
+		GadgetListBoxAddEntryText(win, u" ", gameColor, index, COLUMN_LADDER);
 	}
 
-	s.format(L"%d/%d", game->getReportedNumPlayers(), game->getReportedMaxPlayers());
+	s.format(u"%d/%d", game->getReportedNumPlayers(), game->getReportedMaxPlayers());
 	GadgetListBoxAddEntryText(win, s, gameColor, index, COLUMN_NUMPLAYERS);
 
 	if (game->getHasPassword())
@@ -633,7 +633,7 @@ static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
 	}
 	else
 	{
-		GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_PASSWORD);
+		GadgetListBoxAddEntryText(win, u" ", gameColor, index, COLUMN_PASSWORD);
 	}
 
 	if (game->getAllowObservers())
@@ -643,7 +643,7 @@ static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
 	}
 	else
 	{
-		GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_OBSERVER);
+		GadgetListBoxAddEntryText(win, u" ", gameColor, index, COLUMN_OBSERVER);
 	}
 
 #if !RTS_GENERALS
@@ -658,7 +658,7 @@ static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
   }
 #endif
 
-	s.format(L"%d", game->getPingAsInt());
+	s.format(u"%d", game->getPingAsInt());
 	GadgetListBoxAddEntryText(win, s, gameColor, index, COLUMN_PING);
 	Int ping = game->getPingAsInt();
 	Int width = 10, height = 10;
@@ -696,7 +696,7 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 	GadgetListBoxGetSelected(win, &selectedIndex);
 	if (selectedIndex != -1 )
 	{
-		selectedID = (Int)GadgetListBoxGetItemData(win, selectedIndex);
+		selectedID = (uintptr_t)GadgetListBoxGetItemData(win, selectedIndex);
 	}
 	int prevPos = GadgetListBoxGetTopVisibleEntry( win );
 
@@ -823,7 +823,7 @@ void RefreshGameInfoListBox( GameWindow *mainWin, GameWindow *win )
 //				UnicodeString theName, theRating, thePlayerTemplate;
 //				Int colorIdx = slot->getColor();
 //				theName = slot->getName();
-//				theRating.format(L" (%d-%d)", slot->getWins(), slot->getLosses());
+//				theRating.format(u" (%d-%d)", slot->getWins(), slot->getLosses());
 //				const PlayerTemplate * pt = ThePlayerTemplateStore->getNthPlayerTemplate(slot->getPlayerTemplate());
 //				if (pt)
 //				{
@@ -835,7 +835,7 @@ void RefreshGameInfoListBox( GameWindow *mainWin, GameWindow *win )
 //				}
 //
 //				UnicodeString theText;
-//				theText.format(L"%ls - %ls - %ls", theName.str(), thePlayerTemplate.str(), theRating.str());
+//				theText.format(u"%ls - %ls - %ls", theName.str(), thePlayerTemplate.str(), theRating.str());
 //
 //				Int theColor = GameSpyColor[GSCOLOR_DEFAULT];
 //				const MultiplayerColorDefinition *mcd = TheMultiplayerSettings->getColor(colorIdx);
@@ -887,7 +887,7 @@ void playerTemplateComboBoxTooltip(GameWindow *wndComboBox, WinInstanceData *ins
 {
 	Int index = 0;
 	GadgetComboBoxGetSelectedPos(wndComboBox, &index);
-	Int templateNum = (Int)GadgetComboBoxGetItemData(wndComboBox, index);
+	Int templateNum = (uintptr_t)GadgetComboBoxGetItemData(wndComboBox, index);
 	UnicodeString ustringTooltip;
 	if (templateNum == -1)
 	{
@@ -918,7 +918,7 @@ void playerTemplateListBoxTooltip(GameWindow *wndListBox, WinInstanceData *instD
 	if (row == -1 || col == -1)
 		return;
 
-	Int templateNum = (Int)GadgetListBoxGetItemData(wndListBox, row, col);
+	Int templateNum = (uintptr_t)GadgetListBoxGetItemData(wndListBox, row, col);
 	UnicodeString ustringTooltip;
 	if (templateNum == -1)
 	{
