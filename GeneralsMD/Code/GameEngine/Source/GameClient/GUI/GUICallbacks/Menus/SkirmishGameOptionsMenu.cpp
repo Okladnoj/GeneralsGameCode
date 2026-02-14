@@ -61,7 +61,6 @@
 #include "GameNetwork/GameSpy/LobbyUtils.h"
 
 #include "Common/MultiplayerSettings.h"
-#include "GameClient/CDCheck.h"
 #include "GameClient/ExtendedMessageBox.h"
 #include "GameClient/GameText.h"
 #include "GameClient/MessageBox.h"
@@ -93,7 +92,8 @@ static NameKeyType comboBoxTeamID[MAX_SLOTS] = {
     NAMEKEY_INVALID, NAMEKEY_INVALID, NAMEKEY_INVALID, NAMEKEY_INVALID};
 
 // static NameKeyType buttonStartPositionID[MAX_SLOTS] = {
-// NAMEKEY_INVALID,NAMEKEY_INVALID, 																										NAMEKEY_INVALID,NAMEKEY_INVALID,
+// NAMEKEY_INVALID,NAMEKEY_INVALID,
+// NAMEKEY_INVALID,NAMEKEY_INVALID,
 //																										NAMEKEY_INVALID,NAMEKEY_INVALID,
 //																										NAMEKEY_INVALID,NAMEKEY_INVALID
 //};
@@ -434,42 +434,6 @@ void reallyDoStart(void) {
   }
 }
 
-static MessageBoxReturnType cancelStartBecauseOfNoCD(void *userData) {
-  buttonPushed = FALSE;
-  return MB_RETURN_CLOSE;
-}
-
-Bool IsFirstCDPresent(void) {
-#if !defined(RTS_DEBUG)
-  return TheFileSystem->areMusicFilesOnCD();
-#else
-  return TRUE;
-#endif
-}
-
-static MessageBoxReturnType checkCDCallback(void *userData) {
-  if (!IsFirstCDPresent()) {
-    return (IsFirstCDPresent()) ? MB_RETURN_CLOSE : MB_RETURN_KEEPOPEN;
-  } else {
-    gameStartCallback callback = (gameStartCallback)userData;
-    if (callback)
-      callback();
-    return MB_RETURN_CLOSE;
-  }
-}
-
-void CheckForCDAtGameStart(gameStartCallback callback) {
-  if (!IsFirstCDPresent()) {
-    // popup a dialog asking for a CD
-    ExMessageBoxOkCancel(TheGameText->fetch("GUI:InsertCDPrompt"),
-                         TheGameText->fetch("GUI:InsertCDMessage"),
-                         (void *)callback, checkCDCallback,
-                         cancelStartBecauseOfNoCD);
-  } else {
-    callback();
-  }
-}
-
 Bool sandboxOk = FALSE;
 static void startPressed(void) {
 
@@ -501,16 +465,15 @@ TheGameText->fetch("GUI:SandboxWarning"), nullptr);
   else {
     isReady = TRUE;
   }
-
   if (isReady) {
-    CheckForCDAtGameStart(reallyDoStart);
+    reallyDoStart();
   }
 }
 
 /////////////////////////////////////////////////////
 // MapSelectorTooltip - shows tooltips for the tech buildings
 //											and
-//supply depots
+// supply depots
 void MapSelectorTooltip(GameWindow *window, WinInstanceData *instData,
                         UnsignedInt mouse) {
   Int x, y;
@@ -1121,11 +1084,12 @@ void InitSkirmishGameGadgets(void) {
                       ("Could not find the comboBoxTeam[%d]", i));
 
     //		tmpString.format("SkirmishGameOptionsMenu.wnd:ButtonStartPosition%d",
-    //i); 		buttonStartPositionID[i] = TheNameKeyGenerator->nameToKey( tmpString
-    //); 		buttonStartPosition[i] = TheWindowManager->winGetWindowFromId(
-    //parentSkirmishGameOptions, buttonStartPositionID[i] );
-    //		DEBUG_ASSERTCRASH(buttonStartPosition[i], ("Could not find the
-    //ButtonStartPosition[%d]",i ));
+    // i); 		buttonStartPositionID[i] =
+    // TheNameKeyGenerator->nameToKey( tmpString
+    //); 		buttonStartPosition[i] =
+    //TheWindowManager->winGetWindowFromId( parentSkirmishGameOptions,
+    // buttonStartPositionID[i] ); 		DEBUG_ASSERTCRASH(buttonStartPosition[i],
+    //("Could not find the ButtonStartPosition[%d]",i ));
     //
     tmpString.format("SkirmishGameOptionsMenu.wnd:ButtonMapStartPosition%d", i);
     buttonMapStartPositionID[i] = TheNameKeyGenerator->nameToKey(tmpString);
@@ -1144,7 +1108,7 @@ void InitSkirmishGameGadgets(void) {
 
     //		if (buttonStartPosition[i])
     //			buttonStartPosition[i]->winHide(TRUE); // not using
-    //these right now
+    // these right now
   }
 
   populateSkirmishBattleHonors();
@@ -1353,7 +1317,7 @@ void SkirmishGameOptionsMenuInit(WindowLayout *layout, void *userData) {
   // animate controls
   TheShell->showShellMap(TRUE);
   //	TheShell->registerWithAnimateManager(buttonExit,
-  //WIN_ANIMATION_SLIDE_RIGHT, TRUE, 1);
+  // WIN_ANIMATION_SLIDE_RIGHT, TRUE, 1);
   doUpdateSlotList = TRUE;
   skirmishUpdateSlotList();
   justEntered = TRUE;
@@ -1544,7 +1508,7 @@ WindowMsgHandledType SkirmishGameOptionsMenuSystem(GameWindow *window,
     GameWindow *control = (GameWindow *)mData1;
     Int controlID = control->winGetWindowId();
     ///				static NameKeyType buttonResetFPSID =
-    ///TheNameKeyGenerator->nameToKey(
+    /// TheNameKeyGenerator->nameToKey(
     ///"SkirmishGameOptionsMenu.wnd:ButtonResetFPS" );
     if (buttonPushed)
       break;
@@ -1565,11 +1529,12 @@ WindowMsgHandledType SkirmishGameOptionsMenuSystem(GameWindow *window,
     //				else if ( controlID == buttonResetFPSID )
     //				{
     //					static NameKeyType sliderGameSpeedID =
-    //TheNameKeyGenerator->nameToKey(
-    //"SkirmishGameOptionsMenu.wnd:SliderGameSpeed" ); 					GameWindow
-    //*sliderGameSpeed = TheWindowManager->winGetWindowFromId(
-    //parentSkirmishGameOptions, sliderGameSpeedID ); 					GadgetSliderSetPosition(
-    //sliderGameSpeed, TheGlobalData->m_framesPerSecondLimit );
+    // TheNameKeyGenerator->nameToKey(
+    //"SkirmishGameOptionsMenu.wnd:SliderGameSpeed" );
+    //GameWindow *sliderGameSpeed = TheWindowManager->winGetWindowFromId(
+    // parentSkirmishGameOptions, sliderGameSpeedID );
+    // GadgetSliderSetPosition( sliderGameSpeed,
+    // TheGlobalData->m_framesPerSecondLimit );
     //				}
     else if (controlID == buttonSelectMapID) {
       sandboxOk = FALSE;

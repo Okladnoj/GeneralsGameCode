@@ -76,7 +76,6 @@
 #include "GameNetwork/DownloadManager.h"
 #include "GameNetwork/GameSpy/MainMenuUtils.h"
 
-#include "GameClient/CDCheck.h"
 #include "GameClient/InGameUI.h"
 
 // PRIVATE DATA
@@ -247,7 +246,7 @@ static void quitCallback(void) {
   { // GIANT CRAPTACULAR HACK ALERT!!!!  On sytems with little memory, we skip
     // all normal exit code
     //		//and let Windows clean up the mess.  This reduces exit times
-    //from minutes to seconds.
+    // from minutes to seconds.
     //		//8-19-03. MW
     //		delete TheGameClient;
     //		_exit(EXIT_SUCCESS);
@@ -291,19 +290,6 @@ void prepareCampaignGame(GameDifficulty diff) {
   setupGameStart(TheCampaignManager->getCurrentMap(), diff);
 }
 
-static MessageBoxReturnType cancelStartBecauseOfNoCD(void *userData) {
-  return MB_RETURN_CLOSE;
-}
-
-static MessageBoxReturnType checkCDCallback(void *userData) {
-  if (!IsFirstCDPresent()) {
-    return MB_RETURN_KEEPOPEN;
-  } else {
-    prepareCampaignGame((GameDifficulty)(intptr_t)userData);
-    return MB_RETURN_CLOSE;
-  }
-}
-
 static void doGameStart(void) {
   startGame = FALSE;
 
@@ -318,18 +304,6 @@ static void doGameStart(void) {
   InitRandom(0);
 
   isShuttingDown = TRUE;
-}
-
-static void checkCDBeforeCampaign(GameDifficulty diff) {
-  if (!IsFirstCDPresent()) {
-    // popup a dialog asking for a CD
-    ExMessageBoxOkCancel(TheGameText->fetch("GUI:InsertCDPrompt"),
-                         TheGameText->fetch("GUI:InsertCDMessage"),
-                         (void *)diff, checkCDCallback,
-                         cancelStartBecauseOfNoCD);
-  } else {
-    prepareCampaignGame(diff);
-  }
 }
 
 static void shutdownComplete(WindowLayout *layout) {
@@ -585,7 +559,7 @@ void MainMenuInit(WindowLayout *layout, void *userData) {
 
   getUpdate = TheWindowManager->winGetWindowFromId(parentMainMenu, getUpdateID);
   //	buttonTRAINING = TheWindowManager->winGetWindowFromId( parentMainMenu,
-  //buttonTRAININGID );
+  // buttonTRAININGID );
   buttonChallenge =
       TheWindowManager->winGetWindowFromId(parentMainMenu, buttonChallengeID);
   buttonUSA = TheWindowManager->winGetWindowFromId(parentMainMenu, buttonUSAID);
@@ -655,13 +629,13 @@ void MainMenuInit(WindowLayout *layout, void *userData) {
   // TheShell->registerWithAnimateManager(buttonSkirmish,
   // WIN_ANIMATION_SLIDE_LEFT, TRUE, 600);
   //	TheShell->registerWithAnimateManager(buttonSinglePlayer,
-  //WIN_ANIMATION_SLIDE_LEFT, TRUE, 400);
+  // WIN_ANIMATION_SLIDE_LEFT, TRUE, 400);
   //	TheShell->registerWithAnimateManager(buttonMultiPlayer,
-  //WIN_ANIMATION_SLIDE_LEFT, TRUE, 200);
+  // WIN_ANIMATION_SLIDE_LEFT, TRUE, 200);
   //	TheShell->registerWithAnimateManager(buttonOptions,
-  //WIN_ANIMATION_SLIDE_LEFT, TRUE, 1);
+  // WIN_ANIMATION_SLIDE_LEFT, TRUE, 1);
   //	TheShell->registerWithAnimateManager(buttonExit,
-  //WIN_ANIMATION_SLIDE_RIGHT, TRUE, 1);
+  // WIN_ANIMATION_SLIDE_RIGHT, TRUE, 1);
   //
   layout->hide(FALSE);
 
@@ -969,7 +943,7 @@ void MainMenuUpdate(WindowLayout *layout, void *userData) {
   //	if(localAnimateWindowManager)
   //		localAnimateWindowManager->update();
   //	if(localAnimateWindowManager && pendingDropDown != DROPDOWN_NONE &&
-  //localAnimateWindowManager->isFinished())
+  // localAnimateWindowManager->isFinished())
   //	{
   //		localAnimateWindowManager->reset();
   //		if(dropDown != DROPDOWN_NONE)
@@ -981,7 +955,7 @@ void MainMenuUpdate(WindowLayout *layout, void *userData) {
   //		pendingDropDown = DROPDOWN_NONE;
   //	}
   //	else if(localAnimateWindowManager && dropDown == DROPDOWN_NONE &&
-  //pendingDropDown == DROPDOWN_NONE && localAnimateWindowManager->isReversed()
+  // pendingDropDown == DROPDOWN_NONE && localAnimateWindowManager->isReversed()
   //&& localAnimateWindowManager->isFinished())
   //	{
   //		localAnimateWindowManager->reset();
@@ -1393,13 +1367,14 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
         break;
       dontAllowTransitions = TRUE;
       //				SaveLoadLayoutType layoutType =
-      //SLLT_LOAD_ONLY;
+      // SLLT_LOAD_ONLY;
       //        WindowLayout *saveLoadMenuLayout =
       //        TheShell->getSaveLoadMenuLayout();
       //				DEBUG_ASSERTCRASH( saveLoadMenuLayout,
-      //("Unable to get save load menu layout.") ); 				saveLoadMenuLayout->runInit(
-      //&layoutType ); 				saveLoadMenuLayout->hide( FALSE );
-      //				saveLoadMenuLayout->bringForward();
+      //("Unable to get save load menu layout.") );
+      // saveLoadMenuLayout->runInit( &layoutType );
+      // saveLoadMenuLayout->hide( FALSE );
+      // saveLoadMenuLayout->bringForward();
       buttonPushed = TRUE;
       dropDownWindows[DROPDOWN_LOADREPLAY]->winHide(FALSE);
       TheTransitionHandler->reverse("MainMenuLoadReplayMenuBackTransition");
@@ -1430,7 +1405,7 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
                                       showLogo = FALSE;
                                       showSide = SHOW_USA;
       */
-      checkCDBeforeCampaign(DIFFICULTY_NORMAL);
+      prepareCampaignGame(DIFFICULTY_NORMAL);
       break;
 #endif
       TheShell->push("Menus/SkirmishGameOptionsMenu.wnd");
@@ -1566,7 +1541,7 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
       //				launchChallengeMenu = FALSE;
       //				WindowLayout *layout = nullptr;
       //				layout =
-      //TheWindowManager->winCreateLayout( "Menus/DifficultySelect.wnd" );
+      // TheWindowManager->winCreateLayout( "Menus/DifficultySelect.wnd" );
       //				layout->runInit();
       //				layout->hide( FALSE );
       //				layout->bringForward();
@@ -1595,7 +1570,7 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
       //				launchChallengeMenu = FALSE;
       //				WindowLayout *layout = nullptr;
       //				layout =
-      //TheWindowManager->winCreateLayout( "Menus/DifficultySelect.wnd" );
+      // TheWindowManager->winCreateLayout( "Menus/DifficultySelect.wnd" );
       //				layout->runInit();
       //				layout->hide( FALSE );
       //				layout->bringForward();
@@ -1624,7 +1599,7 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
       //				launchChallengeMenu = FALSE;
       //				WindowLayout *layout = nullptr;
       //				layout =
-      //TheWindowManager->winCreateLayout( "Menus/DifficultySelect.wnd" );
+      // TheWindowManager->winCreateLayout( "Menus/DifficultySelect.wnd" );
       //				layout->runInit();
       //				layout->hide( FALSE );
       //				layout->bringForward();
@@ -1634,17 +1609,17 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
       if (dontAllowTransitions)
         break;
 
-      checkCDBeforeCampaign(DIFFICULTY_EASY);
+      prepareCampaignGame(DIFFICULTY_EASY);
     } else if (controlID == buttonMediumID) {
       if (dontAllowTransitions)
         break;
 
-      checkCDBeforeCampaign(DIFFICULTY_NORMAL);
+      prepareCampaignGame(DIFFICULTY_NORMAL);
     } else if (controlID == buttonHardID) {
       if (dontAllowTransitions)
         break;
 
-      checkCDBeforeCampaign(DIFFICULTY_HARD);
+      prepareCampaignGame(DIFFICULTY_HARD);
     } else if (controlID == buttonDiffBackID) {
       if (dontAllowTransitions)
         break;

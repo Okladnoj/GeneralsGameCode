@@ -557,7 +557,7 @@ WindowMsgHandledType ScoreScreenSystem(GameWindow *window, UnsignedInt msg,
             ReplayWasPressed = FALSE;
             TheShell->pop();
           } else {
-            CheckForCDAtGameStart(startNextCampaignGame);
+            startNextCampaignGame();
           }
         }
       }
