@@ -1,6 +1,4 @@
-#import "../../Include/MacOSGameClient.h"
-#import "../../Include/IRenderDevice.h"
-#import "../../Include/MacOSRenderer.h"
+#import "MacOSGameClient.h"
 #include "Common/AsciiString.h"
 #include "Common/CommandLine.h"
 #include "Common/Debug.h"
@@ -21,7 +19,9 @@
 #import "GameClient/Snow.h"
 #import "GameClient/TerrainVisual.h"
 #import "GameClient/VideoPlayer.h"
+#import "IRenderDevice.h"
 #import "MacOSGameWindowManager.h"
+#import "MacOSRenderer.h"
 #include "PreRTS.h"
 
 class MacOSView : public View {

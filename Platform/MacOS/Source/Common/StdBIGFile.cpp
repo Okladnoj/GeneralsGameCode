@@ -18,7 +18,8 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //																																						//
-//  (c) 2001-2003 Electronic Arts Inc.																				//
+//  (c) 2001-2003 Electronic Arts Inc.
+//  //
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -26,143 +27,121 @@
 // Stephan Vedder, April 2025
 /////////////////////////////////////////////////////
 
+#include "StdBIGFile.h"
+#include "Common/GameMemory.h"
 #include "Common/LocalFile.h"
 #include "Common/LocalFileSystem.h"
+#include "Common/PerfTimer.h"
 #include "Common/RAMFile.h"
 #include "Common/StreamingArchiveFile.h"
-#include "Common/GameMemory.h"
-#include "Common/PerfTimer.h"
-#include "StdDevice/Common/StdBIGFile.h"
 
 //============================================================================
 // StdBIGFile::StdBIGFile
 //============================================================================
 
 StdBIGFile::StdBIGFile(AsciiString name, AsciiString path)
-	: m_name(name)
-	, m_path(path)
-{
-
-}
+    : m_name(name), m_path(path) {}
 
 //============================================================================
 // StdBIGFile::~StdBIGFile
 //============================================================================
 
-StdBIGFile::~StdBIGFile()
-{
-
-}
+StdBIGFile::~StdBIGFile() {}
 
 //============================================================================
 // StdBIGFile::openFile
 //============================================================================
 
-File* StdBIGFile::openFile( const Char *filename, Int access )
-{
-	const ArchivedFileInfo *fileInfo = getArchivedFileInfo(AsciiString(filename));
+File *StdBIGFile::openFile(const Char *filename, Int access) {
+  const ArchivedFileInfo *fileInfo = getArchivedFileInfo(AsciiString(filename));
 
-	if (fileInfo == nullptr) {
-		return nullptr;
-	}
+  if (fileInfo == nullptr) {
+    return nullptr;
+  }
 
-	RAMFile *ramFile = nullptr;
+  RAMFile *ramFile = nullptr;
 
-	if (BitIsSet(access, File::STREAMING))
-		ramFile = newInstance( StreamingArchiveFile );
-	else
-		ramFile = newInstance( RAMFile );
+  if (BitIsSet(access, File::STREAMING))
+    ramFile = newInstance(StreamingArchiveFile);
+  else
+    ramFile = newInstance(RAMFile);
 
-	ramFile->deleteOnClose();
-	if (ramFile->openFromArchive(m_file, fileInfo->m_filename, fileInfo->m_offset, fileInfo->m_size) == FALSE) {
-		ramFile->close();
-		ramFile = nullptr;
-		return nullptr;
-	}
+  ramFile->deleteOnClose();
+  if (ramFile->openFromArchive(m_file, fileInfo->m_filename, fileInfo->m_offset,
+                               fileInfo->m_size) == FALSE) {
+    ramFile->close();
+    ramFile = nullptr;
+    return nullptr;
+  }
 
-	if ((access & File::WRITE) == 0) {
-		// requesting read only access. Just return the RAM file.
-		return ramFile;
-	}
+  if ((access & File::WRITE) == 0) {
+    // requesting read only access. Just return the RAM file.
+    return ramFile;
+  }
 
-	// whoever is opening this file wants write access, so copy the file to the local disk
-	// and return that file pointer.
+  // whoever is opening this file wants write access, so copy the file to the
+  // local disk and return that file pointer.
 
-	constexpr size_t bufferSize = 0;
-	File *localFile = TheLocalFileSystem->openFile(filename, access, bufferSize);
-	if (localFile != nullptr) {
-		ramFile->copyDataToFile(localFile);
-	}
+  constexpr size_t bufferSize = 0;
+  File *localFile = TheLocalFileSystem->openFile(filename, access, bufferSize);
+  if (localFile != nullptr) {
+    ramFile->copyDataToFile(localFile);
+  }
 
-	ramFile->close();
-	ramFile = nullptr;
+  ramFile->close();
+  ramFile = nullptr;
 
-	return localFile;
+  return localFile;
 }
 
 //============================================================================
 // StdBIGFile::closeAllFiles
 //============================================================================
 
-void StdBIGFile::closeAllFiles( void )
-{
-
-}
+void StdBIGFile::closeAllFiles(void) {}
 
 //============================================================================
 // StdBIGFile::getName
 //============================================================================
 
-AsciiString StdBIGFile::getName( void )
-{
-	return m_name;
-}
+AsciiString StdBIGFile::getName(void) { return m_name; }
 
 //============================================================================
 // StdBIGFile::getPath
 //============================================================================
 
-AsciiString StdBIGFile::getPath( void )
-{
-	return m_path;
-}
+AsciiString StdBIGFile::getPath(void) { return m_path; }
 
 //============================================================================
 // StdBIGFile::setSearchPriority
 //============================================================================
 
-void StdBIGFile::setSearchPriority( Int new_priority )
-{
-
-}
+void StdBIGFile::setSearchPriority(Int new_priority) {}
 
 //============================================================================
 // StdBIGFile::close
 //============================================================================
 
-void StdBIGFile::close( void )
-{
-
-}
+void StdBIGFile::close(void) {}
 
 //============================================================================
 // StdBIGFile::getFileInfo
 //============================================================================
 
-Bool StdBIGFile::getFileInfo(const AsciiString& filename, FileInfo *fileInfo) const
-{
-	const ArchivedFileInfo *tempFileInfo = getArchivedFileInfo(filename);
+Bool StdBIGFile::getFileInfo(const AsciiString &filename,
+                             FileInfo *fileInfo) const {
+  const ArchivedFileInfo *tempFileInfo = getArchivedFileInfo(filename);
 
-	if (tempFileInfo == nullptr) {
-		return FALSE;
-	}
+  if (tempFileInfo == nullptr) {
+    return FALSE;
+  }
 
-	TheLocalFileSystem->getFileInfo(AsciiString(m_file->getName()), fileInfo);
+  TheLocalFileSystem->getFileInfo(AsciiString(m_file->getName()), fileInfo);
 
-	// fill in the size info.  Since the size can't be bigger than a JUNK file, the high Int will always be 0.
-	fileInfo->sizeHigh = 0;
-	fileInfo->sizeLow = tempFileInfo->m_size;
+  // fill in the size info.  Since the size can't be bigger than a JUNK file,
+  // the high Int will always be 0.
+  fileInfo->sizeHigh = 0;
+  fileInfo->sizeLow = tempFileInfo->m_size;
 
-	return TRUE;
+  return TRUE;
 }
-

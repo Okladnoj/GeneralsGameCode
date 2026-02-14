@@ -51,8 +51,8 @@
 #include "VideoDevice/FFmpeg/FFmpegVideoPlayer.h"
 #endif
 #ifdef _UNIX
-#include "StdDevice/GameClient/StdKeyboard.h"
-#include "StdDevice/GameClient/StdMouse.h"
+#include "StdKeyboard.h"
+#include "StdMouse.h"
 #else
 #include "Win32Device/GameClient/Win32DIKeyboard.h"
 #include "Win32Device/GameClient/Win32DIMouse.h"

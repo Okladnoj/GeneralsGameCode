@@ -1,7 +1,6 @@
-#include "always.h"
-#include "StdDevice/GameClient/StdMouse.h"
+#include "StdMouse.h"
 #include "Common/GlobalData.h"
-
+#include "always.h"
 
 StdMouse::StdMouse(void) {
   m_nextFreeIndex = 0;

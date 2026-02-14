@@ -1,6 +1,6 @@
-#include "always.h"
-#include "StdDevice/GameClient/StdKeyboard.h"
+#include "StdKeyboard.h"
 #include "GameClient/KeyDefs.h"
+#include "always.h"
 
 // Simple mapping from macOS virtual key codes to DIK codes
 static unsigned char MacOSVirtualKeyToDIK(unsigned short keyCode) {

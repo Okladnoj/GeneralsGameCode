@@ -27,11 +27,11 @@
 // Stephan Vedder, April 2025
 ////////////////////////////////////////////////////////////
 
-#include "StdDevice/Common/StdLocalFileSystem.h"
+#include "StdLocalFileSystem.h"
 #include "Common/AsciiString.h"
 #include "Common/GameMemory.h"
 #include "Common/PerfTimer.h"
-#include "StdDevice/Common/StdLocalFile.h"
+#include "StdLocalFile.h"
 
 #include <filesystem>
 

@@ -7,11 +7,11 @@
 #include <string>
 #import <vector>
 
-#import "../../Include/IRenderDevice.h"
 #include "Common/ArchiveFileSystem.h"
 #include "Common/FileSystem.h"
 #include "Common/GlobalData.h"
 #include "Common/file.h"
+#import "IRenderDevice.h"
 #import "MacOSBuffers.h"
 #import "MacOSRenderDevice_Internal.h"
 #include "TARGA.h"

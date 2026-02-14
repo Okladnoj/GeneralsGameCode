@@ -35,14 +35,14 @@
 #include "Common/Snapshot.h"
 #include <Utility/atlbase.h>
 
-#import "../../Include/MacOSGameClient.h"
-#import "../../Include/MacOSRenderer.h"
-#import "../../Include/MacOSWindowManager.h"
 #include "Common/ArchiveFileSystem.h"
 #include "Common/FileSystem.h"
 #include "Common/LocalFileSystem.h"
-#include "StdDevice/Common/StdBIGFileSystem.h"
-#include "StdDevice/Common/StdLocalFileSystem.h"
+#import "MacOSGameClient.h"
+#import "MacOSRenderer.h"
+#import "MacOSWindowManager.h"
+#include "StdBIGFileSystem.h"
+#include "StdLocalFileSystem.h"
 
 #if defined(__APPLE__) && defined(__OBJC__)
 // Window logic moved back down
