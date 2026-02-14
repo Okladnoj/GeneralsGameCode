@@ -575,7 +575,7 @@ void Render2DClass::Add_Outline(const RectClass &rect, float width,
                                 const RectClass &uv, unsigned long color) {
   //
   //	Pretty straight forward, simply add the four side of the rectangle as
-  //lines.
+  // lines.
   //
   /** @todo colin, I had to tweak these to get precise line drawing, as we want
   the UV bias on, but it just isn't lining up */
@@ -687,13 +687,14 @@ void Render2DClass::Render(void) {
       DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_COLOROP,
                                               D3DTOP_MODULATE);
 
-      // TheSuperHackers @bugfix Stubbjax 08/01/2025 Fix possible greyscale
+      // TheSuperHackers @bugfix Stubbjax 08/01/2026 Fix possible greyscale
       // rendering issues on hardware without DOT3 support.
       DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_COLOROP,
                                               D3DTOP_DISABLE);
     }
   } else
     DX8Wrapper::Set_Shader(Shader);
+
   DX8Wrapper::Draw_Triangles(0, Indices.Count() / 3, 0, Vertices.Count());
 
   DX8Wrapper::Set_Transform(D3DTS_VIEW, view);
