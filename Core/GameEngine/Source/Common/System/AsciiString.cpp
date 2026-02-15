@@ -144,6 +144,36 @@ void AsciiString::ensureUniqueBufferOfSize(int numCharsNeeded,
     return;
   }
 
+#ifdef __APPLE__
+  if (TheDynamicMemoryAllocator == nullptr) {
+    int minBytes = sizeof(AsciiStringData) + numCharsNeeded * sizeof(char);
+    AsciiStringData *newData = (AsciiStringData *)malloc(minBytes);
+    newData->m_refCount = 1;
+    newData->m_numCharsAllocated = numCharsNeeded;
+#if defined(RTS_DEBUG)
+    newData->m_debugptr = newData->peek();
+#endif
+    if (m_data && preserveData)
+      strcpy(newData->peek(), m_data->peek());
+    else if (strToCopy) {
+      strncpy(newData->peek(), strToCopy, usableNumChars);
+      newData->peek()[usableNumChars] = 0;
+    } else
+      newData->peek()[0] = 0;
+
+    if (strToCat)
+      strcat(newData->peek(), strToCat);
+
+    if (m_data) {
+      ScopedCriticalSection scopedCriticalSection(
+          TheAsciiStringCriticalSection);
+      if (--m_data->m_refCount == 0)
+        free(m_data);
+    }
+    m_data = newData;
+    return;
+  }
+#endif
   DEBUG_ASSERTCRASH(TheDynamicMemoryAllocator != nullptr,
                     ("Cannot use dynamic memory allocator before its "
                      "initialization. Check static initialization order."));

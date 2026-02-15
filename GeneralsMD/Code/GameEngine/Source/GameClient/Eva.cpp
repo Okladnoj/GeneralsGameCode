@@ -268,7 +268,15 @@ void Eva::update() {
     return;
   }
 
-  m_localPlayer = rts::getObservedOrLocalPlayer();
+  static bool first = true;
+  if (first) {
+    fprintf(stderr, "Eva::update: first call, TheControlBar=%p\n",
+            (void *)TheControlBar);
+    fflush(stderr);
+    first = false;
+  }
+
+  m_localPlayer = rts::getObservedOrLocalPlayer_Safe();
   UnsignedInt frame = TheGameLogic->getFrame();
 
   // Don't update for the first few frames. This way, we don't have to deal with

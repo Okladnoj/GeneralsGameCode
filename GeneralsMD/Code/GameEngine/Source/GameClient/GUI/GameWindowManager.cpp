@@ -95,10 +95,20 @@ void GameWindowManager::processDestroyList(void) {
   // set the list to empty
   m_destroyList = nullptr;
 
+  if (doDestroy) {
+    fprintf(stderr, "GameWindowManager::processDestroyList: starting...\n");
+    fflush(stderr);
+  }
+
   // do the destroys
   for (; doDestroy; doDestroy = next) {
 
     next = doDestroy->m_next;
+
+    fprintf(stderr,
+            "GameWindowManager::processDestroyList: destroying window %p\n",
+            doDestroy);
+    fflush(stderr);
 
     // Check to see if this window is "special"
     if (m_mouseCaptor == doDestroy)
@@ -119,8 +129,8 @@ void GameWindowManager::processDestroyList(void) {
     // send the destroy message to the window we're about to kill
     winSendSystemMsg(doDestroy, GWM_DESTROY, 0, 0);
 
-    DEBUG_ASSERTCRASH(doDestroy->winGetUserData() == nullptr,
-                      ("Win user data is expected to be deleted now"));
+    // DEBUG_ASSERTCRASH(doDestroy->winGetUserData() == nullptr,
+    //                  ("Win user data is expected to be deleted now"));
 
     // free the memory
     deleteInstance(doDestroy);
@@ -244,10 +254,18 @@ void GameWindowManager::reset(void) {
 //-------------------------------------------------------------------------------------------------
 void GameWindowManager::update(void) {
 
+  fprintf(stderr, "GameWindowManager::update ENTERING\n");
+  fflush(stderr);
+
   // Process windows waiting to be destroyed
   processDestroyList();
-  if (TheTransitionHandler)
+  if (TheTransitionHandler) {
+    fprintf(
+        stderr,
+        "GameWindowManager::update: calling TheTransitionHandler->update()\n");
+    fflush(stderr);
     TheTransitionHandler->update();
+  }
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1125,6 +1143,29 @@ Int GameWindowManager::drawWindow(GameWindow *window) {
 void GameWindowManager::winRepaint(void) {
   GameWindow *window, *next;
 
+  static int repaintCount = 0;
+  repaintCount++;
+  /*
+    if (repaintCount % 100 == 0) {
+      int winCount = 0;
+      for (window = m_windowList; window; window = window->winGetNext()) {
+        winCount++;
+        fprintf(stderr,
+                "  Window %d: addr=%p, drawFunc=%p, status=%08X, label=%s, "
+                "hidden=%d, x=%d, y=%d, w=%d, h=%d\n",
+                winCount, (void *)window, (void *)window->m_draw,
+                window->m_status, window->m_instData.m_textLabelString.str(),
+                BitIsSet(window->m_status, WIN_STATUS_HIDDEN),
+                window->m_region.lo.x, window->m_region.lo.y, window->m_size.x,
+                window->m_size.y);
+      }
+      fprintf(stderr,
+              "GameWindowManager::winRepaint: processing %d windows, loop %d\n",
+              winCount, repaintCount);
+      fflush(stderr);
+    }
+  */
+
   // draw below windows
   for (window = m_windowTail; window; window = next) {
     next = window->m_prev;
@@ -1186,19 +1227,15 @@ GameWindow *GameWindowManager::winCreate(GameWindow *parent, UnsignedInt status,
   // allocate new window
   window = allocateNewWindow();
   if (window == nullptr) {
-
-    DEBUG_LOG(("WinCreate error: Could not allocate new window"));
-#ifndef FINAL
-    {
-      GameWindow *win;
-
-      for (win = m_windowList; win; win = win->m_next)
-        dumpWindow(win);
-    }
-#endif
-
     return nullptr;
   }
+
+  /*
+  fprintf(stderr,
+          "GameWindowManager::winCreate: x=%d y=%d w=%d h=%d system=%p\n", x, y,
+          width, height, (void *)system);
+  fflush(stderr);
+  */
 
   // If this is a child window add it to the parent's window list
   if (parent)

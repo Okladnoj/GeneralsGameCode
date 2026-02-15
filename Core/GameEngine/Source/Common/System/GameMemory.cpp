@@ -420,6 +420,10 @@ private:
   Int m_logicalSize; ///< logical size of block (not including overhead, walls,
                      ///< etc.)
   Int m_wastedSize;  ///< if allocated via DMA, the "wasted" bytes
+#endif
+public:
+  void *getUserDataNoDbg();
+#ifdef MEMORYPOOL_DEBUG
   Short m_magicCookie; ///< magic value used to verify that the block is one of
                        ///< ours (as opposed to random pointer)
   Short m_debugFlags;  ///< misc flags
@@ -429,9 +433,6 @@ private:
                                                   ///< checkpointing)
 #endif
 #endif
-
-private:
-  void *getUserDataNoDbg();
 #ifdef MEMORYPOOL_BOUNDINGWALL
   void debugFillInWalls();
 #endif
@@ -1358,16 +1359,27 @@ Int MemoryPoolBlob::debugBlobReportLeaks(const char *owner) {
 Bool MemoryPoolBlob::debugIsBlockInBlob(void *pBlockPtr) {
   USE_PERF_TIMER(MemoryPoolDebugging)
 
-  MemoryPoolSingleBlock *block =
-      MemoryPoolSingleBlock::recoverBlockFromUserData(pBlockPtr);
+  if (!pBlockPtr)
+    return false;
+
   Int rawBlockSize = MemoryPoolSingleBlock::calcRawBlockSize(
       m_owningPool->getAllocationSize());
   char *blockData = m_blockData;
-  for (Int i = m_totalBlocksInBlob - 1; i >= 0; i--) {
-    if ((char *)block == blockData)
-      return true;
-    blockData += rawBlockSize;
+  size_t headerSize = sizeof(MemoryPoolSingleBlock);
+#ifdef MEMORYPOOL_BOUNDINGWALL
+  headerSize += WALLSIZE;
+#endif
+
+  char *p = (char *)pBlockPtr;
+  if (p < blockData + headerSize)
+    return false;
+
+  size_t offset = p - (blockData + headerSize);
+  if (offset % rawBlockSize == 0 &&
+      offset / rawBlockSize < (size_t)m_totalBlocksInBlob) {
+    return true;
   }
+
   return false;
 }
 #endif
@@ -1920,23 +1932,12 @@ Bool MemoryPool::debugIsBlockInPool(void *pBlockPtr) {
   debugMemoryVerifyPool();
 #endif
 
-  Bool check1 = false, check2 = false;
-
-  MemoryPoolSingleBlock *block =
-      MemoryPoolSingleBlock::recoverBlockFromUserData(pBlockPtr);
-  MemoryPoolBlob *ownerBlob = block->getOwningBlob();
   for (MemoryPoolBlob *blob = m_firstBlob; blob; blob = blob->getNextInList()) {
     if (blob->debugIsBlockInBlob(pBlockPtr))
-      check1 = true;
-
-    if (blob == ownerBlob)
-      check2 = true;
+      return true;
   }
 
-  DEBUG_ASSERTCRASH(check1 == check2,
-                    ("mismatch checks in debugIsBlockInPool"));
-
-  return check1 && check2;
+  return false;
 }
 #endif
 
@@ -2389,19 +2390,19 @@ Bool DynamicMemoryAllocator::debugIsBlockInDma(void *pBlockPtr) {
   if (!pBlockPtr)
     return false;
 
-  MemoryPoolSingleBlock *block =
-      MemoryPoolSingleBlock::recoverBlockFromUserData(pBlockPtr);
-  if (block->getOwningBlob()) {
-    MemoryPool *pool = block->getOwningBlob()->getOwningPool();
-    return pool && pool->debugIsBlockInPool(pBlockPtr) &&
-           debugIsPoolInDma(pool);
-  } else {
-    for (MemoryPoolSingleBlock *b = m_rawBlocks; b; b = b->getNextRawBlock()) {
-      if (b == block)
-        return true;
-    }
-    return false;
+  // Check subpools.
+  for (Int i = 0; i < m_numPools; i++) {
+    if (m_pools[i]->debugIsBlockInPool(pBlockPtr))
+      return true;
   }
+
+  // Check raw blocks.
+  for (MemoryPoolSingleBlock *b = m_rawBlocks; b; b = b->getNextRawBlock()) {
+    if (b->getUserDataNoDbg() == pBlockPtr)
+      return true;
+  }
+
+  return false;
 }
 #endif
 
@@ -3203,6 +3204,7 @@ void STLSpecialAlloc::deallocate(void *__p, size_t) {
         overload for global operator new; send requests to
    TheDynamicMemoryAllocator.
 */
+#ifndef __APPLE__
 void *operator new(size_t size) {
   ++theLinkTester;
   preMainInitMemoryManager();
@@ -3211,12 +3213,14 @@ void *operator new(size_t size) {
       ("must init memory manager before calling global operator new"));
   return TheDynamicMemoryAllocator->allocateBytes(size, "global operator new");
 }
+#endif
 
 //-----------------------------------------------------------------------------
 /**
         overload for global operator new[]; send requests to
    TheDynamicMemoryAllocator.
 */
+#ifndef __APPLE__
 void *operator new[](size_t size) {
   ++theLinkTester;
   preMainInitMemoryManager();
@@ -3226,13 +3230,35 @@ void *operator new[](size_t size) {
   return TheDynamicMemoryAllocator->allocateBytes(size,
                                                   "global operator new[]");
 }
+#endif
+
+#ifdef __APPLE__
+static bool MacOS_IsOurBlock(void *p) {
+  if (!p || !TheDynamicMemoryAllocator)
+    return false;
+  size_t headerSize = sizeof(MemoryPoolSingleBlock);
+#ifdef MEMORYPOOL_BOUNDINGWALL
+  headerSize += WALLSIZE;
+#endif
+  MemoryPoolSingleBlock *block =
+      (MemoryPoolSingleBlock *)((char *)p - headerSize);
+#ifdef MEMORYPOOL_DEBUG
+  return (block->m_magicCookie == SINGLEBLOCK_MAGIC_COOKIE);
+#else
+  return true; // If no debug, we don't have a good way to check yet.
+#endif
+}
+#endif
 
 //-----------------------------------------------------------------------------
 /**
         overload for global operator delete; send requests to
    TheDynamicMemoryAllocator.
 */
+#ifndef __APPLE__
 void operator delete(void *p) {
+  if (!p)
+    return;
   ++theLinkTester;
   preMainInitMemoryManager();
   DEBUG_ASSERTCRASH(
@@ -3240,13 +3266,17 @@ void operator delete(void *p) {
       ("must init memory manager before calling global operator delete"));
   TheDynamicMemoryAllocator->freeBytes(p);
 }
+#endif
 
 //-----------------------------------------------------------------------------
 /**
         overload for global operator delete[]; send requests to
    TheDynamicMemoryAllocator.
 */
+#ifndef __APPLE__
 void operator delete[](void *p) {
+  if (!p)
+    return;
   ++theLinkTester;
   preMainInitMemoryManager();
   DEBUG_ASSERTCRASH(
@@ -3254,12 +3284,21 @@ void operator delete[](void *p) {
       ("must init memory manager before calling global operator delete"));
   TheDynamicMemoryAllocator->freeBytes(p);
 }
+#endif
 
 //-----------------------------------------------------------------------------
 /**
         overload for global operator new (MFC debug version); send requests to
    TheDynamicMemoryAllocator.
 */
+#ifdef __APPLE__
+void *operator new(size_t size, const char *, int) { return malloc(size); }
+void operator delete(void *p, const char *, int) { free(p); }
+void *operator new[](size_t size, const char *, int) { return malloc(size); }
+void operator delete[](void *p, const char *, int) { free(p); }
+#endif
+
+#ifndef __APPLE__
 void *operator new(size_t size, const char *fname, int) {
   ++theLinkTester;
   preMainInitMemoryManager();
@@ -3272,13 +3311,17 @@ void *operator new(size_t size, const char *fname, int) {
   return TheDynamicMemoryAllocator->allocateBytesImplementation(size);
 #endif
 }
+#endif
 
 //-----------------------------------------------------------------------------
 /**
         overload for global operator delete (MFC debug version); send requests
    to TheDynamicMemoryAllocator.
 */
+#ifndef __APPLE__
 void operator delete(void *p, const char *, int) {
+  if (!p)
+    return;
   ++theLinkTester;
   preMainInitMemoryManager();
   DEBUG_ASSERTCRASH(
@@ -3286,12 +3329,14 @@ void operator delete(void *p, const char *, int) {
       ("must init memory manager before calling global operator delete"));
   TheDynamicMemoryAllocator->freeBytes(p);
 }
+#endif
 
 //-----------------------------------------------------------------------------
 /**
         overload for global operator new (MFC debug version); send requests to
    TheDynamicMemoryAllocator.
 */
+#ifndef __APPLE__
 void *operator new[](size_t size, const char *fname, int) {
   ++theLinkTester;
   preMainInitMemoryManager();
@@ -3304,13 +3349,17 @@ void *operator new[](size_t size, const char *fname, int) {
   return TheDynamicMemoryAllocator->allocateBytesImplementation(size);
 #endif
 }
+#endif
 
 //-----------------------------------------------------------------------------
 /**
         overload for global operator delete (MFC debug version); send requests
    to TheDynamicMemoryAllocator.
 */
+#ifndef __APPLE__
 void operator delete[](void *p, const char *, int) {
+  if (!p)
+    return;
   ++theLinkTester;
   preMainInitMemoryManager();
   DEBUG_ASSERTCRASH(
@@ -3318,8 +3367,10 @@ void operator delete[](void *p, const char *, int) {
       ("must init memory manager before calling global operator delete"));
   TheDynamicMemoryAllocator->freeBytes(p);
 }
+#endif
 
 //-----------------------------------------------------------------------------
+#ifndef __APPLE__
 #ifdef MEMORYPOOL_OVERRIDE_MALLOC
 void *calloc(size_t a, size_t b) {
   ++theLinkTester;
@@ -3329,8 +3380,10 @@ void *calloc(size_t a, size_t b) {
   return TheDynamicMemoryAllocator->allocateBytes(a * b, "calloc");
 }
 #endif
+#endif
 
 //-----------------------------------------------------------------------------
+#ifndef __APPLE__
 #ifdef MEMORYPOOL_OVERRIDE_MALLOC
 void free(void *p) {
   ++theLinkTester;
@@ -3339,6 +3392,7 @@ void free(void *p) {
                     ("must init memory manager"));
   TheDynamicMemoryAllocator->freeBytes(p);
 }
+#endif
 #endif
 
 //-----------------------------------------------------------------------------
@@ -3411,6 +3465,7 @@ void initMemoryManager() {
   free(linktest);
 #endif
 
+#ifndef __APPLE__
 #ifdef MEMORYPOOL_OVERRIDE_MALLOC
   if (theLinkTester != 10)
 #else
@@ -3419,6 +3474,7 @@ void initMemoryManager() {
   {
     DEBUG_CRASH(("Wrong operator new/delete linked in! Fix this..."));
   }
+#endif
 
   theMainInitFlag = true;
 }
@@ -3434,10 +3490,10 @@ Bool isMemoryManagerOfficiallyInited() { return theMainInitFlag; }
 */
 static void preMainInitMemoryManager() {
   if (TheMemoryPoolFactory == nullptr) {
-
     Int numSubPools;
     const PoolInitRec *pParms;
     userMemoryManagerGetDmaParms(&numSubPools, &pParms);
+
     TheMemoryPoolFactory =
         new (::sysAllocateDoNotZero(sizeof(MemoryPoolFactory)))
             MemoryPoolFactory;    // will throw on failure
@@ -3446,6 +3502,7 @@ static void preMainInitMemoryManager() {
     TheDynamicMemoryAllocator =
         TheMemoryPoolFactory->createDynamicMemoryAllocator(
             numSubPools, pParms); // will throw on failure
+
     userMemoryManagerInitPools();
     thePreMainInitFlag = true;
 

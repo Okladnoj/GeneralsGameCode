@@ -367,11 +367,11 @@ void GameClient::init(void) {
   }
 
   // create the IME manager
-  TheIMEManager = CreateIMEManagerInterface();
-  if (TheIMEManager) {
-    TheIMEManager->init();
-    TheIMEManager->setName("TheIMEManager");
-  }
+  // TheIMEManager = CreateIMEManagerInterface();
+  // if (TheIMEManager) {
+  //   TheIMEManager->init();
+  //   TheIMEManager->setName("TheIMEManager");
+  // }
 
   // create the shell
   TheShell = MSGNEW("GameClientSubsystem") Shell;
@@ -579,6 +579,11 @@ void GameClient::update(void) {
 
   static Bool playSizzle = FALSE;
   if (TheGlobalData) {
+    TheWritableGlobalData->m_playIntro = FALSE;
+    TheWritableGlobalData->m_afterIntro = FALSE;
+  }
+#if 0
+  if (TheGlobalData) {
     if (TheGlobalData->m_playIntro) {
       if (TheDisplay) {
         Bool isMovie = TheDisplay->isMoviePlaying();
@@ -599,10 +604,13 @@ void GameClient::update(void) {
     }
     TheWritableGlobalData->m_breakTheMovie = TRUE;
   }
+#endif
 
-  if (TheShell) {
+  static Bool shellShown = FALSE;
+  if (TheShell && !shellShown) {
     TheShell->showShellMap(TRUE);
     TheShell->showShell();
+    shellShown = TRUE;
   }
   TheWritableGlobalData->m_afterIntro = FALSE;
 
@@ -662,7 +670,7 @@ void GameClient::update(void) {
 
   const Int localPlayerIndex = rts::getObservedOrLocalPlayerIndex_Safe();
 
-  if (!freezeTime) {
+  if (!freezeTime && ThePlayerList) {
     Int numPlayers = ThePlayerList->getPlayerCount();
     Int numNonLocalPlayers = 0;
     Int nonLocalPlayerIndices[MAX_PLAYER_COUNT];
@@ -743,7 +751,7 @@ void GameClient::update(void) {
 #endif
 
   // update all particle systems
-  if (!freezeTime) {
+  if (!freezeTime && TheParticleSystemManager) {
     TheParticleSystemManager->setLocalPlayerIndex(localPlayerIndex);
   }
 

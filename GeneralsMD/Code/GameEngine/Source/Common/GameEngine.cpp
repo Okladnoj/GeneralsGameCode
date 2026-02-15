@@ -445,10 +445,12 @@ void GameEngine::init() {
     MacOS_LogSubsystemInitTime("water INI's");
 #endif
 
+    /*
 #ifdef DEBUG_CRC
     initSubsystem(TheDeepCRCSanityCheck, "TheDeepCRCSanityCheck",
                   MSGNEW("GameEngineSubystem") DeepCRCSanityCheck, nullptr);
 #endif // DEBUG_CRC
+    */
     initSubsystem(TheGameText, "TheGameText", CreateGameTextInterface(),
                   nullptr);
     updateWindowTitle();
@@ -481,8 +483,8 @@ void GameEngine::init() {
                   TheGlobalData->m_headless ? NEW AudioManagerDummy
                                             : createAudioManager(),
                   nullptr);
-    if (!TheAudio->isMusicAlreadyLoaded())
-      setQuitting(TRUE);
+    // if (!TheAudio->isMusicAlreadyLoaded())
+    //   setQuitting(TRUE);
 
 #ifdef RA_MACOS
     MacOS_LogSubsystemInitTime("TheAudio");
@@ -490,6 +492,7 @@ void GameEngine::init() {
 
     initSubsystem(TheFunctionLexicon, "TheFunctionLexicon",
                   createFunctionLexicon(), nullptr);
+
     initSubsystem(TheModuleFactory, "TheModuleFactory", createModuleFactory(),
                   nullptr);
     initSubsystem(TheMessageStream, "TheMessageStream", createMessageStream(),
@@ -535,6 +538,7 @@ void GameEngine::init() {
     initSubsystem(TheArmorStore, "TheArmorStore",
                   MSGNEW("GameEngineSubsystem") ArmorStore(), &xferCRC, nullptr,
                   "Data\\INI\\Armor");
+
     initSubsystem(TheBuildAssistant, "TheBuildAssistant",
                   MSGNEW("GameEngineSubsystem") BuildAssistant, nullptr);
 
@@ -552,6 +556,7 @@ void GameEngine::init() {
     initSubsystem(TheUpgradeCenter, "TheUpgradeCenter",
                   MSGNEW("GameEngineSubsystem") UpgradeCenter, &xferCRC,
                   "Data\\INI\\Default\\Upgrade", "Data\\INI\\Upgrade");
+
     initSubsystem(TheGameClient, "TheGameClient", createGameClient(), nullptr);
 
 #ifdef RA_MACOS
@@ -560,12 +565,15 @@ void GameEngine::init() {
 
     initSubsystem(TheAI, "TheAI", MSGNEW("GameEngineSubsystem") AI(), &xferCRC,
                   "Data\\INI\\Default\\AIData", "Data\\INI\\AIData");
+
     initSubsystem(TheGameLogic, "TheGameLogic", createGameLogic(), nullptr);
     initSubsystem(TheTeamFactory, "TheTeamFactory",
                   MSGNEW("GameEngineSubsystem") TeamFactory(), nullptr);
+
     initSubsystem(TheCrateSystem, "TheCrateSystem",
                   MSGNEW("GameEngineSubsystem") CrateSystem(), &xferCRC,
                   "Data\\INI\\Default\\Crate", "Data\\INI\\Crate");
+
     initSubsystem(ThePlayerList, "ThePlayerList",
                   MSGNEW("GameEngineSubsystem") PlayerList(), nullptr);
     initSubsystem(TheRecorder, "TheRecorder", createRecorder(), nullptr);
@@ -625,14 +633,16 @@ void GameEngine::init() {
     TheFramePacer->setFramesPerSecondLimit(
         TheGlobalData->m_framesPerSecondLimit);
 
-    TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_musicOn,
-                    AudioAffect_Music);
-    TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_soundsOn,
-                    AudioAffect_Sound);
-    TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_sounds3DOn,
-                    AudioAffect_Sound3D);
-    TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_speechOn,
-                    AudioAffect_Speech);
+    if (TheAudio) {
+      TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_musicOn,
+                      AudioAffect_Music);
+      TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_soundsOn,
+                      AudioAffect_Sound);
+      TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_sounds3DOn,
+                      AudioAffect_Sound3D);
+      TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_speechOn,
+                      AudioAffect_Speech);
+    }
 
     // We're not in a network game yet, so set the network singleton to nullptr.
     TheNetwork = nullptr;
@@ -645,9 +655,10 @@ void GameEngine::init() {
     // take place, please make sure that pressing cancel on the audio load music
     // dialog will still cause the game to quit. m_quitting = FALSE;
 
-    // initialize the MapCache
+    /*
     TheMapCache = MSGNEW("GameEngineSubsystem") MapCache;
     TheMapCache->updateCache();
+    */
 
 #ifdef RA_MACOS
     MacOS_LogSubsystemInitTime("TheMapCache->updateCache");

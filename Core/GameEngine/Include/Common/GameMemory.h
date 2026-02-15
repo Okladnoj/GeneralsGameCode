@@ -717,6 +717,11 @@ public:                                                                        \
   enum ARGCLASS##MagicEnum{ARGCLASS##_GLUE_NOT_IMPLEMENTED = 0};               \
                                                                                \
 public:                                                                        \
+  inline void *operator new(size_t s, const char *msg, int line) {             \
+    return ARGCLASS::getClassMemoryPool()->allocateBlockImplementation(msg);   \
+  }                                                                            \
+                                                                               \
+public:                                                                        \
   inline void *operator new(                                                   \
       size_t s, ARGCLASS##MagicEnum e DECLARE_LITERALSTRING_ARG2) {            \
     DEBUG_ASSERTCRASH(                                                         \
@@ -969,11 +974,13 @@ extern void userMemoryAdjustPoolSize(const char *poolName,
 
 #define _OPERATOR_NEW_DEFINED_
 
+#ifndef __APPLE__
 extern void *__cdecl operator new(size_t size);
 extern void __cdecl operator delete(void *p);
 
 extern void *__cdecl operator new[](size_t size);
 extern void __cdecl operator delete[](void *p);
+#endif
 
 // additional overloads to account for VC/MFC funky versions
 extern void *__cdecl operator new(size_t nSize, const char *, int);
@@ -981,6 +988,7 @@ extern void __cdecl operator delete(void *, const char *, int);
 
 extern void *__cdecl operator new[](size_t nSize, const char *, int);
 extern void __cdecl operator delete[](void *, const char *, int);
+#endif
 
 #if defined(_MSC_VER) && _MSC_VER < 1300
 // additional overloads for 'placement new'
@@ -999,8 +1007,6 @@ inline void __cdecl operator delete[](void *, void *p) {}
 #else
 #define MSGNEW(MSG) new
 #define NEW new
-#endif
-
 #endif
 
 class STLSpecialAlloc {

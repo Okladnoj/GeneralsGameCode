@@ -582,6 +582,7 @@ void ModuleFactory::init(void) {
           {"WeaponMuzzleFlash", INI::parseNone, nullptr, 0},                   \
           {"OkToChangeModelColor", INI::parseNone, nullptr, 0},                \
           {"ParticlesAttachedToAnimatedBones", INI::parseNone, nullptr, 0},    \
+          {nullptr, INI::parseNone, nullptr, 0},                               \
           {nullptr, nullptr, nullptr, 0}};                                     \
       p.add(stubFields_##cls);                                                 \
     }                                                                          \

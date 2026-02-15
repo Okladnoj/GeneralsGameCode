@@ -1472,9 +1472,14 @@ GlobalData::GlobalData() {
   if (::SHGetSpecialFolderPath(nullptr, temp, CSIDL_PERSONAL, true)) {
     AsciiString myDocumentsDirectory = temp;
 
+    char sep = '\\';
+#ifdef __APPLE__
+    sep = '/';
+#endif
+
     if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) !=
-        '\\')
-      myDocumentsDirectory.concat('\\');
+        sep)
+      myDocumentsDirectory.concat(sep);
 
     AsciiString leafName;
 
@@ -1488,8 +1493,8 @@ GlobalData::GlobalData() {
 
     myDocumentsDirectory.concat(leafName);
     if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) !=
-        '\\')
-      myDocumentsDirectory.concat('\\');
+        sep)
+      myDocumentsDirectory.concat(sep);
 
     CreateDirectory(myDocumentsDirectory.str(), nullptr);
     m_userDataDir = myDocumentsDirectory;
@@ -1699,7 +1704,8 @@ UnsignedInt GlobalData::generateExeCRC() {
   // TheSuperHackers @tweak SkyAero/xezon 27/05/2025
   // Simulate the EXE's CRC value to force Network and Replay compatibility with
   // another build.
-#if (defined(_MSC_VER) && _MSC_VER < 1300) && RETAIL_COMPATIBLE_CRC
+#if (defined(_MSC_VER) && _MSC_VER < 1300) && RETAIL_COMPATIBLE_CRC ||         \
+    defined(__APPLE__)
 
 #define GENERALSMD_104_CD_EXE_CRC 0x3b6fb2cfu
 #define GENERALSMD_104_STEAM_EXE_CRC 0xf6a4221bu

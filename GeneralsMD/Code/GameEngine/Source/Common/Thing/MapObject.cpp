@@ -1,33 +1,36 @@
 #include "Common/MapObject.h"
 #include "Common/ThingTemplate.h"
 #include "PreRTS.h"
+#include <stdio.h>
 
 MapObject *MapObject::TheMapObjectListPtr = nullptr;
 Dict MapObject::TheWorldDict;
 
 MapObject::MapObject(Coord3D loc, AsciiString name, Real angle, Int flags,
-                     const Dict *props, const ThingTemplate *thingTemplate) {
-  m_location = loc;
-  m_objectName = name;
-  m_angle = angle;
-  m_flags = flags;
-  if (props)
-    m_properties = *props;
-  m_thingTemplate = thingTemplate;
-  m_nextMapObject = TheMapObjectListPtr;
+                     const Dict *props, const ThingTemplate *thingTemplate)
+    : m_location(loc), m_objectName(name), m_thingTemplate(thingTemplate),
+      m_angle(angle), m_nextMapObject(TheMapObjectListPtr), m_flags(flags),
+      m_properties(props ? *props : Dict()), m_color(0), m_renderObj(nullptr),
+      m_shadowObj(nullptr), m_runtimeFlags(0) {
+
   TheMapObjectListPtr = this;
-  m_color = 0;
-  m_renderObj = nullptr;
-  m_shadowObj = nullptr;
-  m_runtimeFlags = 0;
   for (int i = 0; i < BRIDGE_MAX_TOWERS; ++i)
     m_bridgeTowers[i] = nullptr;
 }
 
 MapObject::~MapObject(void) {
-  // Implementation tricky as it deletes the list if head is deleted?
-  // Based on header comment: "Note that deleting the head of a list deletes all
-  // linked objects in the list."
+  if (TheMapObjectListPtr == this) {
+    TheMapObjectListPtr = m_nextMapObject;
+  } else {
+    MapObject *prev = TheMapObjectListPtr;
+    while (prev && prev->m_nextMapObject != this) {
+      prev = prev->m_nextMapObject;
+    }
+    if (prev) {
+      prev->m_nextMapObject = m_nextMapObject;
+    }
+  }
+  m_nextMapObject = nullptr;
 }
 
 const ThingTemplate *MapObject::getThingTemplate(void) const {
@@ -41,8 +44,8 @@ void MapObject::setThingTemplate(const ThingTemplate *thing) {
 void MapObject::setName(AsciiString name) { m_objectName = name; }
 
 MapObject *MapObject::duplicate(void) {
-  return new MapObject(m_location, m_objectName, m_angle, m_flags,
-                       &m_properties, m_thingTemplate);
+  return newInstance(MapObject)(m_location, m_objectName, m_angle, m_flags,
+                                &m_properties, m_thingTemplate);
 }
 
 void MapObject::setRenderObj(RenderObjClass *pObj) { m_renderObj = pObj; }
