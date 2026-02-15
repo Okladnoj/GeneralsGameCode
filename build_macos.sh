@@ -52,7 +52,7 @@ INCLUDES="-ICore/GameEngine/Include \
 -IDependencies/miles \
 -IDependencies/miles/mss \
 -ICore/Libraries/Source/Compression \
--Iresources/gitinfo \
+-Igitinfo \
 -ICore/Libraries/Source \
 -IPlatform/MacOS/Source/Main \
 -IGeneralsMD/Code/Main"

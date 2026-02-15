@@ -171,8 +171,8 @@ ArchiveFile *StdBIGFileSystem::openArchiveFile(const Char *filename) {
     debugpath = path;
     debugpath.concat(fileInfo->m_filename);
     //		DEBUG_LOG(("StdBIGFileSystem::openArchiveFile - adding file %s
-    //to archive file %s, file number %d", debugpath.str(),
-    //fileInfo->m_archiveFilename.str(), i));
+    // to archive file %s, file number %d", debugpath.str(),
+    // fileInfo->m_archiveFilename.str(), i));
 
     archiveFile->addFile(path, fileInfo);
   }

@@ -262,6 +262,8 @@ extern const Char *g_strFile;
 extern const Char *g_csfFile;
 
 void GameTextManager::init(void) {
+  printf("GameTextManager::init: starting\n");
+  fflush(stdout);
   AsciiString csfFile = g_csfFile;
   // csfFile.format(g_csfFile, GetRegistryLanguage().str());
   Int format;
@@ -1077,6 +1079,13 @@ quit:
 //============================================================================
 
 UnicodeString GameTextManager::fetch(const Char *label, Bool *exists) {
+  // printf("GameTextManager::fetch: %s\n", label ? label : "null");
+  // fflush(stdout);
+  if (label == nullptr) {
+    if (exists)
+      *exists = FALSE;
+    return UnicodeString(); // Return an empty string for null labels
+  }
   DEBUG_ASSERTCRASH(m_initialized,
                     ("String Manager has not been m_initialized"));
 

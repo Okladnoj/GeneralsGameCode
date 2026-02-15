@@ -268,7 +268,10 @@ void StdLocalFileSystem::getFileListInDirectory(
       std::string filenameStr = iter->path().filename().string();
       if (iter->is_directory() && (strcmp(filenameStr.c_str(), ".") != 0 &&
                                    strcmp(filenameStr.c_str(), "..") != 0)) {
-        AsciiString tempsearchstr(filenameStr.c_str());
+        AsciiString tempsearchstr = currentDirectory;
+        if (!tempsearchstr.isEmpty())
+          tempsearchstr.concat("/");
+        tempsearchstr.concat(filenameStr.c_str());
 
         // recursively add files in subdirectories if required.
         getFileListInDirectory(tempsearchstr, originalDirectory, searchName,
