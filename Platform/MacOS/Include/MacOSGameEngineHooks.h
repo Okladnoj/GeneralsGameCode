@@ -17,4 +17,9 @@ void MacOS_InitPerformanceTimers();
  */
 void MacOS_LogSubsystemInitTime(const char *subsystemName);
 
+/**
+ * Hook to pump macOS events during long-running tasks.
+ */
+extern "C" void MacOS_PumpEvents();
+
 #endif // __MACOS_GAMEENGINE_HOOKS_H__

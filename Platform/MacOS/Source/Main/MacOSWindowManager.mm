@@ -6,19 +6,26 @@
     : NSObject <NSWindowDelegate, NSApplicationDelegate>
 @end
 
+static BOOL g_ShouldQuit = NO;
+
 @implementation MacOSWindowDelegate
 - (void)windowWillClose:(NSNotification *)notification {
+  g_ShouldQuit = YES;
   [NSApp terminate:nil];
 }
 @end
-
-static BOOL g_ShouldQuit = NO;
+static id g_WindowDelegate = nil;
+static id g_AppDelegate = nil;
 
 #import "Common/AsciiString.h"
+#import "Common/GlobalData.h"
 #import "Common/UnicodeString.h"
 #import "Common/version.h"
 
 extern int GameMain();
+extern "C" void MacOS_InitRenderer(void *windowHandle);
+
+#include "Common/CommandLine.h"
 
 int MacOS_Main(int argc, char *argv[]) {
   @autoreleasepool {
@@ -33,13 +40,40 @@ int MacOS_Main(int argc, char *argv[]) {
     printf("MacOS_Main: Setting Activation Policy...\n");
     fflush(stdout);
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-    [NSApp finishLaunching];
 
     printf("MacOS_Main: Entering GameMain()...\n");
     fflush(stdout);
 
+    // Give Cocoa time to settle
+    [NSThread sleepForTimeInterval:0.1];
+
     // Force bring to front
     [NSApp activateIgnoringOtherApps:YES];
+
+    // Finish launching to ensure NSApp is ready
+    [NSApp finishLaunching];
+
+    // Parse command line and init global data
+    CommandLine::parseCommandLineForStartup();
+
+    // Create window
+    int w = 1024;
+    int h = 768;
+    if (TheGlobalData) {
+      w = TheGlobalData->m_xResolution;
+      h = TheGlobalData->m_yResolution;
+    }
+    void *window =
+        MacOS_CreateWindow(w, h, "Command & Conquer Generals (macOS)");
+
+    // Pump events for a bit to ensure window shows up
+    for (int i = 0; i < 30; ++i) {
+      MacOS_PumpEvents();
+      [NSThread sleepForTimeInterval:0.01];
+    }
+
+    // Initialize renderer
+    MacOS_InitRenderer(window);
 
     return GameMain();
   }
@@ -58,13 +92,25 @@ void *MacOS_CreateWindow(int width, int height, const char *title) {
                     defer:NO];
 
   [window setTitle:[NSString stringWithUTF8String:title]];
+  printf("MacOS_CreateWindow: Window created at %p, title: %s, thread=%p\n",
+         (__bridge void *)window, title,
+         (__bridge void *)[NSThread currentThread]);
+  [window setBackgroundColor:[NSColor redColor]];
+  fflush(stdout);
   [window makeKeyAndOrderFront:nil];
+  [window orderFrontRegardless];
   [window center];
 
-  MacOSWindowDelegate *delegate = [[MacOSWindowDelegate alloc] init];
-  [window setDelegate:delegate];
+  g_WindowDelegate = [[MacOSWindowDelegate alloc] init];
+  [window setDelegate:g_WindowDelegate];
 
   [NSApp activateIgnoringOtherApps:YES];
+  [window makeKeyWindow];
+  [window makeMainWindow];
+
+  printf("MacOS_CreateWindow: Window visibility: %s\n",
+         [window isVisible] ? "YES" : "NO");
+  fflush(stdout);
 
   return (__bridge void *)window;
 }

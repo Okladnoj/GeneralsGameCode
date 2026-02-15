@@ -23,80 +23,82 @@
 #include "ww3dformat.h"
 
 // Metal Shaders (Extremely simplified to debug hang)
-static NSString *const shaderSource = @"\n\
+static NSString *const shaderSource =
+    @"\n\
 #include <metal_stdlib>\n\
 using "
-                                      @"namespace metal;\n\
+    @"namespace metal;\n\
 \n\
 struct "
-                                      @"VertexIn {\n\
+    @"VertexIn {\n\
     float3 position "
-                                      @"[[attribute(0)]];\n\
+    @"[[attribute(0)]];\n\
     float4 "
-                                      @"diffuse [[attribute(1)]];\n\
+    @"diffuse [[attribute(1)]];\n\
     "
-                                      @"float2 texCoord "
-                                      @"[[attribute(2)]];\n\
+    @"float2 texCoord "
+    @"[[attribute(2)]];\n\
 };\n\
 \n\
 struct "
-                                      @"VertexOut {\n\
+    @"VertexOut {\n\
     float4 position "
-                                      @"[[position]];\n\
+    @"[[position]];\n\
     float4 color;\n\
  "
-                                      @"   float2 "
-                                      @"texCoord;\n\
+    @"   float2 "
+    @"texCoord;\n\
 };\n\
 \n\
 struct Uniforms "
-                                      @"{\n\
+    @"{\n\
     float4x4 world;\n\
     "
-                                      @"float4x4 view;\n\
+    @"float4x4 view;\n\
     float4x4 "
-                                      @"projection;\n\
+    @"projection;\n\
     float2 "
-                                      @"screenSize;\n\
+    @"screenSize;\n\
     int "
-                                      @"useProjection;\n\
+    @"useProjection;\n\
     uint "
-                                      @"shaderSettings;\n\
+    @"shaderSettings;\n\
 };\n\
 \n\
 vertex "
-                                      @"VertexOut vertex_main(VertexIn in "
-                                      @"[[stage_in]],\n\
+    @"VertexOut vertex_main(VertexIn in "
+    @"[[stage_in]],\n\
                       "
-                                      @"     constant Uniforms &u "
-                                      @"[[buffer(1)]]) {\n\
+    @"     constant Uniforms &u "
+    @"[[buffer(1)]]) {\n\
     VertexOut "
-                                      @"out;\n\
+    @"out;\n\
     // Force 2D for "
-                                      @"debugging\n\
+    @"debugging\n\
     out.position.x = "
-                                      @"(in.position.x / u.screenSize.x) * 2.0 "
-                                      @"- 1.0;\n\
+    @"(in.position.x / u.screenSize.x) * 2.0 "
+    @"- 1.0;\n\
     out.position.y = 1.0 - "
-                                      @"(in.position.y / u.screenSize.y) * "
-                                      @"2.0;\n\
+    @"(in.position.y / u.screenSize.y) * "
+    @"2.0;\n\
     out.position.z = "
-                                      @"in.position.z;\n\
+    @"in.position.z;\n\
     out.position.w = "
-                                      @"1.0;\n\
+    @"1.0;\n\
     out.color = "
-                                      @"in.diffuse;\n\
+    @"in.diffuse;\n\
     out.texCoord = "
-                                      @"in.texCoord;\n\
+    @"in.texCoord;\n\
     return "
-                                      @"out;\n\
+    @"out;\n\
 }\n\
 \n\
-fragment float4 "
-                                      @"fragment_main(VertexOut in "
-                                      @"[[stage_in]]) {\n\
+fragment float4 fragment_main(VertexOut in "
+    @"[[stage_in]], texture2d<float> tex [[texture(0)]]) {\n\
+    constexpr "
+    @"sampler s(address::clamp_to_edge, filter::linear);\n\
     return "
-                                      @"in.color;\n\
+    @"tex.sample(s, in.texCoord) * in.color;\n\
 }\n\
 ";
 
@@ -189,7 +191,8 @@ MacOSRenderDevice::MacOSRenderDevice()
     : m_Device(nil), m_CommandQueue(nil), m_CurrentEncoder(nil),
       m_CurrentCommandBuffer(nil), m_MetalLayer(nil), m_OpaquePS(nil),
       m_AlphaPS(nil), m_LinearSampler(nil), m_PointSampler(nil),
-      m_Is2DMode(false), m_CurrentColor(0), m_CurrentDrawable(nil) {
+      m_Is2DMode(false), m_CurrentColor(0), m_CurrentDrawable(nil),
+      m_WhiteTexture(nil) {
   m_ScreenSize[0] = 800;
   m_ScreenSize[1] = 600;
   for (int i = 0; i < 8; ++i)
@@ -247,6 +250,19 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
   id<MTLLibrary> library = [m_Device newLibraryWithSource:shaderSource
                                                   options:nil
                                                     error:&error];
+
+  // Initialize white texture
+  MTLTextureDescriptor *td = [MTLTextureDescriptor
+      texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                   width:1
+                                  height:1
+                               mipmapped:NO];
+  m_WhiteTexture = [m_Device newTextureWithDescriptor:td];
+  unsigned int white = 0xFFFFFFFF;
+  [m_WhiteTexture replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                    mipmapLevel:0
+                      withBytes:&white
+                    bytesPerRow:4];
   if (!library) {
     printf("Failed to compile shaders: %s\n",
            [[error localizedDescription] UTF8String]);
@@ -439,11 +455,9 @@ void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int vertexCount,
   Uniforms uniforms;
   memset(&uniforms, 0, sizeof(Uniforms));
   // Identity matrices
-  uniforms.world[0] = uniforms.view[5] = uniforms.projection[10] =
-      uniforms.world[15] = uniforms.view[15] = uniforms.projection[15] = 1.0f;
-  uniforms.world[5] = uniforms.world[10] = uniforms.view[0] =
-      uniforms.view[10] = uniforms.projection[0] = uniforms.projection[5] =
-          1.0f;
+  uniforms.world = matrix_identity_float4x4;
+  uniforms.view = matrix_identity_float4x4;
+  uniforms.projection = matrix_identity_float4x4;
 
   uniforms.screenSize[0] = m_ScreenSize[0];
   uniforms.screenSize[1] = m_ScreenSize[1];
@@ -498,15 +512,19 @@ void MacOSRenderDevice::DrawFillRect(float x, float y, float w, float h,
 
   [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
 
+  if (m_Textures[0]) {
+    MacOSTexture *mtlTex = static_cast<MacOSTexture *>(m_Textures[0]);
+    [m_CurrentEncoder setFragmentTexture:mtlTex->GetMTLTexture() atIndex:0];
+  } else if (m_WhiteTexture) {
+    [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
+  }
+
   Uniforms uniforms;
   memset(&uniforms, 0, sizeof(Uniforms));
   // Identity matrices
-  uniforms.world[0] = uniforms.world[5] = uniforms.world[10] =
-      uniforms.world[15] = 1.0f;
-  uniforms.view[0] = uniforms.view[5] = uniforms.view[10] = uniforms.view[15] =
-      1.0f;
-  uniforms.projection[0] = uniforms.projection[5] = uniforms.projection[10] =
-      uniforms.projection[15] = 1.0f;
+  uniforms.world = matrix_identity_float4x4;
+  uniforms.view = matrix_identity_float4x4;
+  uniforms.projection = matrix_identity_float4x4;
 
   uniforms.screenSize[0] = m_ScreenSize[0];
   uniforms.screenSize[1] = m_ScreenSize[1];
@@ -522,6 +540,251 @@ void MacOSRenderDevice::DrawFillRect(float x, float y, float w, float h,
                                 indexType:MTLIndexTypeUInt16
                               indexBuffer:s_indexBuffer
                         indexBufferOffset:0];
+}
+
+ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
+  if (!filename || !filename[0])
+    return nullptr;
+
+  printf("MacOSRenderer: Requesting texture: %s\n", filename);
+  fflush(stdout);
+
+  if (m_TextureCache.count(filename))
+    return m_TextureCache[filename];
+
+  printf("MacOSRenderer: Requesting texture: %s\n", filename);
+  fflush(stdout);
+
+  std::vector<unsigned char> dataBuffer;
+  char nameWithExt[512];
+  strncpy(nameWithExt, filename, sizeof(nameWithExt));
+  if (!strchr(filename, '.')) {
+    strncat(nameWithExt, ".tga", sizeof(nameWithExt) - strlen(nameWithExt) - 1);
+  }
+
+  const char *prefixes[] = {
+      "",
+      "Data\\",
+      "Data\\English\\Art\\Textures\\",
+      "Data\\Window\\",
+      "Art\\Textures\\",
+      "Window\\",
+      "Data/English/Art/Textures/",
+  };
+
+  bool found = false;
+  for (int i = 0; i < 7; i++) {
+    char fullPath[1024];
+    strncpy(fullPath, prefixes[i], sizeof(fullPath));
+    strncat(fullPath, nameWithExt, sizeof(fullPath) - strlen(fullPath) - 1);
+
+    // Try disk first
+    FILE *f = fopen(fullPath, "rb");
+    if (f) {
+      fseek(f, 0, SEEK_END);
+      size_t fileSize = ftell(f);
+      fseek(f, 0, SEEK_SET);
+      dataBuffer.resize(fileSize);
+      fread(dataBuffer.data(), 1, fileSize, f);
+      fclose(f);
+      found = true;
+    } else if (TheFileSystem) {
+      char archivePath[1024];
+      strcpy(archivePath, fullPath);
+      for (char *p = archivePath; *p; p++)
+        if (*p == '/')
+          *p = '\\';
+
+      File *gameFile = TheFileSystem->openFile(archivePath);
+      if (gameFile) {
+        size_t fileSize = gameFile->size();
+        dataBuffer.resize(fileSize);
+        gameFile->read(dataBuffer.data(), fileSize);
+        gameFile->close();
+        printf("MacOSRenderer: Found %s in Archive! Size: %d\n", archivePath,
+               (int)fileSize);
+        fflush(stdout);
+        found = true;
+      }
+    }
+    if (found)
+      break;
+  }
+
+  if (dataBuffer.empty()) {
+    return nullptr;
+  }
+
+  TGAHeader *header = (TGAHeader *)dataBuffer.data();
+  if (dataBuffer.size() < sizeof(TGAHeader)) {
+    return nullptr;
+  }
+
+  int width = header->Width;
+  int height = header->Height;
+  int bpp = header->PixelDepth;
+  int pixelDataOffset = sizeof(TGAHeader) + header->IDLength;
+
+  if (header->ImageType != TGA_TRUECOLOR &&
+      header->ImageType != TGA_TRUECOLOR_ENCODED) {
+    printf("MacOSRenderer: Unsupported TGA type %d for %s\n",
+           (int)header->ImageType, filename);
+    return nullptr;
+  }
+
+  std::vector<unsigned char> rgba;
+  rgba.resize(width * height * 4);
+
+  // Determine if we need to flip vertically (TGA bit 5: 0 = bottom-up, 1 =
+  // top-down)
+  bool flipY = !(header->ImageDescriptor & 0x20);
+
+  if (header->ImageType == TGA_TRUECOLOR) {
+    unsigned char *src = dataBuffer.data() + pixelDataOffset;
+    int bytesPerPixel = bpp / 8;
+    for (int y = 0; y < height; y++) {
+      int srcY = flipY ? (height - 1 - y) : y;
+      unsigned char *srcRow = src + (srcY * width * bytesPerPixel);
+      unsigned char *dstRow = rgba.data() + (y * width * 4);
+      for (int x = 0; x < width; x++) {
+        if (bpp == 32) {
+          dstRow[x * 4 + 0] = srcRow[x * 4 + 0]; // B
+          dstRow[x * 4 + 1] = srcRow[x * 4 + 1]; // G
+          dstRow[x * 4 + 2] = srcRow[x * 4 + 2]; // R
+          dstRow[x * 4 + 3] = srcRow[x * 4 + 3]; // A
+        } else {
+          dstRow[x * 4 + 0] = srcRow[x * 3 + 0]; // B
+          dstRow[x * 4 + 1] = srcRow[x * 3 + 1]; // G
+          dstRow[x * 4 + 2] = srcRow[x * 3 + 2]; // R
+          dstRow[x * 4 + 3] = 255;
+        }
+      }
+    }
+  } else if (header->ImageType == TGA_TRUECOLOR_ENCODED) {
+    std::vector<unsigned char> tempBgra;
+    tempBgra.resize(width * height * 4);
+    unsigned char *src = dataBuffer.data() + pixelDataOffset;
+    unsigned char *dst = tempBgra.data();
+    int pixelCount = width * height;
+    int currentPixel = 0;
+    int bytesPerPixel = bpp / 8;
+    while (currentPixel < pixelCount &&
+           (src - dataBuffer.data()) < (int)dataBuffer.size()) {
+      unsigned char chunkHeader = *src++;
+      if (chunkHeader < 128) {
+        int count = chunkHeader + 1;
+        for (int i = 0; i < count; i++) {
+          if (bpp == 32) {
+            memcpy(dst, src, 4);
+          } else {
+            dst[0] = src[0];
+            dst[1] = src[1];
+            dst[2] = src[2];
+            dst[3] = 255;
+          }
+          src += bytesPerPixel;
+          dst += 4;
+          currentPixel++;
+        }
+      } else {
+        int count = chunkHeader - 127;
+        unsigned char pixel[4];
+        if (bpp == 32) {
+          memcpy(pixel, src, 4);
+        } else {
+          pixel[0] = src[0];
+          pixel[1] = src[1];
+          pixel[2] = src[2];
+          pixel[3] = 255;
+        }
+        src += bytesPerPixel;
+        for (int i = 0; i < count; i++) {
+          memcpy(dst, pixel, 4);
+          dst += 4;
+          currentPixel++;
+        }
+      }
+    }
+    for (int y = 0; y < height; y++) {
+      int srcY = flipY ? (height - 1 - y) : y;
+      memcpy(rgba.data() + (y * width * 4),
+             tempBgra.data() + (srcY * width * 4), width * 4);
+    }
+  }
+
+  ITexture *tex = CreateTexture(width, height, 1, 0, WW3D_FORMAT_A8R8G8B8);
+  if (tex) {
+    MacOSTexture *mtlTex = static_cast<MacOSTexture *>(tex);
+    MTLRegion region = MTLRegionMake2D(0, 0, width, height);
+    [mtlTex->GetMTLTexture() replaceRegion:region
+                               mipmapLevel:0
+                                 withBytes:rgba.data()
+                               bytesPerRow:width * 4];
+    m_TextureCache[filename] = tex;
+  }
+  return tex;
+}
+
+void MacOSRenderDevice::GetDisplaySize(int &width, int &height) {
+  width = (int)m_ScreenSize[0];
+  height = (int)m_ScreenSize[1];
+}
+
+void MacOSRenderDevice::DrawTexturedRect(float x, float y, float w, float h,
+                                         float u1, float v1, float u2, float v2,
+                                         unsigned int color) {
+  if (!m_CurrentEncoder)
+    return;
+
+  Vertex vertices[4];
+  vertices[0] = {x, y, 0.0f, color, u1, v1};
+  vertices[1] = {x + w, y, 0.0f, color, u2, v1};
+  vertices[2] = {x, y + h, 0.0f, color, u1, v2};
+  vertices[3] = {x + w, y + h, 0.0f, color, u2, v2};
+
+  static unsigned short indices[6] = {0, 1, 2, 1, 3, 2};
+  static id<MTLBuffer> s_indexBuffer = nil;
+  if (!s_indexBuffer) {
+    s_indexBuffer = [m_Device newBufferWithBytes:indices
+                                          length:sizeof(indices)
+                                         options:MTLResourceStorageModeShared];
+  }
+
+  [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
+
+  if (m_Textures[0]) {
+    MacOSTexture *mtlTex = static_cast<MacOSTexture *>(m_Textures[0]);
+    [m_CurrentEncoder setFragmentTexture:mtlTex->GetMTLTexture() atIndex:0];
+  } else if (m_WhiteTexture) {
+    [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
+  }
+
+  Uniforms uniforms;
+  memset(&uniforms, 0, sizeof(Uniforms));
+  uniforms.world = matrix_identity_float4x4;
+  uniforms.view = matrix_identity_float4x4;
+  uniforms.projection = matrix_identity_float4x4;
+  uniforms.screenSize[0] = m_ScreenSize[0];
+  uniforms.screenSize[1] = m_ScreenSize[1];
+  uniforms.useProjection = 0;
+
+  [m_CurrentEncoder setVertexBytes:vertices
+                            length:sizeof(Vertex) * 4
+                           atIndex:0];
+  [m_CurrentEncoder setVertexBytes:&uniforms length:sizeof(Uniforms) atIndex:1];
+
+  [m_CurrentEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                               indexCount:6
+                                indexType:MTLIndexTypeUInt16
+                              indexBuffer:s_indexBuffer
+                        indexBufferOffset:0];
+}
+
+void MacOSRenderDevice::DrawLine(float x1, float y1, float x2, float y2,
+                                 float width, unsigned int color) {
+  if (!m_CurrentEncoder)
+    return;
+  // Simple line drawing stub
 }
 
 static MacOSRenderDevice g_MacOSRenderDevice;

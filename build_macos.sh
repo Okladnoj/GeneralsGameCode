@@ -59,7 +59,7 @@ INCLUDES="-ICore/GameEngine/Include \
 
 # Compilation flags
 # Using -std=c++20 and -fobjc-arc for Objective-C++ files
-COMMON_FLAGS="-std=c++20 -O0 -g -D_DEBUG -DRA_MACOS -DRTS_ZEROHOUR -D_LIBCPP_HAS_NO_ASAN -Wno-deprecated-declarations -Wno-missing-braces -Wno-c++20-designator -Wno-invalid-offsetof"
+COMMON_FLAGS="-std=c++20 -O0 -g -D_DEBUG -DRA_MACOS -DRTS_ZEROHOUR -D_LIBCPP_HAS_NO_ASAN -DRTS_DEBUG -DALLOW_DEBUG_UTILS -DDEBUG_CRASHING -Wno-deprecated-declarations -Wno-missing-braces -Wno-c++20-designator -Wno-invalid-offsetof"
 OBJC_FLAGS="-fobjc-arc -fobjc-exceptions"
 
 # 1. Compile source files

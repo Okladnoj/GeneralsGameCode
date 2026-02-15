@@ -31,4 +31,35 @@ public:
   virtual GameWinDrawFunc getStaticTextDrawFunc(void) override;
   virtual GameWinDrawFunc getTextEntryImageDrawFunc(void) override;
   virtual GameWinDrawFunc getTextEntryDrawFunc(void) override;
+  virtual void winDrawImage(const Image *image, Int startX, Int startY,
+                            Int endX, Int endY,
+                            Color color = 0xFFFFFFFF) override;
+  virtual void winFillRect(Color color, Real width, Int startX, Int startY,
+                           Int endX, Int endY) override;
+  virtual void winOpenRect(Color color, Real width, Int startX, Int startY,
+                           Int endX, Int endY) override;
+  virtual void winDrawLine(Color color, Real width, Int startX, Int startY,
+                           Int endX, Int endY) override;
+  virtual void winFormatText(GameFont *font, UnicodeString text, Color color,
+                             Int x, Int y, Int width, Int height) override;
+  virtual void winGetTextSize(GameFont *font, UnicodeString text, Int *width,
+                              Int *height, Int maxWidth) override;
+
+  virtual void assignDefaultGadgetLook(GameWindow *gadget,
+                                       GameFont *defaultFont,
+                                       Bool assignVisual) override;
 };
+
+// Gadget draw functions
+void MacOSGadgetPushButtonDraw(GameWindow *window, WinInstanceData *instData);
+void MacOSGadgetPushButtonImageDraw(GameWindow *window,
+                                    WinInstanceData *instData);
+void MacOSGadgetStaticTextDraw(GameWindow *window, WinInstanceData *instData);
+void MacOSGadgetCheckBoxDraw(GameWindow *window, WinInstanceData *instData);
+void MacOSGadgetRadioButtonDraw(GameWindow *window, WinInstanceData *instData);
+void MacOSGadgetTabControlDraw(GameWindow *window, WinInstanceData *instData);
+void MacOSGadgetListBoxDraw(GameWindow *window, WinInstanceData *instData);
+void MacOSGadgetComboBoxDraw(GameWindow *window, WinInstanceData *instData);
+void MacOSGadgetSliderDraw(GameWindow *window, WinInstanceData *instData);
+void MacOSGadgetProgressBarDraw(GameWindow *window, WinInstanceData *instData);
+void MacOSGadgetTextEntryDraw(GameWindow *window, WinInstanceData *instData);

@@ -105,6 +105,8 @@ public:
                                   unsigned int mips, unsigned int usage,
                                   WW3DFormat format) = 0;
 
+  virtual ITexture *CreateTextureFromFile(const char *filename) = 0;
+
   virtual void SetTexture(unsigned int stage, ITexture *pTexture) = 0;
   virtual void SetRenderState(RenderState state, unsigned int value) = 0;
 
@@ -121,6 +123,13 @@ public:
                              unsigned int color) = 0;
   virtual void DrawFillRect(float x, float y, float w, float h,
                             unsigned int color) = 0;
+  virtual void DrawTexturedRect(float x, float y, float w, float h, float u1,
+                                float v1, float u2, float v2,
+                                unsigned int color) = 0;
+  virtual void DrawLine(float x1, float y1, float x2, float y2, float width,
+                        unsigned int color) = 0;
+
+  virtual void GetDisplaySize(int &w, int &h) = 0;
 };
 
 extern "C" IRenderDevice *GetRenderDevice();

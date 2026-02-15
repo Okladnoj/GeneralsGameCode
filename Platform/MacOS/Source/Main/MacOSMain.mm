@@ -44,6 +44,9 @@
 #include "StdBIGFileSystem.h"
 #include "StdLocalFileSystem.h"
 
+// Engine globals
+const char *gAppPrefix = "";
+
 #if defined(__APPLE__) && defined(__OBJC__)
 // Window logic moved back down
 #endif
@@ -368,6 +371,7 @@ public:
   virtual void selfDestructPlayer(Int index) {}
   virtual void voteForPlayerDisconnect(Int slot) {}
   virtual Bool isPacketRouter(void) { return false; }
+  virtual void toggleNetworkOn(void) override {}
 };
 
 class StubParticleSystemManager : public ParticleSystemManager {
@@ -668,14 +672,6 @@ OSDisplayButtonType OSDisplayWarningBox(AsciiString p, AsciiString m,
 
 void OSDisplaySetBusyState(Bool busyDisplay, Bool busySystem) {}
 
-// More missing symbols from WinMain
-extern "C" {
-void ReleaseCrash(const char *reason) {}
-void ReleaseCrashLocalized(const AsciiString &p, const AsciiString &m) {}
-}
-
-void DumpExceptionInfo(unsigned int code, struct _EXCEPTION_POINTERS *info) {}
-
 // Memory manager init handled by GameMemory.cpp
 
 // Window logic moved to MacOSWindowManager.mm
@@ -849,12 +845,9 @@ int main(int argc, char *argv[]) {
   signal(SIGTERM, signal_handler);
   signal(SIGINT, signal_handler);
   atexit(on_exit_handler);
-  // Initialize core infrastructure
-  if (!TheMemoryPoolFactory) {
-    TheMemoryPoolFactory = new MemoryPoolFactory();
-    TheMemoryPoolFactory->init();
-  }
+  // Memory manager initialization will happen automatically on first allocation
 
+  initMemoryManager();
   DEBUG_INIT(0);
 
   // Fill g_GeneralsCommandLine

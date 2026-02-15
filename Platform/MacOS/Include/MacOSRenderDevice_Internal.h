@@ -1,17 +1,37 @@
-#import "../../Include/IRenderDevice.h"
+#import <map>
+#import <string>
+
+#import "IRenderDevice.h"
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
+#import <simd/simd.h>
 #import <vector>
 
 // Forward declaration
 class MacOSTexture;
 
+// Shader Settings Bit Positions (from shader.h)
+enum ShaderSettings {
+  SETTINGS_DEPTHCOMPARE = 0,
+  SETTINGS_DEPTHMASK = 3,
+  SETTINGS_COLORMASK = 4,
+  SETTINGS_DSTBLEND = 5,
+  SETTINGS_FOG = 8,
+  SETTINGS_PRIGRADIENT = 10,
+  SETTINGS_SECGRADIENT = 13,
+  SETTINGS_SRCBLEND = 14,
+  SETTINGS_TEXTURING = 16,
+  SETTINGS_ALPHATEST = 18,
+  SETTINGS_POSTDETAILCOLOR = 20,
+  SETTINGS_POSTDETAILALPHA = 24,
+};
+
 struct Uniforms {
-  float world[16];
-  float view[16];
-  float projection[16];
+  matrix_float4x4 world;
+  matrix_float4x4 view;
+  matrix_float4x4 projection;
   float screenSize[2];
-  int useProjection;
+  int useProjection; // 0=NDC, 1=3D, 2=2D (Screen)
   unsigned int shaderSettings;
 };
 
@@ -31,6 +51,7 @@ public:
   ITexture *CreateTexture(unsigned int width, unsigned int height,
                           unsigned int mips, unsigned int usage,
                           WW3DFormat format) override;
+  ITexture *CreateTextureFromFile(const char *filename) override;
   void SetTexture(unsigned int stage, ITexture *pTexture) override;
   void SetRenderState(RenderState state, unsigned int value) override;
   void SetMeshShader(unsigned int shaderBits) override;
@@ -43,6 +64,11 @@ public:
                      unsigned int color) override;
   void DrawFillRect(float x, float y, float w, float h,
                     unsigned int color) override;
+  void DrawTexturedRect(float x, float y, float w, float h, float u1, float v1,
+                        float u2, float v2, unsigned int color) override;
+  void DrawLine(float x1, float y1, float x2, float y2, float width,
+                unsigned int color) override;
+  void GetDisplaySize(int &w, int &h) override;
 
 private:
   static id<MTLDevice> m_StaticDevice;
@@ -62,4 +88,11 @@ private:
   ITexture *m_Textures[8];
   unsigned int m_CurrentColor;
   id<CAMetalDrawable> m_CurrentDrawable;
+  void *m_HWND;
+
+  Uniforms m_Uniforms;
+  void updateUniforms();
+
+  id<MTLTexture> m_WhiteTexture;
+  std::map<std::string, ITexture *> m_TextureCache;
 };

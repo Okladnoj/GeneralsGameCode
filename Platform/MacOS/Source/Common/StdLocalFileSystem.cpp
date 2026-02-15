@@ -33,7 +33,9 @@
 #include "Common/PerfTimer.h"
 #include "StdLocalFile.h"
 
+#include <algorithm>
 #include <filesystem>
+#include <strings.h>
 
 StdLocalFileSystem::StdLocalFileSystem() : LocalFileSystem() {}
 
@@ -70,9 +72,25 @@ static std::filesystem::path fixFilenameFromWindowsPath(const Char *filename,
     for (auto p : path) {
       std::filesystem::path pathFixedPart;
       if (pathCurrent.empty()) {
-        // Load the first part of the path
-        pathFixed /= p;
-        pathCurrent /= p;
+        pathCurrent = p;
+        if (p == "/" || p == "." || p == ".." ||
+            std::filesystem::exists(p, ec)) {
+          pathFixed = p;
+        } else {
+          // Check if the subpath exists using case-insensitive comparison
+          bool found = false;
+          for (auto &entry : std::filesystem::directory_iterator(".", ec)) {
+            if (strcasecmp(entry.path().filename().string().c_str(),
+                           p.string().c_str()) == 0) {
+              pathFixed = entry.path().filename();
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            pathFixed = p;
+          }
+        }
         continue;
       }
 
@@ -96,7 +114,7 @@ static std::filesystem::path fixFilenameFromWindowsPath(const Char *filename,
         if (!(access & File::WRITE)) {
           DEBUG_LOG(("StdLocalFileSystem::fixFilenameFromWindowsPath - Error "
                      "finding file %s",
-                     filename.string().c_str()));
+                     filename));
           DEBUG_LOG(
               ("StdLocalFileSystem::fixFilenameFromWindowsPath - Got so far %s",
                pathCurrent.string().c_str()));
@@ -105,7 +123,7 @@ static std::filesystem::path fixFilenameFromWindowsPath(const Char *filename,
         }
 
         // Use the last known good path
-        pathFixed = p;
+        pathFixedPart = p;
       }
 
       // Copy of the current path to mirror the current depth
@@ -223,25 +241,38 @@ void StdLocalFileSystem::getFileListInDirectory(
   Bool done = FALSE;
   std::error_code ec;
 
+  printf("StdLocalFileSystem::getFileListInDirectory: looking for %s in %s "
+         "(fixed: %s)\n",
+         searchName.str(), originalDirectory.str(), fixedDirectory.c_str());
+  fflush(stdout);
+
   auto iter = std::filesystem::directory_iterator(fixedDirectory.c_str(), ec);
   // The default iterator constructor creates an end iterator
   done = iter == std::filesystem::directory_iterator();
 
   if (ec) {
     DEBUG_LOG(("StdLocalFileSystem::getFileListInDirectory - Error opening "
-               "directory %s",
-               fixedDirectory.c_str()));
+               "directory %s (%s)",
+               fixedDirectory.c_str(), ec.message().c_str()));
+    printf("StdLocalFileSystem::getFileListInDirectory ERROR: %s\n",
+           ec.message().c_str());
+    fflush(stdout);
     return;
   }
 
   while (!done) {
     std::string filenameStr = iter->path().filename().string();
-    if (!iter->is_directory() && iter->path().extension() == searchExt &&
+    auto ext = iter->path().extension();
+    printf("  Checking file: %s (ext: %s, target: %s)\n", filenameStr.c_str(),
+           ext.c_str(), searchExt.c_str());
+    if (!iter->is_directory() && ext == searchExt &&
         (strcmp(filenameStr.c_str(), ".") != 0 &&
          strcmp(filenameStr.c_str(), "..") != 0)) {
       // if we haven't already, add this filename to the list.
       // a stl set should only allow one copy of each filename
-      AsciiString newFilename = iter->path().string().c_str();
+      std::string pathStr = iter->path().string();
+      std::replace(pathStr.begin(), pathStr.end(), '/', '\\');
+      AsciiString newFilename = pathStr.c_str();
       if (filenameList.find(newFilename) == filenameList.end()) {
         filenameList.insert(newFilename);
       }

@@ -57,9 +57,14 @@ void StdBIGFileSystem::init() {
     return;
   }
 
+  printf("StdBIGFileSystem::init: calling loadBigFilesFromDirectory(\"\", "
+         "\"*.big\")...\n");
+  fflush(stdout);
   loadBigFilesFromDirectory("", "*.big");
+  printf("StdBIGFileSystem::init: loadBigFilesFromDirectory returned.\n");
+  fflush(stdout);
 
-#if RTS_ZEROHOUR
+#if 0 // RTS_ZEROHOUR
   // load original Generals assets
   AsciiString installPath;
   GetStringFromGeneralsRegistry("", "InstallPath", installPath);
@@ -240,7 +245,19 @@ Bool StdBIGFileSystem::loadBigFilesFromDirectory(AsciiString dir,
     }
 #endif
 
-    ArchiveFile *archiveFile = openArchiveFile((*it).str());
+    printf("StdBIGFileSystem::loadBigFilesFromDirectory: trying to open %s\n",
+           it->str());
+    fflush(stdout);
+    ArchiveFile *archiveFile = openArchiveFile(it->str());
+    if (archiveFile) {
+      printf("StdBIGFileSystem::loadBigFilesFromDirectory: successfully opened "
+             "%s\n",
+             it->str());
+    } else {
+      printf("StdBIGFileSystem::loadBigFilesFromDirectory: FAILED to open %s\n",
+             it->str());
+    }
+    fflush(stdout);
 
     if (archiveFile != nullptr) {
       DEBUG_LOG(("StdBIGFileSystem::loadBigFilesFromDirectory - loading %s "

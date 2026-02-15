@@ -583,6 +583,7 @@ SOURCES=(
   "Platform/MacOS/Source/Main/MacOSWindowManager.mm"
   "Platform/MacOS/Source/Main/MacOSGameClient.mm"
   "Platform/MacOS/Source/Main/MacOSGameWindowManager.mm"
+  "Platform/MacOS/Source/Main/MacOSGadgetDraw.mm"
   "Platform/MacOS/Source/Main/MacOSMain.mm"
   "Platform/MacOS/Source/Main/D3DXStubs.cpp"
   "Platform/MacOS/Source/Stubs/GameSpyStubs.cpp"
@@ -870,6 +871,13 @@ SOURCES+=(
   Core/Libraries/Source/WWVegas/WWSaveLoad/saveloadsubsystem.cpp
   Core/Libraries/Source/WWVegas/WW3D2/ringobj.cpp
   Core/Libraries/Source/WWVegas/WW3D2/sphereobj.cpp
+  Core/GameEngine/Source/Common/System/Debug.cpp
+  Core/Libraries/Source/WWVegas/WWLib/refcount.cpp
+  GeneralsMD/Code/GameEngine/Source/Common/MiniLog.cpp
+  GeneralsMD/Code/GameEngine/Source/Common/PerfTimer.cpp
+  GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/W3DDebugIcons.cpp
+  GeneralsMD/Code/GameEngine/Source/Common/System/StackDump.cpp
+  Core/GameEngine/Source/GameClient/System/Debug/AudioDebugDisplay.cpp
 )
 
 # Bulk additions for AI and Math
