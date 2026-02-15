@@ -15,11 +15,9 @@
 **Current Goal:** Implement Uniform Buffers and Matrix Transformation Bridge
 **Build Status:** ✅ **SUCCEEDED** (Executable linked with 916+ objects)
 **Known Issues:**
-- **Memory Pool Alignment**: Resolved `ErrorCode 3735879681 (0xDEAD0001)` by correctly initializing memory pools for `MacOSDisplayString` and `MacOSGameWindow` using `MEMORY_POOL_GLUE`.
-- **UI Data Integrity**: Fixed a segmentation fault in `GadgetTextEntrySystem` caused by an incorrect `winGetUserData` override in `MacOSGameWindow`.
-- **UI Script Loading**: Successfully parsing complex window definitions (e.g., `IMECandidateWindow.wnd`) through `GameWindowManagerScript`.
-- **Eva Initialization**: Resolved a critical crash in `Eva::init` due to duplicate events in `Eva.ini`. 
+- **Memory Manager Stabilization**: Resolved a critical crash during static initialization by ensuring `preMainInitMemoryManager()` runs before any static constructors and correctly handles global `operator new/delete` fallbacks.
 - **Header Conflicts**: Fully resolved globally via `MacOSSystemProtection.h` and `new.h` shim.
+- **Metal Backend (ACTIVE)**: Encountering memory ownership crashes in Metal driver when it calls overridden `delete`.
 
 ### 🛠 Practical Build & Verification
 **Target:** `build/macos/GeneralsExecutable`
@@ -30,10 +28,8 @@
 - [x] **BIG ARCHIVE EXTRACTION** (Full INI and Window definitions extracted)
 - [x] **GameEngine Compilation:** Linked 918 source files successfully.
 - [x] **Subsystem Init:** `Eva::init()` and `ScienceStore::init()` now complete correctly.
-- [x] **Runtime Initialization:** **SUCCESS**: `GameEngine::init()` completed, main loop reached.
-- [x] **Metal Bridge Linkage**: `MacOSBuffers.mm` and `MacOSRenderer.mm` integrated.
-- [x] **Filesystem Implementation:** Рекурсивный поиск в `StdLocalFileSystem` исправлен.
-- [ ] Loading `MainMenu.wnd` in `MacOSGameClient`
+- [x] **Memory Management:** **STABILIZED**: Static init order fixed; global `new`/`delete` safe for macOS.
+- [ ] **Metal Subsystem Debugging**: Investigating memory ownership issues in `MTLCompiler` bridge. (In Progress)
 
 ---
 
@@ -41,9 +37,9 @@
 | Subsystem | Status | Technical Debt | Notes |
 | :--- | :---: | :--- | :--- |
 | **Core Utilities** | 🟢 | Low | `AsciiString`, `ThreadClass`, `MemoryPool` implemented. |
-| **GameEngine Core** | � | Low | **SUCCESS**: `GameEngine::init()` completed, loop reached. |
-| **GUI/Windowing** | 🟡 | Medium | **ACTIVE**: `GameWindowManager` loading scripts. Memory pools fixed. |
-| **Filesystem** | � | Medium | `ArchiveFileSystem` и `LocalFileSystem` работают стабильно. |
+| **GameEngine Core** |  | Low | **SUCCESS**: `GameEngine::init()` completed, loop reached. |
+| **GUI/Windowing** | � | Low | **SUCCESS**: `GameTextManager` fixed (CSF_LABEL tag corrected). Menu text is now visible. |
+| **Filesystem** | 🟢 | Low | `ArchiveFileSystem` и `LocalFileSystem` работают стабильно. Поддержка `.big` и `.csf`. |
 | **Audio (TheAudio)** | 🔴 | High | Только заглушки. |
 | **Graphics (W3D)** | 🟡 | Critical | **ANALYSIS**: Using MSL Uber-shader for fixed pipeline emulation. |
 | **Input (Mouse/KB)** | 🟡 | Medium | Cocoa events mapped to engine. |
@@ -146,12 +142,15 @@
 - [x] **Resource Migration**: Замена текущих ресурсов (`Data_Extracted`) на улучшенные из `GeneralsGamePatch`.
 
 ### Phase 6: UI & Interaction (ACTIVE)
-- [ ] **Primitive Drawing**: Реализовать `drawFillRect` и линии в `MacOSDisplay` через `IRenderDevice`.
-- [ ] **Image Rendering**: Реализовать `drawImage` для отображения элементов интерфейса.
-- [x] **UI Memory Fix**: Исправлено выделение памяти для `MacOSDisplayString` и `MacOSGameWindow`.
-- [x] **UI Script Loading**: Поддержка загрузки и парсинга `.wnd` файлов на macOS.
-- [x] **Mouse Events**: События `NSEvent` интегрированы.
-- [x] **Keyboard Events**: События клавиатуры интегрированы.
+- [x] **MacOSGameClient Completion**: Успешно скомпилирован `MacOSGameClient.mm` и реализованы все необходимые интерфейсные методы.
+- [x] **Linker Resolution**: Все неопределенные символы для `MacOSGameClient` разрешены.
+- [x] **Header Fixes**: Устранены ошибки в `MEMORY_POOL_GLUE` путем корректной настройки `RTS_DEBUG`.
+- [x] **Primitive Drawing**: `drawFillRect` и линии работают в `MacOSDisplay`.
+- [x] **Image Rendering**: `drawImage` для UI элементов реализовано через Metal bridge.
+- [x] **UI Memory Pools**: Финализирована инициализация пулов памяти для `MacOSDisplayString` и `MacOSGameWindow`.
+- [x] **Input Bridge**: `NSEvent` полностью проброшен через `StdMouse` и `StdKeyboard`.
+- [x] **Final Linkage**: Исполняемый файл успешно собран (Linked with 925+ objects).
+
 
 
 ---
