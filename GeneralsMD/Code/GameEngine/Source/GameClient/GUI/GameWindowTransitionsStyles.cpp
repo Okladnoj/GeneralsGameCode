@@ -1447,6 +1447,10 @@ ControlBarArrowTransition::~ControlBarArrowTransition(void) {
 }
 
 void ControlBarArrowTransition::init(GameWindow *win) {
+  fprintf(
+      stderr,
+      "ControlBarArrowTransition::init entering: win=%p, TheControlBar=%p\n",
+      win, TheControlBar);
   m_isForward = FALSE;
   update(CONTROLBARARROWTRANSITION_START);
   m_isFinished = FALSE;
@@ -1457,13 +1461,19 @@ void ControlBarArrowTransition::init(GameWindow *win) {
                           CONTROLBARARROWTRANSITION_BEGIN_FADE);
 
   if (!TheControlBar || (uintptr_t)TheControlBar == 0xDEADC0DE) {
+    fprintf(
+        stderr,
+        "ControlBarArrowTransition::init: TheControlBar is dummy. Skipping.\n");
     m_isFinished = TRUE;
     return;
   }
 
   m_arrowImage = TheControlBar->getArrowImage();
+  fprintf(stderr, "ControlBarArrowTransition::init: m_arrowImage=%p\n",
+          m_arrowImage);
   GameWindow *twin = TheWindowManager->winGetWindowFromId(
       nullptr, TheNameKeyGenerator->nameToKey("ControlBar.wnd:ButtonGeneral"));
+  fprintf(stderr, "ControlBarArrowTransition::init: twin=%p\n", twin);
   if (!twin || !m_arrowImage) {
     m_isFinished = TRUE;
     return;

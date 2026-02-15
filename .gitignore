@@ -67,3 +67,8 @@ build.ninja
 ## Python
 __pycache__/
 *.pyc
+
+# Platform specific logs and binaries
+/Platform/MacOS/Build/Logs/
+*.dylib
+*.log

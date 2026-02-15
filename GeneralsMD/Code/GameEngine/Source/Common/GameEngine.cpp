@@ -98,6 +98,11 @@
 #include "GameClient/GameClient.h"
 #include "GameClient/GameText.h"
 #include "GameClient/GameWindowManager.h"
+
+#ifdef __APPLE__
+#include "MacOSWindowManager.h"
+#include <unistd.h>
+#endif
 #include "GameClient/GlobalLanguage.h"
 #include "GameClient/Keyboard.h"
 #include "GameClient/MapUtil.h"
@@ -169,6 +174,8 @@ void initSubsystem(SUBSYSTEM *&sysref, AsciiString name, SUBSYSTEM *sys,
          (void *)sysref, (void *)sys);
   fflush(stdout);
   TheSubsystemList->initSubsystem(sys, path1, path2, pXfer, name);
+  printf("INIT SUBSYSTEM DONE: %s\n", name.str());
+  fflush(stdout);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -699,7 +706,8 @@ void GameEngine::init() {
     fflush(stdout);
 
   } catch (ErrorCode ec) {
-    fprintf(stderr, "EXCEPTION: ErrorCode %u\n", (UnsignedInt)ec);
+    fprintf(stderr, "EXCEPTION: ErrorCode %u (0x%X)\n", (UnsignedInt)ec,
+            (UnsignedInt)ec);
     if (ec == ERROR_INVALID_D3D) {
       RELEASE_CRASHLOCALIZED("ERROR:D3DFailurePrompt",
                              "ERROR:D3DFailureMessage");
@@ -882,44 +890,22 @@ DECLARE_PERF_TIMER(GameEngine_update)
  * Update the game engine by updating the GameClient and GameLogic singletons.
  */
 void GameEngine::update(void) {
-#ifdef __APPLE__
-  printf("GameEngine::update entering\n");
-  fflush(stdout);
-#endif
-  // USE_PERF_TIMER(GameEngine_update)
   {
     {
-      // VERIFY CRC needs to be in this code block.  Please to not pull
-      // TheGameLogic->update() inside this block.
-      // VERIFY_CRC
-
       if (TheRadar) {
-        printf("GameEngine::update: updating TheRadar...\n");
-        fflush(stdout);
         TheRadar->UPDATE();
       }
 
       /// @todo Move audio init, update, etc, into GameClient update
 
       if (TheAudio) {
-        printf("GameEngine::update: updating TheAudio...\n");
-        fflush(stdout);
         TheAudio->UPDATE();
       }
       if (TheGameClient) {
-        printf("GameEngine::update: updating TheGameClient (%p)...\n",
-               (void *)TheGameClient);
-        fflush(stdout);
         TheGameClient->UPDATE();
       }
       if (TheMessageStream) {
-        printf("GameEngine::update: calling "
-               "TheMessageStream->propagateMessages()...\n");
-        fflush(stdout);
         TheMessageStream->propagateMessages();
-        printf("GameEngine::update: TheMessageStream->propagateMessages() "
-               "returned.\n");
-        fflush(stdout);
       }
 
       if (TheNetwork != nullptr) {
@@ -927,27 +913,19 @@ void GameEngine::update(void) {
       }
     }
 
-    printf("GameEngine::update: checking canUpdateGameLogic...\n");
-    fflush(stdout);
     const Bool canUpdate = canUpdateGameLogic();
     const Bool canUpdateLogic = canUpdate && !TheFramePacer->isGameHalted() &&
                                 !TheFramePacer->isTimeFrozen();
     const Bool canUpdateScript = canUpdate && !TheFramePacer->isGameHalted();
 
     if (canUpdateLogic) {
-      printf("GameEngine::update: stepping TheGameClient...\n");
-      fflush(stdout);
       TheGameClient->step();
-      printf("GameEngine::update: updating TheGameLogic...\n");
-      fflush(stdout);
       if (TheGameLogic) {
         TheGameLogic->UPDATE();
       }
     } else if (canUpdateScript) {
       // TheSuperHackers @info Still update the Script Engine to allow
       // for scripted camera movements while the time is frozen.
-      printf("GameEngine::update: updating TheScriptEngine...\n");
-      fflush(stdout);
       TheScriptEngine->UPDATE();
     }
   }
@@ -961,10 +939,6 @@ extern HWND ApplicationHWnd;
  * The "main loop" of the game engine. It will not return until the game exits.
  */
 void GameEngine::execute(void) {
-#ifdef __APPLE__
-  printf("GameEngine::execute entering main loop\n");
-  fflush(stdout);
-#endif
 #if defined(RTS_DEBUG)
   DWORD startTime = timeGetTime() / 1000;
 #endif
@@ -972,46 +946,30 @@ void GameEngine::execute(void) {
   // pretty basic for now
   while (!m_quitting) {
 #ifdef __APPLE__
-    printf("GameEngine::execute: loop top\n");
-    fflush(stdout);
+    MacOS_PumpEvents();
+    if (MacOS_ShouldQuit()) {
+      m_quitting = true;
+    }
 #endif
+
     static int loopCount = 0;
 #ifdef __APPLE__
-    if (loopCount % 100 == 0) {
-      printf("GameEngine::execute loop %d, m_quitting=%d\n", loopCount,
-             m_quitting);
+    if (loopCount % 1000 == 0) {
+      printf("GameEngine::execute loop %d\n", loopCount);
       fflush(stdout);
     }
 #endif
-#ifdef __APPLE__
-    printf("GameEngine::execute: loopCount is %d\n", loopCount);
-    fflush(stdout);
-#endif
     loopCount++;
-#ifdef __APPLE__
-    printf("GameEngine::execute: loopCount incremented to %d\n", loopCount);
-    fflush(stdout);
-#endif
 
-    // if (TheGlobalData->m_vTune)
     {
 #ifdef PERF_TIMERS
-#ifdef __APPLE__
-      printf("GameEngine::execute: resetting PerfGather...\n");
-      fflush(stdout);
-#endif
       PerfGather::resetAll();
 #endif
     }
 
     {
-
 #if defined(RTS_DEBUG)
       {
-#ifdef __APPLE__
-        printf("GameEngine::execute: checking benchmark mode...\n");
-        fflush(stdout);
-#endif
         // enter only if in benchmark mode
         if (TheGlobalData && TheGlobalData->m_benchmarkTimer > 0) {
           DWORD currentTime = timeGetTime() / 1000;
@@ -1030,10 +988,6 @@ void GameEngine::execute(void) {
 
       {
         try {
-#ifdef __APPLE__
-          printf("GameEngine::execute: calling update()...\n");
-          fflush(stdout);
-#endif
           // compute a frame
           update();
         } catch (INIException e) {
@@ -1066,6 +1020,12 @@ void GameEngine::execute(void) {
       PerfGather::displayGraph(TheGameLogic->getFrame());
       PerfGather::resetAll();
     }
+#endif
+
+#ifdef __APPLE__
+    // Yield a bit to avoid maxing out CPU during early debug and allow terminal
+    // to breathe
+    usleep(1000);
 #endif
   }
 }

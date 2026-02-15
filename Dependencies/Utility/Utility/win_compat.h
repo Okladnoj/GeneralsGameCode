@@ -2472,7 +2472,6 @@ inline HGLOBAL GlobalReAlloc(HGLOBAL hMem, size_t dwBytes, UINT uFlags) {
 }
 #ifdef __APPLE__
 #include <malloc/malloc.h>
-#define malloc_size(p) malloc_size(p)
 #else
 #define malloc_size(p) 0
 #endif

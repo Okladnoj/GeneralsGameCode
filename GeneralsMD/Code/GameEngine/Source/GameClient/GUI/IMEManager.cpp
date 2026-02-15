@@ -500,6 +500,8 @@ IMEManager::~IMEManager() {
 //============================================================================
 
 void IMEManager::init(void) {
+  printf("IMEManager::init start\n");
+  fflush(stdout);
   // HWND ImeWindow = ImmGetDefaultIMEWnd(ApplicationHWnd);
   // if(ImeWindow)
   // {
@@ -509,11 +511,27 @@ void IMEManager::init(void) {
   m_context = ImmCreateContext();
   m_oldContext = ImmGetContext(ApplicationHWnd);
   m_disabled = 0;
-  m_candidateWindow =
-      TheWindowManager->winCreateFromScript("IMECandidateWindow.wnd");
-  m_candidateWindow->winSetStatus(WIN_STATUS_ABOVE);
-
+  printf("IMEManager::init: creating IMECandidateWindow.wnd\n");
+  fflush(stdout);
+  try {
+    m_candidateWindow =
+        TheWindowManager->winCreateFromScript("IMECandidateWindow.wnd");
+  } catch (ErrorCode ec) {
+    printf("IMEManager::init: caught ErrorCode %u during winCreateFromScript\n",
+           (UnsignedInt)ec);
+    fflush(stdout);
+    throw;
+  } catch (...) {
+    printf("IMEManager::init: caught unknown exception during "
+           "winCreateFromScript\n");
+    fflush(stdout);
+    throw;
+  }
+  printf("IMEManager::init: m_candidateWindow = %p\n",
+         (void *)m_candidateWindow);
+  fflush(stdout);
   if (m_candidateWindow) {
+    m_candidateWindow->winSetStatus(WIN_STATUS_ABOVE);
     m_candidateWindow->winHide(TRUE);
 
     // find text area window
@@ -537,7 +555,11 @@ void IMEManager::init(void) {
     }
   }
 
+  printf("IMEManager::init: creating IMEStatusWindow.wnd\n");
+  fflush(stdout);
   m_statusWindow = TheWindowManager->winCreateFromScript("IMEStatusWindow.wnd");
+  printf("IMEManager::init: m_statusWindow = %p\n", (void *)m_statusWindow);
+  fflush(stdout);
 
   if (m_statusWindow) {
     m_statusWindow->winHide(TRUE);
@@ -551,6 +573,8 @@ void IMEManager::init(void) {
 
   detach();
   enable();
+  printf("IMEManager::init DONE\n");
+  fflush(stdout);
 }
 
 //============================================================================
@@ -1303,8 +1327,8 @@ void IMEManager::updateCandidateList(Int candidateFlags) {
             Int i;
 
             for (i = 0; i < m_candidateCount; i++) {
-              Char *string = (Char *)((uintptr_t)clist +
-                                      (uintptr_t)clist->dwOffset[i]);
+              Char *string =
+                  (Char *)((uintptr_t)clist + (uintptr_t)clist->dwOffset[i]);
               if (unicode) {
                 m_candidateString[i].set((WideChar *)string);
               } else {

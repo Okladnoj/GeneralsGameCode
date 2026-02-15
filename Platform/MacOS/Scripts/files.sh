@@ -115,7 +115,7 @@ SOURCES=(
   "Platform/MacOS/Source/Common/StdBIGFileSystem.cpp"
   "Core/GameEngineDevice/Source/W3DDevice/GameClient/Water/W3DWater.cpp"
   "Core/GameEngineDevice/Source/W3DDevice/GameClient/Water/W3DWaterTracks.cpp"
-  "Core/GameEngineDevice/Source/W3DDevice/GameClient/W3DShaderManager.cpp"
+  "Platform/MacOS/Source/Stubs/MacOSW3DShaderManager.mm"
   "Platform/MacOS/Source/Common/StdLocalFile.cpp"
   "Platform/MacOS/Source/Common/StdLocalFileSystem.cpp"
   "Platform/MacOS/Source/Main/StdKeyboard.mm"

@@ -347,8 +347,7 @@ void MacOSRenderDevice::BeginScene() {
 
   fprintf(stderr, "BeginScene [4]: creating pass descriptor\n");
   fflush(stderr);
-  MTLRenderPassDescriptor *pass =
-      [MTLRenderPassDescriptor renderPassDescriptor];
+  MTLRenderPassDescriptor *pass = [[MTLRenderPassDescriptor alloc] init];
   if (!pass) {
     fprintf(stderr, "BeginScene [F]: pass descriptor is NIL\n");
     fflush(stderr);
@@ -438,6 +437,14 @@ void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int vertexCount,
   [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
 
   Uniforms uniforms;
+  memset(&uniforms, 0, sizeof(Uniforms));
+  // Identity matrices
+  uniforms.world[0] = uniforms.view[5] = uniforms.projection[10] =
+      uniforms.world[15] = uniforms.view[15] = uniforms.projection[15] = 1.0f;
+  uniforms.world[5] = uniforms.world[10] = uniforms.view[0] =
+      uniforms.view[10] = uniforms.projection[0] = uniforms.projection[5] =
+          1.0f;
+
   uniforms.screenSize[0] = m_ScreenSize[0];
   uniforms.screenSize[1] = m_ScreenSize[1];
   uniforms.useProjection = 0; // 2D mode
@@ -492,6 +499,15 @@ void MacOSRenderDevice::DrawFillRect(float x, float y, float w, float h,
   [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
 
   Uniforms uniforms;
+  memset(&uniforms, 0, sizeof(Uniforms));
+  // Identity matrices
+  uniforms.world[0] = uniforms.world[5] = uniforms.world[10] =
+      uniforms.world[15] = 1.0f;
+  uniforms.view[0] = uniforms.view[5] = uniforms.view[10] = uniforms.view[15] =
+      1.0f;
+  uniforms.projection[0] = uniforms.projection[5] = uniforms.projection[10] =
+      uniforms.projection[15] = 1.0f;
+
   uniforms.screenSize[0] = m_ScreenSize[0];
   uniforms.screenSize[1] = m_ScreenSize[1];
   uniforms.useProjection = 0; // 2D mode

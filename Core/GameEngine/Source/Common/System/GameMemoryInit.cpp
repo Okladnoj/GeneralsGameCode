@@ -85,6 +85,7 @@ void userMemoryAdjustPoolSize(const char *poolName, Int &initialAllocationCount,
     }
   }
 
+  fprintf(stderr, "userMemoryAdjustPoolSize: FAILED for pool '%s'\n", poolName);
   DEBUG_CRASH(("Initial size for pool %s not found -- you should add it to "
                "MemoryInit.cpp",
                poolName));

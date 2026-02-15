@@ -519,6 +519,10 @@ void INI::parseUnsignedByte(INI *ini, void * /*instance*/, void *store,
   const char *token = ini->getNextToken();
   Int value = scanInt(token);
   if (value < 0 || value > 255) {
+    printf(
+        "INI::parseUnsignedByte: Bad value! token='%s' value=%d (file: %s)\n",
+        token ? token : "NULL", value, ini->m_filename.str());
+    fflush(stdout);
     DEBUG_CRASH(("Bad value INI::parseUnsignedByte"));
     throw ERROR_BUG;
   }
@@ -533,6 +537,9 @@ void INI::parseShort(INI *ini, void * /*instance*/, void *store,
   const char *token = ini->getNextToken();
   Int value = scanInt(token);
   if (value < -32768 || value > 32767) {
+    printf("INI::parseShort: Bad value! token='%s' value=%d (file: %s)\n",
+           token ? token : "NULL", value, ini->m_filename.str());
+    fflush(stdout);
     DEBUG_CRASH(("Bad value INI::parseShort"));
     throw ERROR_BUG;
   }
@@ -547,6 +554,10 @@ void INI::parseUnsignedShort(INI *ini, void * /*instance*/, void *store,
   const char *token = ini->getNextToken();
   Int value = scanInt(token);
   if (value < 0 || value > 65535) {
+    printf(
+        "INI::parseUnsignedShort: Bad value! token='%s' value=%d (file: %s)\n",
+        token ? token : "NULL", value, ini->m_filename.str());
+    fflush(stdout);
     DEBUG_CRASH(("Bad value INI::parseUnsignedShort"));
     throw ERROR_BUG;
   }
@@ -881,6 +892,10 @@ void INI::parseBitString8(INI *ini, void * /*instance*/, void *store,
   UnsignedInt tmp;
   INI::parseBitString32(ini, nullptr, &tmp, userData);
   if (tmp & 0xffffff00) {
+    printf("DEBUG_CRASH: Bad bitstring list INI::parseBitString8! value=0x%x "
+           "(file: %s)\n",
+           tmp, ini->m_filename.str());
+    fflush(stdout);
     DEBUG_CRASH(("Bad bitstring list INI::parseBitString8"));
     throw ERROR_BUG;
   }
@@ -1145,6 +1160,9 @@ void INI::parseThingTemplate(INI *ini, void * /*instance*/, void *store,
   const char *token = ini->getNextToken();
 
   if (!TheThingFactory) {
+    printf("DEBUG_CRASH: TheThingFactory not inited yet! (file: %s)\n",
+           ini->m_filename.str());
+    fflush(stdout);
     DEBUG_CRASH(("TheThingFactory not inited yet"));
     throw ERROR_BUG;
   }
@@ -1288,6 +1306,9 @@ void INI::parseUpgradeTemplate(INI *ini, void * /*instance*/, void *store,
   const char *token = ini->getNextToken();
 
   if (!TheUpgradeCenter) {
+    printf("DEBUG_CRASH: TheUpgradeCenter not inited yet! (file: %s)\n",
+           ini->m_filename.str());
+    fflush(stdout);
     DEBUG_CRASH(("TheUpgradeCenter not inited yet"));
     throw ERROR_BUG;
   }
@@ -1310,6 +1331,9 @@ void INI::parseSpecialPowerTemplate(INI *ini, void * /*instance*/, void *store,
   const char *token = ini->getNextToken();
 
   if (!TheSpecialPowerStore) {
+    printf("DEBUG_CRASH: TheSpecialPowerStore not inited yet! (file: %s)\n",
+           ini->m_filename.str());
+    fflush(stdout);
     DEBUG_CRASH(("TheSpecialPowerStore not inited yet"));
     throw ERROR_BUG;
   }
@@ -1335,6 +1359,9 @@ void INI::parseSpecialPowerTemplate(INI *ini, void * /*instance*/, void *store,
   const char *token = ini->getNextToken();
 
   if (!TheScienceStore) {
+    printf("DEBUG_CRASH: TheScienceStore not inited yet! (file: %s)\n",
+           ini->m_filename.str());
+    fflush(stdout);
     DEBUG_CRASH(("TheScienceStore not inited yet"));
     throw ERROR_BUG;
   }
@@ -1369,6 +1396,10 @@ void INI::parseByteSizedIndexList(INI *ini, void * /*instance*/, void *store,
   ConstCharPtrArray nameList = (ConstCharPtrArray)userData;
   Int value = scanIndexList(ini->getNextToken(), nameList);
   if (value < 0 || value > 255) {
+    printf("DEBUG_CRASH: Bad index list INI::parseByteSizedIndexList! value=%d "
+           "(file: %s)\n",
+           value, ini->m_filename.str());
+    fflush(stdout);
     DEBUG_CRASH(("Bad index list INI::parseByteSizedIndexList"));
     throw ERROR_BUG;
   }
@@ -1401,6 +1432,9 @@ void MultiIniFieldParse::add(const FieldParse *f, UnsignedInt e) {
     m_extraOffset[m_count] = e;
     ++m_count;
   } else {
+    printf(
+        "DEBUG_CRASH: too many multi-fields in INI::initFromINIMultiProc!\n");
+    fflush(stdout);
     DEBUG_CRASH(("too many multi-fields in INI::initFromINIMultiProc"));
     throw ERROR_BUG;
   }

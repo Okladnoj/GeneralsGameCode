@@ -1085,6 +1085,8 @@ void ThingTemplate::parseMaxSimultaneous(INI *ini, void *instance, void *store,
     // Copied from parseUnsignedShort
     Int value = INI::scanInt(token);
     if (value < 0 || value > 65535) {
+      printf("DEBUG_CRASH: Bad value parseMaxSimultaneous! value=%d\n", value);
+      fflush(stdout);
       DEBUG_CRASH(("Bad value parseMaxSimultaneous"));
       throw ERROR_BUG;
     }
