@@ -28,6 +28,7 @@ typedef int8_t s8;
 #define __int64 long long
 #define _int64 long long
 typedef uint64_t __uint64;
+#define MAX_COMPUTERNAME_LENGTH 15
 
 #define _isnan isnan
 #define _finite isfinite
@@ -920,6 +921,10 @@ inline void ZeroMemory(void *Destination, size_t Length) {
 #define MB_SYSTEMMODAL 0x00001000
 #define MB_APPLMODAL 0x00000000
 #define MB_SETFOREGROUND 0x00010000
+#define MB_DEFBUTTON1 0x00000000
+#define MB_DEFBUTTON2 0x00000100
+#define MB_DEFBUTTON3 0x00000200
+#define MB_DEFBUTTON4 0x00000300
 
 #define IDOK 1
 #define IDCANCEL 2
@@ -2443,8 +2448,13 @@ GetVolumeInformation(const char *lpRootPathName, LPSTR lpVolumeNameBuffer,
   return TRUE;
 }
 
-inline BOOL GetComputerName(LPSTR lpBuffer, LPDWORD nSize) { return TRUE; }
-inline BOOL GetUserName(LPSTR lpBuffer, LPDWORD nSize) { return TRUE; }
+inline BOOL GetUserNameA(LPSTR lpBuffer, LPDWORD nSize) { return TRUE; }
+inline BOOL GetUserNameW(LPWSTR lpBuffer, LPDWORD nSize) { return TRUE; }
+#define GetUserName GetUserNameA
+
+inline BOOL GetComputerNameA(LPSTR lpBuffer, LPDWORD nSize) { return TRUE; }
+inline BOOL GetComputerNameW(LPWSTR lpBuffer, LPDWORD nSize) { return TRUE; }
+#define GetComputerName GetComputerNameA
 inline BOOL SetNamedPipeHandleState(HANDLE hNamedPipe, LPDWORD lpMode,
                                     LPDWORD lpMaxCollectionCount,
                                     LPDWORD lpCollectDataTimeout) {

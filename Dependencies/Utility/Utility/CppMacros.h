@@ -20,6 +20,9 @@
 // Must be C compliant
 
 #pragma once
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#endif
 
 #if __cplusplus >= 201103L
 #include <utility>
@@ -51,21 +54,18 @@
 #endif
 
 #ifdef __cplusplus
-namespace stl
-{
+namespace stl {
 
 // Helper to move-assign from reference: uses std::move in C++11, swap in C++98
-template<typename T>
-inline void move_or_swap(T& dest, T& src)
-{
+template <typename T> inline void move_or_swap(T &dest, T &src) {
 #if __cplusplus >= 201103L
-	dest = std::move(src);
+  dest = std::move(src);
 #else
-	// C++03 fallback: mimic move semantics
-	// dest gets src's value, src becomes empty
-	T empty;
-	dest.swap(src);
-	src.swap(empty);
+  // C++03 fallback: mimic move semantics
+  // dest gets src's value, src becomes empty
+  T empty;
+  dest.swap(src);
+  src.swap(empty);
 #endif
 }
 

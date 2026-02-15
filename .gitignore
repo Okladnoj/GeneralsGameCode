@@ -71,5 +71,39 @@ __pycache__/
 # Platform specific logs and binaries
 /Platform/MacOS/Build/Logs/
 *.dylib
-*.logGameResources/
-gitinfo/
+*.log
+
+# Game resources and logs
+/GameResources/
+/gitinfo/
+/run_*.log
+/game_log.txt
+/all_getframe_calls_cpp.txt
+/lldb_log*.txt
+/offset_log.txt
+/size_log*.txt
+/vtable_log.txt
+/test_image.png
+
+# Added for macOS porting workflow
+/Art/
+/Data/
+/Maps/
+/Window/
+/assets/
+/extracted_assets/
+/*DebugLogFile*.txt
+/StatisticsDump.txt
+/Perf.txt
+/Ping.txt
+/QMPerf.txt
+/StateChanged.txt
+/build_err.txt
+/build_log.txt
+/game_output.txt
+/*.disasm.txt
+/lldb_cmds.txt
+/symbols.txt
+/test_int64.cpp
+/\001*
+\\\StatisticsDump.txt
