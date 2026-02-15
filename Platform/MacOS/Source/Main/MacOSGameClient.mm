@@ -239,9 +239,10 @@ public:
 };
 
 class MacOSDisplayString : public DisplayString {
+  MEMORY_POOL_GLUE_WITH_EXPLICIT_CREATE(MacOSDisplayString,
+                                        "MacOSDisplayString", 256, 32)
 public:
   MacOSDisplayString() {}
-  virtual ~MacOSDisplayString() {}
   virtual void setWordWrap(Int wordWrap) override {}
   virtual void setWordWrapCentered(Bool isCentered) override {}
   virtual void draw(Int x, Int y, Color color, Color dropColor) override {
@@ -273,19 +274,21 @@ public:
   virtual void setUseHotkey(Bool useHotkey, Color hotKeyColor) override {}
 };
 
+MacOSDisplayString::~MacOSDisplayString() {}
+
 class MacOSDisplayStringManager : public DisplayStringManager {
 public:
   virtual DisplayString *newDisplayString(void) override {
-    return new MacOSDisplayString();
+    return newInstance(MacOSDisplayString);
   }
   virtual void freeDisplayString(DisplayString *string) override {
     deleteInstance(string);
   }
   virtual DisplayString *getGroupNumeralString(Int numeral) override {
-    return new MacOSDisplayString();
+    return newInstance(MacOSDisplayString);
   }
   virtual DisplayString *getFormationLetterString(void) override {
-    return new MacOSDisplayString();
+    return newInstance(MacOSDisplayString);
   }
 };
 
@@ -359,9 +362,10 @@ void MacOSGameClient::update(void) {
   if (updateCount++ % 100 == 0) {
     fprintf(stderr,
             "MacOSGameClient::update: frame %d, TheDisplay=%p, intro=%d, "
-            "afterIntro=%d, noDraw=%d\n",
+            "afterIntro=%d, noDraw=%d, TheWritableGlobalData=%p\n",
             updateCount, (void *)TheDisplay, (int)TheGlobalData->m_playIntro,
-            (int)TheGlobalData->m_afterIntro, (int)TheGlobalData->m_noDraw);
+            (int)TheGlobalData->m_afterIntro, (int)TheGlobalData->m_noDraw,
+            (void *)TheWritableGlobalData);
     fflush(stderr);
   }
   GameClient::update();

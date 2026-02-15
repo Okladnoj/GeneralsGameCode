@@ -7,12 +7,12 @@
 
 // Simple MacOS GameWindow implementation
 class MacOSGameWindow : public GameWindow {
-  MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(MacOSGameWindow, "MacOSGameWindow")
+  MEMORY_POOL_GLUE_WITH_EXPLICIT_CREATE(MacOSGameWindow, "MacOSGameWindow", 256,
+                                        32)
 public:
   virtual void winDrawBorder(void) override {
     // Basic border drawing could go here if needed
   }
-  virtual void *winGetUserData(void) override { return nullptr; }
 };
 
 MacOSGameWindow::~MacOSGameWindow() {}
