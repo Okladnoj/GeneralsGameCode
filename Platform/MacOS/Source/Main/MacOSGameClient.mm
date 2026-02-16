@@ -6,6 +6,7 @@
 #import "IRenderDevice.h"
 #import "MacOSGameWindowManager.h"
 #import "MacOSRenderDevice_Internal.h"
+#include "PreRTS.h"
 #import "StdKeyboard.h"
 #import "StdMouse.h"
 #import <AppKit/AppKit.h>
@@ -18,6 +19,9 @@
 #include "GameClient/Snow.h"
 #include "GameClient/TerrainVisual.h"
 #include "GameClient/VideoPlayer.h"
+#include "GameClient/View.h"
+#include "W3DDevice/GameClient/W3DInGameUI.h"
+#include "W3DDevice/GameClient/W3DView.h"
 
 extern "C" {
 Display *MacOS_CreateDisplay(void);
@@ -27,54 +31,6 @@ DisplayStringManager *MacOS_CreateDisplayStringManager(void);
 class MacOSFontLibrary : public FontLibrary {
 public:
   virtual Bool loadFontData(GameFont *font) override { return TRUE; }
-};
-
-#include "GameClient/View.h"
-#include "W3DDevice/GameClient/W3DView.h"
-
-class MacOSView : public View {
-public:
-  virtual void init(void) override { View::init(); }
-  virtual Drawable *pickDrawable(const ICoord2D *screen, Bool forceAttack,
-                                 PickType pickType) override {
-    return nullptr;
-  }
-  virtual Int iterateDrawablesInRegion(IRegion2D *screenRegion,
-                                       Bool (*callback)(Drawable *draw,
-                                                        void *userData),
-                                       void *userData) override {
-    return 0;
-  }
-  virtual void forceRedraw() override {}
-  virtual WorldToScreenReturn worldToScreenTriReturn(const Coord3D *w,
-                                                     ICoord2D *s) override {
-    return WTS_INVALID;
-  }
-  virtual void screenToTerrain(const ICoord2D *screen,
-                               Coord3D *world) override {}
-  virtual void screenToWorldAtZ(const ICoord2D *s, Coord3D *w,
-                                Real z) override {}
-  virtual void drawView(void) override {
-    static int draws = 0;
-    if (draws++ % 60 == 0)
-      printf("DEBUG: MacOSView::drawView heartbeat\n");
-  }
-  virtual void updateView(void) override {}
-  virtual void stepView() override {}
-  virtual const Coord3D &get3DCameraPosition() const override {
-    static Coord3D dummy;
-    return dummy;
-  }
-  virtual void setGuardBandBias(const Coord2D *gb) override {}
-};
-
-class MacOSInGameUI : public InGameUI {
-public:
-  virtual void init(void) override { InGameUI::init(); }
-  virtual void reset(void) override {}
-  virtual void update(void) override {}
-  virtual void draw(void) override {}
-  virtual View *createView(void) override { return new MacOSView(); }
 };
 
 class MacOSSnowManager : public SnowManager {
@@ -151,8 +107,11 @@ MacOSGameClient::MacOSGameClient() {
 MacOSGameClient::~MacOSGameClient() {}
 
 void MacOSGameClient::init() {
-  printf("DEBUG: MacOSGameClient::init called!\n");
+  printf("DEBUG: MacOSGameClient::init calling GameClient::init()...\n");
+  fflush(stdout);
   GameClient::init();
+  printf("DEBUG: MacOSGameClient::init returned from GameClient::init()...\n");
+  fflush(stdout);
 }
 
 void MacOSGameClient::update() {
@@ -172,7 +131,7 @@ Display *MacOSGameClient::createGameDisplay(void) {
   return MacOS_CreateDisplay();
 }
 
-InGameUI *MacOSGameClient::createInGameUI(void) { return new MacOSInGameUI(); }
+InGameUI *MacOSGameClient::createInGameUI(void) { return new W3DInGameUI(); }
 
 SnowManager *MacOSGameClient::createSnowManager(void) {
   return new MacOSSnowManager();

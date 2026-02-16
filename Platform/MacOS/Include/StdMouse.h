@@ -12,22 +12,23 @@ public:
   StdMouse(void);
   virtual ~StdMouse(void);
 
-  virtual void init(void);
-  virtual void reset(void);
-  virtual void update(void);
-  virtual void initCursorResources(void);
+  virtual void init(void) override;
+  virtual void reset(void) override;
+  virtual void update(void) override;
+  virtual void initCursorResources(void) override;
 
-  virtual void setCursor(MouseCursor cursor);
-  virtual void setVisibility(Bool visible);
+  virtual void setCursor(MouseCursor cursor) override;
+  virtual void setVisibility(Bool visible) override;
+  virtual void draw(void) override;
 
-  virtual void loseFocus();
-  virtual void regainFocus();
+  virtual void loseFocus() override;
+  virtual void regainFocus() override;
 
 protected:
-  virtual void capture(void);
-  virtual void releaseCapture(void);
+  virtual void capture(void) override;
+  virtual void releaseCapture(void) override;
 
-  virtual UnsignedByte getMouseEvent(MouseIO *result, Bool flush);
+  virtual UnsignedByte getMouseEvent(MouseIO *result, Bool flush) override;
 
   struct MacOSMouseEvent {
     int type;

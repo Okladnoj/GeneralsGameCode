@@ -11,6 +11,12 @@
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 
+#include "W3DDevice/GameClient/W3DAssetManager.h"
+#include "W3DDevice/GameClient/W3DDisplay.h"
+#include "W3DDevice/GameClient/W3DScene.h"
+#include "W3DDevice/GameClient/W3DShaderManager.h"
+#include "WW3D2/ww3d.h"
+
 class MacOSDisplay : public Display {
 public:
   MacOSDisplay() {
@@ -27,6 +33,46 @@ public:
   virtual void init(void) override {
     printf("DEBUG: MacOSDisplay::init called\n");
     fflush(stdout);
+
+    if (W3DDisplay::m_3DScene == nullptr) {
+      printf("DEBUG: MacOSDisplay::init: Creating RTS3DScene...\n");
+      fflush(stdout);
+      W3DDisplay::m_3DScene = new RTS3DScene();
+      printf("DEBUG: MacOSDisplay::init: Created RTS3DScene=%p\n",
+             (void *)W3DDisplay::m_3DScene);
+      fflush(stdout);
+    }
+    if (W3DDisplay::m_2DScene == nullptr) {
+      printf("DEBUG: MacOSDisplay::init: Creating RTS2DScene...\n");
+      fflush(stdout);
+      W3DDisplay::m_2DScene = new RTS2DScene();
+      printf("DEBUG: MacOSDisplay::init: Created RTS2DScene=%p\n",
+             (void *)W3DDisplay::m_2DScene);
+      fflush(stdout);
+    }
+    if (W3DDisplay::m_3DInterfaceScene == nullptr) {
+      printf("DEBUG: MacOSDisplay::init: Creating RTS3DInterfaceScene...\n");
+      fflush(stdout);
+      W3DDisplay::m_3DInterfaceScene = new RTS3DInterfaceScene();
+      printf("DEBUG: MacOSDisplay::init: Created RTS3DInterfaceScene=%p\n",
+             (void *)W3DDisplay::m_3DInterfaceScene);
+      fflush(stdout);
+    }
+    if (W3DDisplay::m_assetManager == nullptr) {
+      printf("DEBUG: MacOSDisplay::init: Creating W3DAssetManager...\n");
+      fflush(stdout);
+      W3DDisplay::m_assetManager = new W3DAssetManager();
+      printf("DEBUG: MacOSDisplay::init: Created W3DAssetManager=%p\n",
+             (void *)W3DDisplay::m_assetManager);
+      fflush(stdout);
+    }
+
+    printf("DEBUG: MacOSDisplay::init: Calling W3DShaderManager::init()...\n");
+    fflush(stdout);
+    W3DShaderManager::init();
+    printf("DEBUG: MacOSDisplay::init finished\n");
+    fflush(stdout);
+
     int w = 800, h = 600;
     GetRenderDevice()->GetDisplaySize(w, h);
     setWidth(w);

@@ -237,6 +237,8 @@ GameClient::~GameClient() {
 /** Initialize resources for the game client */
 //-------------------------------------------------------------------------------------------------
 void GameClient::init(void) {
+  printf("DEBUG: GameClient::init ENTERING\n");
+  fflush(stdout);
   setFrameRate(MSEC_PER_LOGICFRAME_REAL); // from GameCommon.h... tell W3D what
                                           // our expected framerate is
 
@@ -346,24 +348,36 @@ void GameClient::init(void) {
   // instantiate the display
   TheDisplay = createGameDisplay();
   if (TheDisplay) {
+    printf("DEBUG: GameClient::init: Initializing TheDisplay...\n");
+    fflush(stdout);
     TheDisplay->init();
     TheDisplay->setName("TheDisplay");
+    printf("DEBUG: GameClient::init: TheDisplay init DONE.\n");
+    fflush(stdout);
   }
 
   TheHeaderTemplateManager =
       MSGNEW("GameClientSubsystem") HeaderTemplateManager;
   if (TheHeaderTemplateManager) {
+    printf("DEBUG: GameClient::init: Initializing HeaderTemplateManager...\n");
+    fflush(stdout);
     TheHeaderTemplateManager->init();
+    printf("DEBUG: GameClient::init: HeaderTemplateManager init DONE.\n");
+    fflush(stdout);
   }
 
   // create the window manager
+  printf("DEBUG: GameClient::init: Creating WindowManager...\n");
+  fflush(stdout);
   TheWindowManager = TheGlobalData->m_headless ? NEW GameWindowManagerDummy
                                                : createWindowManager();
   if (TheWindowManager) {
-
+    printf("DEBUG: GameClient::init: Initializing WindowManager...\n");
+    fflush(stdout);
     TheWindowManager->init();
     TheWindowManager->setName("TheWindowManager");
-    //		TheWindowManager->initTestGUI();
+    printf("DEBUG: GameClient::init: WindowManager init DONE.\n");
+    fflush(stdout);
   }
 
   // create the IME manager
@@ -374,16 +388,29 @@ void GameClient::init(void) {
   // }
 
   // create the shell
+  printf("DEBUG: GameClient::init: creating TheShell...\n");
+  fflush(stdout);
   TheShell = MSGNEW("GameClientSubsystem") Shell;
   if (TheShell) {
     TheShell->init();
     TheShell->setName("TheShell");
+    printf("DEBUG: GameClient::init: TheShell init DONE.\n");
+    fflush(stdout);
   }
 
   // create the in-game user interface
+  printf("DEBUG: GameClient::init: creating InGameUI...\n");
+  fflush(stdout);
   TheSubsystemList->initSubsystem(TheInGameUI = createInGameUI(), nullptr,
                                   nullptr, nullptr, "TheInGameUI");
-  TheInGameUI->init();
+  printf("DEBUG: GameClient::init: InGameUI=%p, Calling init()...\n",
+         (void *)TheInGameUI);
+  fflush(stdout);
+  if (TheInGameUI) {
+    TheInGameUI->init();
+    printf("DEBUG: GameClient::init: InGameUI->init() DONE.\n");
+    fflush(stdout);
+  }
 
   TheChallengeGenerals = createChallengeGenerals();
   TheChallengeGenerals->init();

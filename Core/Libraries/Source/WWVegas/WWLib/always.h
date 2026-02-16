@@ -13,6 +13,7 @@
 #include <Utility/CppMacros.h>
 
 #ifdef __APPLE__
+#define RA_MACOS
 #include <MacOSSystemProtection.h>
 #endif
 
@@ -91,11 +92,30 @@ public:                                                                        \
 #endif
 
 #ifndef W3DMPO_GLUE
+#ifdef RA_MACOS
+#define W3DMPO_GLUE(x)                                                         \
+  MEMORY_POOL_GLUE_WITHOUT_GCMP_NO_DTOR(x)                                     \
+  GCMP_CREATE(x, #x, -1, -1)
+#else
 #define W3DMPO_GLUE(x)                                                         \
   MEMORY_POOL_GLUE_WITHOUT_GCMP_NO_DTOR(x)                                     \
   GCMP_FIND(x, #x)
 #endif
+#endif
 
+#ifdef RA_MACOS
+#ifndef NEW_REF
+#define NEW_REF(target, constructor) new (__FILE__, __LINE__) target constructor
+#endif
+
+#ifndef W3DNEW
+#define W3DNEW new (__FILE__, __LINE__)
+#endif
+
+#ifndef W3DNEWARRAY
+#define W3DNEWARRAY new
+#endif
+#else
 #ifndef NEW_REF
 #define NEW_REF(target, constructor) new target constructor
 #endif
@@ -106,6 +126,7 @@ public:                                                                        \
 
 #ifndef W3DNEWARRAY
 #define W3DNEWARRAY new
+#endif
 #endif
 
 #ifndef MSGW3DNEW

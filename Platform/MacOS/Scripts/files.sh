@@ -599,6 +599,7 @@ SOURCES=(
   "Core/Libraries/Source/WWVegas/WWLib/b64pipe.cpp"
   "Core/Libraries/Source/WWVegas/WWLib/b64straw.cpp"
   "GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/Common/System/W3DFunctionLexicon.cpp"
+  "GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/W3DInGameUI.cpp"
   "GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/GUI/GUICallbacks/W3DMainMenu.cpp"
   "GeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/GUI/GUICallbacks/W3DControlBar.cpp"
   "Core/Libraries/Source/WWVegas/WWLib/xpipe.cpp"

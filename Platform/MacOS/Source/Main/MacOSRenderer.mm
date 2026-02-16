@@ -71,16 +71,8 @@ static NSString *const shaderSource =
      "    constexpr sampler s(address::clamp_to_edge, filter::linear);\n"
      "    float4 c = tex.sample(s, in.texCoord);\n"
      "    \n"
-     "    // Final color modulation\n"
-     "    float4 finalColor = c * in.color;\n"
-     "    \n"
-     "    // Add a cinematic vignette effect\n"
-     "    float2 uv = in.texCoord; // Simplified, ideally uses screen pos\n"
-     "    float dist = distance(uv, float2(0.5));\n"
-     "    float vignette = 1.0 - smoothstep(0.4, 0.8, dist);\n"
-     "    finalColor.rgb *= (0.8 + 0.2 * vignette);\n"
-     "    \n"
-     "    return finalColor;\n"
+     "    // Final color modulation - NO VIGNETTE for now to rule it out\n"
+     "    return c * in.color;\n"
      "}\n";
 
 #pragma pack(push, 1)

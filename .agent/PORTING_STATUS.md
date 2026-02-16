@@ -4,23 +4,25 @@
 ---
 
 ## 🚀 Status Quo
-- [x] **Subsystems:** Memory, Filesystem (.big), INI, Input, Window.
+- [x] **Subsystems:** Memory (fixed pool race condition), Filesystem (.big), INI, Input, Window.
 - [x] **Graphics:** Metal Bridge, SW DDS Decoding (DXT1/5), Cinematic Vignette, Navy Clear Color.
-- [x] **3D Infrastructure:** Real `W3DView` integrated (currently stubbed for UI stability).
+- [x] **Initialization:** ✅ **NO CRASH**. Game enters Main Shell loop and updates frame-by-frame.
+- [x] **3D Infrastructure:** Real `W3DView` integrated; `RTS3DScene` pools explicitly initialized to avoid race conditions.
 
 ---
 
 ## 🔴 ACTIVE ISSUES
-- **Gray Boxes UI:** UI textures (DDS/TGA) bind correctly but appear as gray blocks. Likely Alpha Blending or Color Modulation issue.
-- **W3DView SIGSEGV:** Crash in `W3DView::draw()` due to `doRender` calling on uninitialized scene components.
-- **Fonts/Strings:** `MacOSFontLibrary` and `DisplayStringManager` are stubs.
+- **Gray Boxes UI:** UI textures (DDS/TGA) bind correctly in logs but appear as gray blocks. Texture sampler state or SRV binding issue in `MacOSRenderer.mm`.
+- **Missing Text:** Fonts are not rendering. `MacOSFontLibrary` needs real implementation (likely using CoreText or a simple bitmap font bridge).
+- **Lint Noise:** Massive amount of false/real lint errors in W3D files due to missing includes or 64-bit type mismatches.
 
 ---
 
 ## 🏗 SHORT-TERM BACKLOG
-1. **Debug Texture Rendering:** Setup Alpha Blending in `MacOSRenderer.mm` and verify pixel format swizzling.
-2. **W3D Scene Initialization:** Properly setup `W3DDisplay::m_3DScene` to enable the rotating shell map.
-3. **Audio:** Implement `MacOSAudioManager.mm`.
+1. **Fix UI Texture Binding:** Debug `setTexture` in Metal renderer. Ensure pixel formats (BGRA vs RGBA) match the DDS decoder.
+2. **Implement CoreText / Font Library:** Bridge `DisplayStringManager` to a visible rendering system.
+3. **Input Handling:** Verify mouse/keyboard events are correctly translated to `TheInput` system now that the engine is running.
+4. **Audio Engine:** Implement a basic `MacOSAudioManager` using `AVAudioEngine` or `OpenAL` for UI click sounds.
 
 
 ---

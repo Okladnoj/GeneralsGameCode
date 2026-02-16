@@ -2308,6 +2308,9 @@ GameMessageDisposition
 CommandTranslator::translateGameMessage(const GameMessage *msg) {
   GameMessage::Type t = msg->getType();
   GameMessageDisposition disp = KEEP_MESSAGE;
+  if (!TheInGameUI) {
+    return KEEP_MESSAGE;
+  }
   // We want to always be able to get to the options menu even during no input
   // times and a clear game data message should always go through
   if (t != GameMessage::MSG_META_OPTIONS &&

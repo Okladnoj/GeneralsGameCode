@@ -1,5 +1,7 @@
 #include "StdMouse.h"
 #include "Common/GlobalData.h"
+#include "GameClient/Display.h"
+#include "GameClient/Image.h"
 #include "always.h"
 
 StdMouse::StdMouse(void) {
@@ -9,7 +11,10 @@ StdMouse::StdMouse(void) {
 
 StdMouse::~StdMouse(void) {}
 
-void StdMouse::init(void) { Mouse::init(); }
+void StdMouse::init(void) {
+  Mouse::init();
+  setVisibility(TRUE);
+}
 
 void StdMouse::reset(void) {
   m_nextFreeIndex = 0;
@@ -58,6 +63,30 @@ void StdMouse::setVisibility(Bool visible) {
     }
   }
 #endif
+}
+
+void StdMouse::draw(void) {
+  if (!m_visible)
+    return;
+
+  CursorInfo *info = &m_cursorInfo[m_currentCursor];
+  if (info->imageName.isNotEmpty()) {
+    const Image *img =
+        TheMappedImageCollection->findImageByName(info->imageName);
+    if (img) {
+      Int w = img->getImageWidth();
+      Int h = img->getImageHeight();
+      Int x = m_currMouse.pos.x - info->hotSpotPosition.x;
+      Int y = m_currMouse.pos.y - info->hotSpotPosition.y;
+
+      TheDisplay->drawImage(img, x, y, x + w, y + h,
+                            GameMakeColor(255, 255, 255, 255),
+                            Display::DRAW_IMAGE_ALPHA);
+    }
+  }
+
+  drawCursorText();
+  drawTooltip();
 }
 
 void StdMouse::capture(void) {

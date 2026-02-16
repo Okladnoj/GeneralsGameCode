@@ -1405,7 +1405,13 @@ void InGameUI::init(void) {
 
   // create the tactical view
   if (TheDisplay) {
+    printf("DEBUG: InGameUI::init: TheDisplay is valid. Calling "
+           "createView()...\n");
+    fflush(stdout);
     TheTacticalView = createView();
+    printf("DEBUG: InGameUI::init: TheTacticalView created at %p\n",
+           (void *)TheTacticalView);
+    fflush(stdout);
     TheTacticalView->init();
     TheDisplay->attachView(TheTacticalView);
 
