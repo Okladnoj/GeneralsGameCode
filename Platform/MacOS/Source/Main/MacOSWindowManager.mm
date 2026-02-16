@@ -75,7 +75,12 @@ int MacOS_Main(int argc, char *argv[]) {
     // Initialize renderer
     MacOS_InitRenderer(window);
 
-    return GameMain();
+    printf("MacOS_Main: About to call GameMain()...\n");
+    fflush(stdout);
+    int result = GameMain();
+    printf("MacOS_Main: GameMain() returned %d\n", result);
+    fflush(stdout);
+    return result;
   }
 }
 

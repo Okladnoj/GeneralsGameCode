@@ -14,6 +14,7 @@
 #import "IRenderDevice.h"
 #import "MacOSBuffers.h"
 #import "MacOSRenderDevice_Internal.h"
+#import "MacOSTexture.h"
 #include "TARGA.h"
 #include "ddsfile.h"
 #include "dx8indexbuffer.h"
@@ -22,177 +23,74 @@
 #include "vector3.h"
 #include "ww3dformat.h"
 
-// Metal Shaders (Extremely simplified to debug hang)
 static NSString *const shaderSource =
-    @"\n\
-#include <metal_stdlib>\n\
-using "
-    @"namespace metal;\n\
-\n\
-struct "
-    @"VertexIn {\n\
-    float3 position "
-    @"[[attribute(0)]];\n\
-    float4 "
-    @"diffuse [[attribute(1)]];\n\
-    "
-    @"float2 texCoord "
-    @"[[attribute(2)]];\n\
-};\n\
-\n\
-struct "
-    @"VertexOut {\n\
-    float4 position "
-    @"[[position]];\n\
-    float4 color;\n\
- "
-    @"   float2 "
-    @"texCoord;\n\
-};\n\
-\n\
-struct Uniforms "
-    @"{\n\
-    float4x4 world;\n\
-    "
-    @"float4x4 view;\n\
-    float4x4 "
-    @"projection;\n\
-    float2 "
-    @"screenSize;\n\
-    int "
-    @"useProjection;\n\
-    uint "
-    @"shaderSettings;\n\
-};\n\
-\n\
-vertex "
-    @"VertexOut vertex_main(VertexIn in "
-    @"[[stage_in]],\n\
-                      "
-    @"     constant Uniforms &u "
-    @"[[buffer(1)]]) {\n\
-    VertexOut "
-    @"out;\n\
-    // Force 2D for "
-    @"debugging\n\
-    out.position.x = "
-    @"(in.position.x / u.screenSize.x) * 2.0 "
-    @"- 1.0;\n\
-    out.position.y = 1.0 - "
-    @"(in.position.y / u.screenSize.y) * "
-    @"2.0;\n\
-    out.position.z = "
-    @"in.position.z;\n\
-    out.position.w = "
-    @"1.0;\n\
-    out.color = "
-    @"in.diffuse;\n\
-    out.texCoord = "
-    @"in.texCoord;\n\
-    return "
-    @"out;\n\
-}\n\
-\n\
-fragment float4 fragment_main(VertexOut in "
-    @"[[stage_in]], texture2d<float> tex [[texture(0)]]) {\n\
-    constexpr "
-    @"sampler s(address::clamp_to_edge, filter::linear);\n\
-    return "
-    @"tex.sample(s, in.texCoord) * in.color;\n\
-}\n\
-";
+    @""
+     "#include <metal_stdlib>\n"
+     "using namespace metal;\n"
+     "\n"
+     "struct VertexIn {\n"
+     "    float3 position [[attribute(0)]];\n"
+     "    float4 diffuse [[attribute(1)]];\n"
+     "    float2 texCoord [[attribute(2)]];\n"
+     "};\n"
+     "\n"
+     "struct VertexOut {\n"
+     "    float4 position [[position]];\n"
+     "    float4 color;\n"
+     "    float2 texCoord;\n"
+     "};\n"
+     "\n"
+     "struct Uniforms {\n"
+     "    float4x4 world;\n"
+     "    float4x4 view;\n"
+     "    float4x4 projection;\n"
+     "    float2 screenSize;\n"
+     "    int useProjection;\n"
+     "    uint shaderSettings;\n"
+     "};\n"
+     "\n"
+     "vertex VertexOut vertex_main(VertexIn in [[stage_in]], constant Uniforms "
+     "&u [[buffer(1)]]) {\n"
+     "    VertexOut out;\n"
+     "    out.position.x = (in.position.x / u.screenSize.x) * 2.0 - 1.0;\n"
+     "    out.position.y = 1.0 - (in.position.y / u.screenSize.y) * 2.0;\n"
+     "    out.position.z = in.position.z / 1000.0;\n"
+     "    out.position.w = 1.0;\n"
+     "    out.color = in.diffuse;\n"
+     "    out.texCoord = in.texCoord;\n"
+     "    return out;\n"
+     "}\n"
+     "\n"
+     "fragment float4 fragment_main(VertexOut in [[stage_in]], "
+     "texture2d<float> tex [[texture(0)]]) {\n"
+     "    constexpr sampler s(address::clamp_to_edge, filter::linear);\n"
+     "    return tex.sample(s, in.texCoord) * in.color;\n"
+     "}\n";
 
-class MacOSTexture : public ITexture {
-public:
-  MacOSTexture(id<MTLTexture> tex, int w, int h, int mips, WW3DFormat fmt)
-      : m_MTLTexture(tex), m_Width(w), m_Height(h), m_MipCount(mips),
-        m_Format(fmt), m_LockedLevel(-1) {}
-
-  bool LockRect(unsigned int level, LockedRect *pLockedRect,
-                const RectClass *pRect = nullptr,
-                unsigned int flags = 0) override {
-    if (level >= (unsigned int)m_MipCount || m_LockedLevel != -1)
-      return false;
-
-    m_LockedLevel = (int)level;
-    int levelWidth = std::max(1, m_Width >> level);
-    int levelHeight = std::max(1, m_Height >> level);
-
-    size_t size = 0;
-    if (m_Format >= WW3D_FORMAT_DXT1 && m_Format <= WW3D_FORMAT_DXT5) {
-      int blocksW = (levelWidth + 3) / 4;
-      int blocksH = (levelHeight + 3) / 4;
-      int bytesPerBlock = (m_Format == WW3D_FORMAT_DXT1) ? 8 : 16;
-      size = (size_t)blocksW * blocksH * bytesPerBlock;
-      pLockedRect->Pitch = (int)(blocksW * bytesPerBlock);
-    } else {
-      pLockedRect->Pitch = (int)(levelWidth * 4);
-      size = (size_t)levelHeight * pLockedRect->Pitch;
-    }
-
-    m_LockedData.resize(size);
-    pLockedRect->pBits = m_LockedData.data();
-    return true;
-  }
-
-  bool UnlockRect(unsigned int level) override {
-    if (m_LockedLevel == -1 || (unsigned int)m_LockedLevel != level)
-      return false;
-
-    int levelWidth = std::max(1, m_Width >> level);
-    int levelHeight = std::max(1, m_Height >> level);
-
-    MTLRegion region = MTLRegionMake2D(0, 0, levelWidth, levelHeight);
-
-    if (m_Format >= WW3D_FORMAT_DXT1 && m_Format <= WW3D_FORMAT_DXT5) {
-      int bytesPerBlock = (m_Format == WW3D_FORMAT_DXT1) ? 8 : 16;
-      int blocksW = (levelWidth + 3) / 4;
-      [m_MTLTexture replaceRegion:region
-                      mipmapLevel:level
-                        withBytes:m_LockedData.data()
-                      bytesPerRow:blocksW * bytesPerBlock];
-    } else {
-      [m_MTLTexture replaceRegion:region
-                      mipmapLevel:level
-                        withBytes:m_LockedData.data()
-                      bytesPerRow:levelWidth * 4];
-    }
-
-    m_LockedLevel = -1;
-    m_LockedData.clear();
-    return true;
-  }
-
-  bool GetLevelDesc(unsigned int level, LevelInfo *outInfo) override {
-    if (level >= (unsigned int)m_MipCount)
-      return false;
-    outInfo->Width = std::max(1, m_Width >> level);
-    outInfo->Height = std::max(1, m_Height >> level);
-    outInfo->Depth = 1;
-    outInfo->Format = m_Format;
-    return true;
-  }
-
-  id<MTLTexture> GetMTLTexture() const { return m_MTLTexture; }
-
-private:
-  id<MTLTexture> m_MTLTexture;
-  int m_Width, m_Height, m_MipCount;
-  WW3DFormat m_Format;
-  std::vector<uint8_t> m_LockedData;
-  int m_LockedLevel;
+#pragma pack(push, 1)
+struct TGAHeaderPacked {
+  unsigned char idlength;
+  unsigned char colourmaptype;
+  unsigned char datatypecode;
+  unsigned short colourmaporigin;
+  unsigned short colourmaplength;
+  unsigned char colourmapdepth;
+  unsigned short x_origin;
+  unsigned short y_origin;
+  unsigned short width;
+  unsigned short height;
+  unsigned char bitsperpixel;
+  unsigned char imagedescriptor;
 };
+#pragma pack(pop)
 
-// Implementations for MacOSRenderDevice methods
 id<MTLDevice> MacOSRenderDevice::m_StaticDevice = nil;
 id<MTLDevice> MacOSRenderDevice::GetMTLDevice() { return m_StaticDevice; }
 
 MacOSRenderDevice::MacOSRenderDevice()
     : m_Device(nil), m_CommandQueue(nil), m_CurrentEncoder(nil),
-      m_CurrentCommandBuffer(nil), m_MetalLayer(nil), m_OpaquePS(nil),
-      m_AlphaPS(nil), m_LinearSampler(nil), m_PointSampler(nil),
-      m_Is2DMode(false), m_CurrentColor(0), m_CurrentDrawable(nil),
-      m_WhiteTexture(nil) {
+      m_CurrentCommandBuffer(nil), m_MetalLayer(nil), m_AlphaPS(nil),
+      m_CurrentColor(0), m_CurrentDrawable(nil), m_WhiteTexture(nil) {
   m_ScreenSize[0] = 800;
   m_ScreenSize[1] = 600;
   for (int i = 0; i < 8; ++i)
@@ -200,82 +98,41 @@ MacOSRenderDevice::MacOSRenderDevice()
 }
 
 bool MacOSRenderDevice::Initialize(void *hwnd) {
-  printf("MacOSRenderDevice::Initialize: hwnd = %p\n", hwnd);
-  fflush(stdout);
+  m_TextureCache.clear();
   m_Device = MTLCreateSystemDefaultDevice();
   m_StaticDevice = m_Device;
-  if (!m_Device) {
-    printf("MacOSRenderDevice::Initialize: Failed to create Metal Device!\n");
+  if (!m_Device)
     return false;
-  }
   m_CommandQueue = [m_Device newCommandQueue];
-
   NSWindow *window = (__bridge NSWindow *)hwnd;
-  if (window && window.contentView == nil) {
-    printf(
-        "MacOSRenderDevice::Initialize: FAILED - window.contentView is nil!\n");
-    fflush(stdout);
-    return false;
-  }
-
   m_MetalLayer = [CAMetalLayer layer];
   m_MetalLayer.device = m_Device;
   m_MetalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-  m_MetalLayer.framebufferOnly = NO;
-
   if (window) {
-    printf(
-        "MacOSRenderDevice::Initialize: Attaching Metal Layer to window...\n");
-    fflush(stdout);
     window.contentView.layer = m_MetalLayer;
     window.contentView.wantsLayer = YES;
-
-    CGSize viewSize = window.contentView.bounds.size;
-    CGFloat scale = window.backingScaleFactor;
+    CGSize vs = window.contentView.bounds.size;
     m_MetalLayer.drawableSize =
-        CGSizeMake(viewSize.width * scale, viewSize.height * scale);
-    m_MetalLayer.contentsScale = scale;
-
-    printf("MacOSRenderDevice::Initialize: Metal Layer attached, size=%.1f x "
-           "%.1f, scale=%.1f\n",
-           viewSize.width, viewSize.height, scale);
-    fflush(stdout);
-
-    m_ScreenSize[0] = (float)window.contentView.frame.size.width;
-    m_ScreenSize[1] = (float)window.contentView.frame.size.height;
+        CGSizeMake(vs.width * window.backingScaleFactor,
+                   vs.height * window.backingScaleFactor);
+    m_ScreenSize[0] = (float)vs.width;
+    m_ScreenSize[1] = (float)vs.height;
   }
 
-  // Load Shaders
-  NSError *error = nil;
-  id<MTLLibrary> library = [m_Device newLibraryWithSource:shaderSource
-                                                  options:nil
-                                                    error:&error];
-
-  // Initialize white texture
-  MTLTextureDescriptor *td = [MTLTextureDescriptor
-      texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
-                                   width:1
-                                  height:1
-                               mipmapped:NO];
-  m_WhiteTexture = [m_Device newTextureWithDescriptor:td];
-  unsigned int white = 0xFFFFFFFF;
-  [m_WhiteTexture replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-                    mipmapLevel:0
-                      withBytes:&white
-                    bytesPerRow:4];
-  if (!library) {
-    printf("Failed to compile shaders: %s\n",
-           [[error localizedDescription] UTF8String]);
-    return false;
-  }
-
-  id<MTLFunction> vertexFunc = [library newFunctionWithName:@"vertex_main"];
-  id<MTLFunction> fragmentFunc = [library newFunctionWithName:@"fragment_main"];
-
+  NSError *err = nil;
+  id<MTLLibrary> lib = [m_Device newLibraryWithSource:shaderSource
+                                              options:nil
+                                                error:&err];
+  id<MTLFunction> vf = [lib newFunctionWithName:@"vertex_main"],
+                  ff = [lib newFunctionWithName:@"fragment_main"];
   MTLRenderPipelineDescriptor *psd = [[MTLRenderPipelineDescriptor alloc] init];
-  psd.vertexFunction = vertexFunc;
-  psd.fragmentFunction = fragmentFunc;
+  psd.vertexFunction = vf;
+  psd.fragmentFunction = ff;
   psd.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+  psd.colorAttachments[0].blendingEnabled = YES;
+  psd.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
+  psd.colorAttachments[0].destinationRGBBlendFactor =
+      MTLBlendFactorOneMinusSourceAlpha;
 
   MTLVertexDescriptor *vd = [[MTLVertexDescriptor alloc] init];
   vd.attributes[0].format = MTLVertexFormatFloat3;
@@ -289,30 +146,20 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
   vd.attributes[2].bufferIndex = 0;
   vd.layouts[0].stride = 24;
   psd.vertexDescriptor = vd;
+  m_AlphaPS = [m_Device newRenderPipelineStateWithDescriptor:psd error:&err];
 
-  // Create Opaque PS
-  psd.colorAttachments[0].blendingEnabled = NO;
-  m_OpaquePS = [m_Device newRenderPipelineStateWithDescriptor:psd error:&error];
-
-  // Create Alpha PS
-  psd.colorAttachments[0].blendingEnabled = YES;
-  psd.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
-  psd.colorAttachments[0].destinationRGBBlendFactor =
-      MTLBlendFactorOneMinusSourceAlpha;
-  psd.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorSourceAlpha;
-  psd.colorAttachments[0].destinationAlphaBlendFactor =
-      MTLBlendFactorOneMinusSourceAlpha;
-  m_AlphaPS = [m_Device newRenderPipelineStateWithDescriptor:psd error:&error];
-
-  if (!m_AlphaPS) {
-    printf("Failed to create pipeline state: %s\n",
-           [[error localizedDescription] UTF8String]);
-    fflush(stdout);
-    return false;
-  }
-
-  printf("MacOSRenderDevice::Initialize: SUCCESS\n");
-  fflush(stdout);
+  uint32_t white = 0xFFFFFFFF;
+  m_WhiteTexture = [m_Device
+      newTextureWithDescriptor:
+          [MTLTextureDescriptor
+              texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                           width:1
+                                          height:1
+                                       mipmapped:NO]];
+  [m_WhiteTexture replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                    mipmapLevel:0
+                      withBytes:&white
+                    bytesPerRow:4];
   return true;
 }
 
@@ -320,84 +167,37 @@ void MacOSRenderDevice::Shutdown() {
   m_Device = nil;
   m_CommandQueue = nil;
   m_MetalLayer = nil;
-  m_OpaquePS = nil;
-  m_AlphaPS = nil;
-  m_LinearSampler = nil;
-  m_PointSampler = nil;
 }
-
 void MacOSRenderDevice::Clear(unsigned int color) { m_CurrentColor = color; }
-
 void MacOSRenderDevice::Present() {
   if (m_CurrentCommandBuffer) {
-    if (m_CurrentDrawable) {
+    if (m_CurrentDrawable)
       [m_CurrentCommandBuffer presentDrawable:m_CurrentDrawable];
-      m_CurrentDrawable = nil;
-    }
     [m_CurrentCommandBuffer commit];
     m_CurrentCommandBuffer = nil;
+    m_CurrentDrawable = nil;
   }
 }
 
 void MacOSRenderDevice::BeginScene() {
-  fprintf(stderr, "BeginScene [1]: entering\n");
-  fflush(stderr);
   if (m_CurrentCommandBuffer)
     return;
-  if (!m_CommandQueue)
-    return;
-
-  fprintf(stderr, "BeginScene [2]: getting command buffer\n");
-  fflush(stderr);
   m_CurrentCommandBuffer = [m_CommandQueue commandBuffer];
-
-  fprintf(stderr, "BeginScene [3]: getting next drawable\n");
-  fflush(stderr);
   m_CurrentDrawable = [m_MetalLayer nextDrawable];
-
-  if (!m_CurrentDrawable) {
-    fprintf(stderr, "BeginScene [F]: nextDrawable is NIL\n");
-    fflush(stderr);
+  if (!m_CurrentDrawable)
     return;
-  }
-
-  fprintf(stderr, "BeginScene [4]: creating pass descriptor\n");
-  fflush(stderr);
   MTLRenderPassDescriptor *pass = [[MTLRenderPassDescriptor alloc] init];
-  if (!pass) {
-    fprintf(stderr, "BeginScene [F]: pass descriptor is NIL\n");
-    fflush(stderr);
-    return;
-  }
-
-  fprintf(stderr, "BeginScene [5]: setting color attachment texture\n");
-  fflush(stderr);
   pass.colorAttachments[0].texture = m_CurrentDrawable.texture;
   pass.colorAttachments[0].loadAction = MTLLoadActionClear;
-  pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-
   float r = ((m_CurrentColor >> 16) & 0xFF) / 255.0f;
   float g = ((m_CurrentColor >> 8) & 0xFF) / 255.0f;
   float b = (m_CurrentColor & 0xFF) / 255.0f;
-  float a = ((m_CurrentColor >> 24) & 0xFF) / 255.0f;
-  pass.colorAttachments[0].clearColor = MTLClearColorMake(r, g, b, a);
-
-  fprintf(stderr, "BeginScene [6]: creating render encoder...\n");
-  fflush(stderr);
-  @try {
-    m_CurrentEncoder =
-        [m_CurrentCommandBuffer renderCommandEncoderWithDescriptor:pass];
-    fprintf(stderr, "BeginScene [7]: encoder created: %p\n",
-            (__bridge void *)m_CurrentEncoder);
-    fflush(stderr);
-  } @catch (NSException *exception) {
-    fprintf(stderr, "BeginScene [X]: EXCEPTION: %s\n",
-            [exception.reason UTF8String]);
-    fflush(stderr);
-  }
-
-  fprintf(stderr, "BeginScene [8]: exiting\n");
-  fflush(stderr);
+  pass.colorAttachments[0].clearColor = MTLClearColorMake(r, g, b, 1.0);
+  m_CurrentEncoder =
+      [m_CurrentCommandBuffer renderCommandEncoderWithDescriptor:pass];
+  [m_CurrentEncoder
+      setViewport:{0, 0, (double)m_MetalLayer.drawableSize.width,
+                   (double)m_MetalLayer.drawableSize.height, 0, 1}];
 }
 
 void MacOSRenderDevice::EndScene() {
@@ -407,391 +207,216 @@ void MacOSRenderDevice::EndScene() {
   }
   Present();
 }
-
-void MacOSRenderDevice::SetViewport(const Viewport *pViewport) {
-  if (m_CurrentEncoder) {
-    MTLViewport mvp = {
-        (double)pViewport->x,         (double)pViewport->y,
-        (double)pViewport->w,         (double)pViewport->h,
-        (double)pViewport->min_depth, (double)pViewport->max_depth};
-    [m_CurrentEncoder setViewport:mvp];
-  }
-  m_ScreenSize[0] = (float)pViewport->w;
-  m_ScreenSize[1] = (float)pViewport->h;
-}
-
-void MacOSRenderDevice::SetTransform(TransformType type, const float *matrix) {}
-
-ITexture *MacOSRenderDevice::CreateTexture(unsigned int width,
-                                           unsigned int height,
+void MacOSRenderDevice::SetViewport(const Viewport *vp) {}
+void MacOSRenderDevice::SetTransform(TransformType t, const float *m) {}
+ITexture *MacOSRenderDevice::CreateTexture(unsigned int w, unsigned int h,
                                            unsigned int mips,
-                                           unsigned int usage,
-                                           WW3DFormat format) {
-  MTLPixelFormat mtlFormat = MTLPixelFormatBGRA8Unorm;
-  MTLTextureDescriptor *td =
-      [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:mtlFormat
-                                                         width:width
-                                                        height:height
-                                                     mipmapped:(mips > 1)];
-  id<MTLTexture> tex = [m_Device newTextureWithDescriptor:td];
-  return new MacOSTexture(tex, width, height, mips, format);
+                                           unsigned int usage, WW3DFormat fmt) {
+  id<MTLTexture> tex = [m_Device
+      newTextureWithDescriptor:
+          [MTLTextureDescriptor
+              texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                           width:w
+                                          height:h
+                                       mipmapped:(mips > 1)]];
+  return new MacOSTexture(w, h, mips, usage, fmt, tex);
 }
 
-void MacOSRenderDevice::SetTexture(unsigned int stage, ITexture *pTexture) {
-  m_Textures[stage] = pTexture;
+void MacOSRenderDevice::SetTexture(unsigned int stage, ITexture *tex) {
+  m_Textures[stage] = tex;
 }
+void MacOSRenderDevice::SetRenderState(RenderState s, unsigned int v) {}
+void MacOSRenderDevice::SetMeshShader(unsigned int b) {}
 
-void MacOSRenderDevice::SetRenderState(RenderState state, unsigned int value) {}
-void MacOSRenderDevice::SetMeshShader(unsigned int shaderBits) {}
-
-void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int vertexCount,
-                                    int indexCount, const Vertex *vertexData,
-                                    const unsigned short *indexData) {
+void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int vc, int ic,
+                                    const Vertex *vd,
+                                    const unsigned short *id) {
   if (!m_CurrentEncoder)
     return;
-
   [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
-
-  Uniforms uniforms;
-  memset(&uniforms, 0, sizeof(Uniforms));
-  // Identity matrices
-  uniforms.world = matrix_identity_float4x4;
-  uniforms.view = matrix_identity_float4x4;
-  uniforms.projection = matrix_identity_float4x4;
-
-  uniforms.screenSize[0] = m_ScreenSize[0];
-  uniforms.screenSize[1] = m_ScreenSize[1];
-  uniforms.useProjection = 0; // 2D mode
-
-  [m_CurrentEncoder setVertexBytes:vertexData
-                            length:sizeof(Vertex) * vertexCount
-                           atIndex:0];
-  [m_CurrentEncoder setVertexBytes:&uniforms length:sizeof(Uniforms) atIndex:1];
-
-  MTLPrimitiveType mtlType = MTLPrimitiveTypeTriangle;
-  if (type == PRIMITIVE_TYPE_LINELIST)
-    mtlType = MTLPrimitiveTypeLine;
-
+  Uniforms u;
+  memset(&u, 0, sizeof(u));
+  u.world = u.view = u.projection = matrix_identity_float4x4;
+  u.screenSize[0] = m_ScreenSize[0];
+  u.screenSize[1] = m_ScreenSize[1];
+  [m_CurrentEncoder setVertexBytes:vd length:sizeof(Vertex) * vc atIndex:0];
+  [m_CurrentEncoder setVertexBytes:&u length:sizeof(u) atIndex:1];
   [m_CurrentEncoder
-      drawIndexedPrimitives:mtlType
-                 indexCount:indexCount
+      drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                 indexCount:ic
                   indexType:MTLIndexTypeUInt16
                 indexBuffer:[m_Device
-                                newBufferWithBytes:indexData
-                                            length:sizeof(unsigned short) *
-                                                   indexCount
+                                newBufferWithBytes:id
+                                            length:2 * ic
                                            options:MTLResourceStorageModeShared]
           indexBufferOffset:0];
 }
 
-void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int indexCount,
+void MacOSRenderDevice::DrawIndexed(PrimitiveType t, int ic,
                                     IndexBufferClass *ib,
                                     VertexBufferClass *vb) {}
-
-void MacOSRenderDevice::DrawDebugText(const char *text, float x, float y,
-                                      unsigned int color) {}
-
+void MacOSRenderDevice::DrawDebugText(const char *t, float x, float y,
+                                      unsigned int c) {}
 void MacOSRenderDevice::DrawFillRect(float x, float y, float w, float h,
-                                     unsigned int color) {
-  if (!m_CurrentEncoder)
-    return;
-
-  Vertex vertices[4];
-  vertices[0] = {x, y, 0.0f, color, 0.0f, 0.0f};
-  vertices[1] = {x + w, y, 0.0f, color, 1.0f, 0.0f};
-  vertices[2] = {x, y + h, 0.0f, color, 0.0f, 1.0f};
-  vertices[3] = {x + w, y + h, 0.0f, color, 1.0f, 1.0f};
-
-  static unsigned short indices[6] = {0, 1, 2, 1, 3, 2};
-  static id<MTLBuffer> s_indexBuffer = nil;
-  if (!s_indexBuffer) {
-    s_indexBuffer = [m_Device newBufferWithBytes:indices
-                                          length:sizeof(indices)
-                                         options:MTLResourceStorageModeShared];
-  }
-
-  [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
-
-  if (m_Textures[0]) {
-    MacOSTexture *mtlTex = static_cast<MacOSTexture *>(m_Textures[0]);
-    [m_CurrentEncoder setFragmentTexture:mtlTex->GetMTLTexture() atIndex:0];
-  } else if (m_WhiteTexture) {
-    [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
-  }
-
-  Uniforms uniforms;
-  memset(&uniforms, 0, sizeof(Uniforms));
-  // Identity matrices
-  uniforms.world = matrix_identity_float4x4;
-  uniforms.view = matrix_identity_float4x4;
-  uniforms.projection = matrix_identity_float4x4;
-
-  uniforms.screenSize[0] = m_ScreenSize[0];
-  uniforms.screenSize[1] = m_ScreenSize[1];
-  uniforms.useProjection = 0; // 2D mode
-
-  [m_CurrentEncoder setVertexBytes:vertices
-                            length:sizeof(Vertex) * 4
-                           atIndex:0];
-  [m_CurrentEncoder setVertexBytes:&uniforms length:sizeof(Uniforms) atIndex:1];
-
-  [m_CurrentEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                               indexCount:6
-                                indexType:MTLIndexTypeUInt16
-                              indexBuffer:s_indexBuffer
-                        indexBufferOffset:0];
+                                     unsigned int c) {
+  DrawTexturedRect(x, y, w, h, 0, 0, 1, 1, c);
 }
 
 ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
   if (!filename || !filename[0])
     return nullptr;
-
-  printf("MacOSRenderer: Requesting texture: %s\n", filename);
-  fflush(stdout);
-
   if (m_TextureCache.count(filename))
     return m_TextureCache[filename];
 
-  printf("MacOSRenderer: Requesting texture: %s\n", filename);
-  fflush(stdout);
-
-  std::vector<unsigned char> dataBuffer;
-  char nameWithExt[512];
-  strncpy(nameWithExt, filename, sizeof(nameWithExt));
-  if (!strchr(filename, '.')) {
-    strncat(nameWithExt, ".tga", sizeof(nameWithExt) - strlen(nameWithExt) - 1);
-  }
-
-  const char *prefixes[] = {
-      "",
-      "Data\\",
-      "Data\\English\\Art\\Textures\\",
-      "Data\\Window\\",
-      "Art\\Textures\\",
-      "Window\\",
-      "Data/English/Art/Textures/",
-  };
-
+  std::vector<unsigned char> data;
+  const char *prefs[] = {"",
+                         "Art/",
+                         "Art/Textures/",
+                         "Data/",
+                         "Data/English/Art/Textures/",
+                         "Data/Window/",
+                         "Window/",
+                         "assets/"};
   bool found = false;
-  for (int i = 0; i < 7; i++) {
-    char fullPath[1024];
-    strncpy(fullPath, prefixes[i], sizeof(fullPath));
-    strncat(fullPath, nameWithExt, sizeof(fullPath) - strlen(fullPath) - 1);
-
-    // Try disk first
-    FILE *f = fopen(fullPath, "rb");
+  for (int i = 0; i < 8; i++) {
+    char p[1024];
+    snprintf(p, 1024, "%s%s", prefs[i], filename);
+    for (char *c = p; *c; c++)
+      if (*c == '\\')
+        *c = '/';
+    FILE *f = fopen(p, "rb");
     if (f) {
       fseek(f, 0, SEEK_END);
-      size_t fileSize = ftell(f);
+      size_t s = ftell(f);
       fseek(f, 0, SEEK_SET);
-      dataBuffer.resize(fileSize);
-      fread(dataBuffer.data(), 1, fileSize, f);
+      data.resize(s);
+      fread(data.data(), 1, s, f);
       fclose(f);
       found = true;
     } else if (TheFileSystem) {
-      char archivePath[1024];
-      strcpy(archivePath, fullPath);
-      for (char *p = archivePath; *p; p++)
-        if (*p == '/')
-          *p = '\\';
-
-      File *gameFile = TheFileSystem->openFile(archivePath);
-      if (gameFile) {
-        size_t fileSize = gameFile->size();
-        dataBuffer.resize(fileSize);
-        gameFile->read(dataBuffer.data(), fileSize);
-        gameFile->close();
-        printf("MacOSRenderer: Found %s in Archive! Size: %d\n", archivePath,
-               (int)fileSize);
-        fflush(stdout);
+      for (char *c = p; *c; c++)
+        if (*c == '/')
+          *c = '\\';
+      File *gf = TheFileSystem->openFile(p);
+      if (gf) {
+        data.resize(gf->size());
+        gf->read(data.data(), gf->size());
+        gf->close();
         found = true;
       }
     }
     if (found)
       break;
   }
-
-  if (dataBuffer.empty()) {
+  if (!found)
     return nullptr;
-  }
 
-  TGAHeader *header = (TGAHeader *)dataBuffer.data();
-  if (dataBuffer.size() < sizeof(TGAHeader)) {
+  TGAHeaderPacked *h = (TGAHeaderPacked *)data.data();
+  int w = h->width, height = h->height, bpp = h->bitsperpixel,
+      type = h->datatypecode;
+  if (w <= 0 || height <= 0 || (bpp != 24 && bpp != 32))
     return nullptr;
-  }
 
-  int width = header->Width;
-  int height = header->Height;
-  int bpp = header->PixelDepth;
-  int pixelDataOffset = sizeof(TGAHeader) + header->IDLength;
-
-  if (header->ImageType != TGA_TRUECOLOR &&
-      header->ImageType != TGA_TRUECOLOR_ENCODED) {
-    printf("MacOSRenderer: Unsupported TGA type %d for %s\n",
-           (int)header->ImageType, filename);
-    return nullptr;
-  }
-
-  std::vector<unsigned char> rgba;
-  rgba.resize(width * height * 4);
-
-  // Determine if we need to flip vertically (TGA bit 5: 0 = bottom-up, 1 =
-  // top-down)
-  bool flipY = !(header->ImageDescriptor & 0x20);
-
-  if (header->ImageType == TGA_TRUECOLOR) {
-    unsigned char *src = dataBuffer.data() + pixelDataOffset;
-    int bytesPerPixel = bpp / 8;
-    for (int y = 0; y < height; y++) {
-      int srcY = flipY ? (height - 1 - y) : y;
-      unsigned char *srcRow = src + (srcY * width * bytesPerPixel);
-      unsigned char *dstRow = rgba.data() + (y * width * 4);
-      for (int x = 0; x < width; x++) {
-        if (bpp == 32) {
-          dstRow[x * 4 + 0] = srcRow[x * 4 + 0]; // B
-          dstRow[x * 4 + 1] = srcRow[x * 4 + 1]; // G
-          dstRow[x * 4 + 2] = srcRow[x * 4 + 2]; // R
-          dstRow[x * 4 + 3] = srcRow[x * 4 + 3]; // A
-        } else {
-          dstRow[x * 4 + 0] = srcRow[x * 3 + 0]; // B
-          dstRow[x * 4 + 1] = srcRow[x * 3 + 1]; // G
-          dstRow[x * 4 + 2] = srcRow[x * 3 + 2]; // R
-          dstRow[x * 4 + 3] = 255;
+  unsigned char *src_ptr = (unsigned char *)(h + 1) + h->idlength;
+  std::vector<unsigned char> decomp;
+  int bv = bpp / 8;
+  if (type == 10 || type == 11) { // RLE
+    decomp.resize(w * height * bv);
+    unsigned char *dst = decomp.data();
+    int pixels_count = 0, total_pixels = w * height;
+    while (pixels_count < total_pixels) {
+      unsigned char ch = *src_ptr++;
+      if (ch & 0x80) {
+        int n = (ch & 0x7F) + 1;
+        for (int j = 0; j < n && pixels_count < total_pixels; j++) {
+          memcpy(dst + pixels_count * bv, src_ptr, bv);
+          pixels_count++;
         }
-      }
-    }
-  } else if (header->ImageType == TGA_TRUECOLOR_ENCODED) {
-    std::vector<unsigned char> tempBgra;
-    tempBgra.resize(width * height * 4);
-    unsigned char *src = dataBuffer.data() + pixelDataOffset;
-    unsigned char *dst = tempBgra.data();
-    int pixelCount = width * height;
-    int currentPixel = 0;
-    int bytesPerPixel = bpp / 8;
-    while (currentPixel < pixelCount &&
-           (src - dataBuffer.data()) < (int)dataBuffer.size()) {
-      unsigned char chunkHeader = *src++;
-      if (chunkHeader < 128) {
-        int count = chunkHeader + 1;
-        for (int i = 0; i < count; i++) {
-          if (bpp == 32) {
-            memcpy(dst, src, 4);
-          } else {
-            dst[0] = src[0];
-            dst[1] = src[1];
-            dst[2] = src[2];
-            dst[3] = 255;
-          }
-          src += bytesPerPixel;
-          dst += 4;
-          currentPixel++;
-        }
+        src_ptr += bv;
       } else {
-        int count = chunkHeader - 127;
-        unsigned char pixel[4];
-        if (bpp == 32) {
-          memcpy(pixel, src, 4);
-        } else {
-          pixel[0] = src[0];
-          pixel[1] = src[1];
-          pixel[2] = src[2];
-          pixel[3] = 255;
-        }
-        src += bytesPerPixel;
-        for (int i = 0; i < count; i++) {
-          memcpy(dst, pixel, 4);
-          dst += 4;
-          currentPixel++;
+        int n = ch + 1;
+        for (int j = 0; j < n && pixels_count < total_pixels; j++) {
+          memcpy(dst + pixels_count * bv, src_ptr, bv);
+          src_ptr += bv;
+          pixels_count++;
         }
       }
     }
-    for (int y = 0; y < height; y++) {
-      int srcY = flipY ? (height - 1 - y) : y;
-      memcpy(rgba.data() + (y * width * 4),
-             tempBgra.data() + (srcY * width * 4), width * 4);
+    src_ptr = decomp.data();
+  }
+
+  std::vector<unsigned char> rgba(w * height * 4);
+  bool flipY = !(h->imagedescriptor & 0x20);
+  for (int y = 0; y < height; y++) {
+    int sy = flipY ? (height - 1 - y) : y;
+    unsigned char *srow = src_ptr + (sy * w * bv);
+    unsigned char *drow = rgba.data() + (y * w * 4);
+    for (int x = 0; x < w; x++) {
+      drow[x * 4 + 0] = srow[0];
+      drow[x * 4 + 1] = srow[1];
+      drow[x * 4 + 2] = srow[2];
+      drow[x * 4 + 3] = (bv == 4) ? srow[3] : 255;
+      srow += bv;
     }
   }
 
-  ITexture *tex = CreateTexture(width, height, 1, 0, WW3D_FORMAT_A8R8G8B8);
-  if (tex) {
-    MacOSTexture *mtlTex = static_cast<MacOSTexture *>(tex);
-    MTLRegion region = MTLRegionMake2D(0, 0, width, height);
-    [mtlTex->GetMTLTexture() replaceRegion:region
-                               mipmapLevel:0
-                                 withBytes:rgba.data()
-                               bytesPerRow:width * 4];
-    m_TextureCache[filename] = tex;
-  }
-  return tex;
+  ITexture *it = CreateTexture(w, height, 1, 0, WW3D_FORMAT_A8R8G8B8);
+  id<MTLTexture> mtl = ((MacOSTexture *)it)->GetMTLTexture();
+  [mtl replaceRegion:MTLRegionMake2D(0, 0, w, height)
+         mipmapLevel:0
+           withBytes:rgba.data()
+         bytesPerRow:w * 4];
+  m_TextureCache[filename] = it;
+  return it;
 }
 
-void MacOSRenderDevice::GetDisplaySize(int &width, int &height) {
-  width = (int)m_ScreenSize[0];
-  height = (int)m_ScreenSize[1];
+void MacOSRenderDevice::GetDisplaySize(int &w, int &h) {
+  w = (int)m_ScreenSize[0];
+  h = (int)m_ScreenSize[1];
 }
-
 void MacOSRenderDevice::DrawTexturedRect(float x, float y, float w, float h,
                                          float u1, float v1, float u2, float v2,
-                                         unsigned int color) {
-  if (!m_CurrentEncoder)
-    return;
-
-  Vertex vertices[4];
-  vertices[0] = {x, y, 0.0f, color, u1, v1};
-  vertices[1] = {x + w, y, 0.0f, color, u2, v1};
-  vertices[2] = {x, y + h, 0.0f, color, u1, v2};
-  vertices[3] = {x + w, y + h, 0.0f, color, u2, v2};
-
-  static unsigned short indices[6] = {0, 1, 2, 1, 3, 2};
-  static id<MTLBuffer> s_indexBuffer = nil;
-  if (!s_indexBuffer) {
-    s_indexBuffer = [m_Device newBufferWithBytes:indices
-                                          length:sizeof(indices)
-                                         options:MTLResourceStorageModeShared];
+                                         unsigned int c) {
+  static int drawCount = 0;
+  if (drawCount++ % 1000 == 0) {
+    printf("DEBUG: DrawTexturedRect pulse (count=%d)\n", drawCount);
+    fflush(stdout);
   }
-
+  Vertex vs[4] = {{x, y, 0, c, u1, v1},
+                  {x + w, y, 0, c, u2, v1},
+                  {x, y + h, 0, c, u1, v2},
+                  {x + w, y + h, 0, c, u2, v2}};
+  static unsigned short ids[6] = {0, 1, 2, 1, 3, 2};
   [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
-
-  if (m_Textures[0]) {
-    MacOSTexture *mtlTex = static_cast<MacOSTexture *>(m_Textures[0]);
-    [m_CurrentEncoder setFragmentTexture:mtlTex->GetMTLTexture() atIndex:0];
-  } else if (m_WhiteTexture) {
+  if (m_Textures[0])
+    [m_CurrentEncoder
+        setFragmentTexture:((MacOSTexture *)m_Textures[0])->GetMTLTexture()
+                   atIndex:0];
+  else
     [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
-  }
-
-  Uniforms uniforms;
-  memset(&uniforms, 0, sizeof(Uniforms));
-  uniforms.world = matrix_identity_float4x4;
-  uniforms.view = matrix_identity_float4x4;
-  uniforms.projection = matrix_identity_float4x4;
-  uniforms.screenSize[0] = m_ScreenSize[0];
-  uniforms.screenSize[1] = m_ScreenSize[1];
-  uniforms.useProjection = 0;
-
-  [m_CurrentEncoder setVertexBytes:vertices
-                            length:sizeof(Vertex) * 4
-                           atIndex:0];
-  [m_CurrentEncoder setVertexBytes:&uniforms length:sizeof(Uniforms) atIndex:1];
-
-  [m_CurrentEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                               indexCount:6
-                                indexType:MTLIndexTypeUInt16
-                              indexBuffer:s_indexBuffer
-                        indexBufferOffset:0];
+  Uniforms u;
+  memset(&u, 0, sizeof(u));
+  u.world = u.view = u.projection = matrix_identity_float4x4;
+  u.screenSize[0] = m_ScreenSize[0];
+  u.screenSize[1] = m_ScreenSize[1];
+  [m_CurrentEncoder setVertexBytes:vs length:24 * 4 atIndex:0];
+  [m_CurrentEncoder setVertexBytes:&u length:sizeof(u) atIndex:1];
+  [m_CurrentEncoder
+      drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                 indexCount:6
+                  indexType:MTLIndexTypeUInt16
+                indexBuffer:[m_Device
+                                newBufferWithBytes:ids
+                                            length:12
+                                           options:MTLResourceStorageModeShared]
+          indexBufferOffset:0];
 }
 
 void MacOSRenderDevice::DrawLine(float x1, float y1, float x2, float y2,
-                                 float width, unsigned int color) {
-  if (!m_CurrentEncoder)
-    return;
-  // Simple line drawing stub
+                                 float w, unsigned int c) {}
+static MacOSRenderDevice g_RD;
+extern "C" IRenderDevice *GetRenderDevice() { return &g_RD; }
+extern "C" void MacOS_InitRenderer(void *h) {
+  GetRenderDevice()->Initialize(h);
 }
-
-static MacOSRenderDevice g_MacOSRenderDevice;
-extern "C" IRenderDevice *GetRenderDevice() { return &g_MacOSRenderDevice; }
-
-extern "C" void MacOS_InitRenderer(void *windowHandle) {
-  GetRenderDevice()->Initialize(windowHandle);
-}
-
 extern "C" void MacOS_Render() {}

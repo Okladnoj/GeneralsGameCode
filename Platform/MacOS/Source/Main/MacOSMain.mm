@@ -265,7 +265,10 @@ void Win32GameEngine::init() {
 }
 void Win32GameEngine::reset() { GameEngine::reset(); }
 void Win32GameEngine::update() {
-  fprintf(stderr, "Win32GameEngine::update ENTERING\n");
+  // The engine relies on TheMessageTime for GUI transitions and animations.
+  // We provide a "heartbeat" time at the start of the frame.
+  TheMessageTime = timeGetTime();
+
   GameEngine::update();
   serviceWindowsOS();
 }
@@ -273,7 +276,7 @@ void Win32GameEngine::serviceWindowsOS() {
   // First, pump native macOS events
 #if defined(__APPLE__) && defined(__OBJC__)
   MacOS_PumpEvents();
-  // MacOS_Render(); // Clear removed - engine draws its own scene
+
   if (MacOS_ShouldQuit() && TheGameEngine) {
     TheGameEngine->setQuitting(true);
   }
@@ -286,7 +289,6 @@ void Win32GameEngine::serviceWindowsOS() {
     TheMessageTime = msg.time;
     TranslateMessage(&msg);
     DispatchMessage(&msg);
-    TheMessageTime = 0;
   }
 }
 
@@ -430,8 +432,8 @@ ThingFactory *Win32GameEngine::createThingFactory(void) {
   return new ThingFactory();
 }
 FunctionLexicon *Win32GameEngine::createFunctionLexicon(void) {
-  fprintf(stderr, "FACTORY: createFunctionLexicon\n");
-  return new FunctionLexicon();
+  fprintf(stderr, "FACTORY: createFunctionLexicon (W3D)\n");
+  return new W3DFunctionLexicon();
 }
 ParticleSystemManager *Win32GameEngine::createParticleSystemManager(void) {
   fprintf(stderr, "FACTORY: createParticleSystemManager\n");

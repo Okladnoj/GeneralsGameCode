@@ -2222,6 +2222,10 @@ Bool parseInit(const char *token, char *buffer, UnsignedInt version,
   info->init = TheFunctionLexicon->winLayoutInitFunc(
       TheNameKeyGenerator->nameToKey(info->initNameString));
 
+  printf("parseInit: file specifies '%s', Lexicon found: %p\n",
+         info->initNameString.str(), (void *)info->init);
+  fflush(stdout);
+
   return TRUE; // success
 }
 
@@ -2240,6 +2244,10 @@ Bool parseUpdate(const char *token, char *buffer, UnsignedInt version,
   info->updateNameString = c;
   info->update = TheFunctionLexicon->winLayoutUpdateFunc(
       TheNameKeyGenerator->nameToKey(info->updateNameString));
+
+  printf("parseUpdate: file specifies '%s', Lexicon found: %p\n",
+         info->updateNameString.str(), (void *)info->update);
+  fflush(stdout);
 
   return TRUE; // success
 }

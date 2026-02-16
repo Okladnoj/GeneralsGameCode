@@ -119,6 +119,9 @@ void MacOSGameWindowManager::winDrawImage(const Image *image, Int startX,
   }
   GetRenderDevice()->SetTexture(0, tex);
   const Region2D *uv = image->getUV();
+  printf("WM::winDrawImage: UV lo=(%.3f, %.3f) hi=(%.3f, %.3f)\n", uv->lo.x,
+         uv->lo.y, uv->hi.x, uv->hi.y);
+  fflush(stdout);
   GetRenderDevice()->DrawTexturedRect(startX, startY, endX - startX,
                                       endY - startY, uv->lo.x, uv->lo.y,
                                       uv->hi.x, uv->hi.y, color);
@@ -144,12 +147,23 @@ void MacOSGameWindowManager::winDrawLine(Color color, Real width, Int startX,
 void MacOSGameWindowManager::winFormatText(GameFont *font, UnicodeString text,
                                            Color color, Int x, Int y, Int width,
                                            Int height) {
+  AsciiString ascii;
+  ascii.translate(text);
+  printf("AGGRESSIVE: WM::winFormatText: '%s' (len %d) at %d,%d, manager=%p\n",
+         ascii.str(), text.getLength(), (int)x, (int)y,
+         (void *)TheDisplayStringManager);
+  fflush(stdout);
+
   DisplayString *ds = TheDisplayStringManager->newDisplayString();
   if (ds) {
     ds->setText(text);
     ds->setFont(font);
     ds->draw(x, y, color, 0);
     TheDisplayStringManager->freeDisplayString(ds);
+  } else {
+    printf("WM::winFormatText ERROR: manager->newDisplayString() returned "
+           "NULL!\n");
+    fflush(stdout);
   }
 }
 

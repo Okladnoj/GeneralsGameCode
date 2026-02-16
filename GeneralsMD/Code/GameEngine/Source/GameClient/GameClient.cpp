@@ -784,12 +784,26 @@ void GameClient::update(void) {
   }
 
   if (TheShell) {
+    static int shellUpdateLogCount = 0;
+    if (shellUpdateLogCount % 100 == 0) {
+      printf("GameClient::update: calling TheShell->UPDATE() (count %d)\n",
+             shellUpdateLogCount);
+      fflush(stdout);
+    }
+    shellUpdateLogCount++;
     TheShell->UPDATE();
   }
 
   if (TheInGameUI) {
     TheInGameUI->UPDATE();
   }
+
+  static int endUpdateLogCount = 0;
+  if (endUpdateLogCount % 100 == 0) {
+    printf("GameClient::update: reached END (count %d)\n", endUpdateLogCount);
+    fflush(stdout);
+  }
+  endUpdateLogCount++;
 }
 
 void GameClient::step() { TheDisplay->step(); }

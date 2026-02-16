@@ -7,8 +7,7 @@
 #import <simd/simd.h>
 #import <vector>
 
-// Forward declaration
-class MacOSTexture;
+#import "MacOSTexture.h"
 
 // Shader Settings Bit Positions (from shader.h)
 enum ShaderSettings {

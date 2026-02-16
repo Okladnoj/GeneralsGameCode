@@ -12,12 +12,14 @@
 
 ## 📍 Project Status: macOS Port (ARM64)
 **Current Phase:** Phase 4: 3D Bridge (W3D) (ACTIVE)
-**Current Goal:** Implement Uniform Buffers and Matrix Transformation Bridge
-**Build Status:** ✅ **SUCCEEDED** (Executable linked with 916+ objects)
+**Current Goal:** UI Texture Rendering & Shader State Mapping
+**Build Status:** ✅ **SUCCEEDED** (Executable linked with 932+ objects)
 **Known Issues:**
 - **Memory Manager Stabilization**: Resolved a critical crash during static initialization by ensuring `preMainInitMemoryManager()` runs before any static constructors and correctly handles global `operator new/delete` fallbacks.
 - **Header Conflicts**: Fully resolved globally via `MacOSSystemProtection.h` and `new.h` shim.
 - **Metal Backend (ACTIVE)**: Encountering memory ownership crashes in Metal driver when it calls overridden `delete`.
+- **UI Textures (IN PROGRESS)**: UI is now stable and interactive, but rendering as grey blocks. Investigating texture binding and shader states.
+- **UI Initialization (RESOLVED)**: Fixed `FunctionLexicon` and `W3DFunctionLexicon` initialization, enabling full menu logic and `Shell::update` heartbeats.
 
 ### 🛠 Practical Build & Verification
 **Target:** `build/macos/GeneralsExecutable`
@@ -149,15 +151,19 @@
 - [x] **Image Rendering**: `drawImage` для UI элементов реализовано через Metal bridge.
 - [x] **UI Memory Pools**: Финализирована инициализация пулов памяти для `MacOSDisplayString` и `MacOSGameWindow`.
 - [x] **Input Bridge**: `NSEvent` полностью проброшен через `StdMouse` и `StdKeyboard`.
-- [x] **Final Linkage**: Исполняемый файл успешно собран (Linked with 925+ objects).
+- [x] **UI Pulse & Timing**: Fixed `TheMessageTime` and `Shell::update` heartbeats.
+- [x] **Lexicon Initialization**: Successfully integrated `W3DFunctionLexicon` and fixed `FunctionLexicon` lookup logic.
+- [x] **W3D GUI Linkage**: Compiled and linked `W3DMainMenu.cpp` and `W3DControlBar.cpp` for core UI callbacks.
+- [x] **Final Linkage**: Executable successfully built (Linked with 932+ objects).
+- [ ] **UI Textures & Alpha**: Mapping W3D render states to Metal PSOs for correct texture display. (In Progress)
 
 
 
 ---
 
 ## 📝 Key decisions (Architecture)
-1. **W3D Bypass:** we decided to return `nullptr` from all `Win32GameEngine` factory methods for W3D.
-   - *Rationale:* Allows us to test logic, networking, and memory without being blocked by the massive graphics task.
+1. **Hybrid W3D Integration:** We've moved away from a full W3D bypass to a hybrid model.
+   - *Rationale:* Essential W3D components like `W3DFunctionLexicon` are critical for GUI functionality and menu state-machine logic.
 2. **Resource Strategy:** Transitioning to `GeneralsGamePatch` as the primary source of truth for INI, Window definitions, and Assets.
    - *Rationale:* Fixes numerous legacy bugs in scripts and UI definitions that would otherwise cause crashes (like the Eva.ini issue).
 3. **WinMain Integration:** Main entry point remains `WinMain.cpp`, adapted for macOS entry via `win_compat.h`.

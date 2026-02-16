@@ -261,6 +261,11 @@ void TransitionGroup::init(void) {
 void TransitionGroup::update(void) {
   m_currentFrame +=
       m_directionMultiplier; // we go forward or backwards depending.
+  if (m_name.str()) {
+    printf("TransitionGroup '%s' update: frame %d (dir %d)\n", m_name.str(),
+           m_currentFrame, m_directionMultiplier);
+    fflush(stdout);
+  }
   TransitionWindowList::iterator it = m_transitionWindowList.begin();
   while (it != m_transitionWindowList.end()) {
     TransitionWindow *tWin = *it;
@@ -384,6 +389,17 @@ void GameWindowTransitionsHandler::update(void) {
     m_secondaryDrawGroup = nullptr;
 
   m_drawGroup = m_currentGroup;
+
+  if (m_currentGroup) {
+    static AsciiString lastGroupName;
+    if (m_currentGroup->getName() != lastGroupName) {
+      printf("Transitions: current group is now '%s'\n",
+             m_currentGroup->getName().str());
+      fflush(stdout);
+      lastGroupName = m_currentGroup->getName();
+    }
+  }
+
   if (m_currentGroup && !m_currentGroup->isFinished()) {
     // fprintf(stderr, "GameWindowTransitionsHandler::update: updating group
     // %p\n", m_currentGroup); fflush(stderr);
@@ -440,8 +456,14 @@ void GameWindowTransitionsHandler::setGroup(AsciiString groupName,
   }
 
   m_currentGroup = findGroup(groupName);
-  if (m_currentGroup)
+  if (m_currentGroup) {
+    printf("Transitions: setGroup '%s' SUCCESS\n", groupName.str());
+    fflush(stdout);
     m_currentGroup->init();
+  } else {
+    printf("Transitions: setGroup '%s' FAILED (not found)\n", groupName.str());
+    fflush(stdout);
+  }
 }
 
 void GameWindowTransitionsHandler::reverse(AsciiString groupName) {

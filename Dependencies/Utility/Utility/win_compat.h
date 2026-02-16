@@ -2192,12 +2192,14 @@ extern "C" void MacOS_PumpEvents();
 
 inline BOOL PeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin,
                          UINT wMsgFilterMax, UINT wRemoveMsg) {
-  (void)lpMsg;
   (void)hWnd;
   (void)wMsgFilterMin;
   (void)wMsgFilterMax;
   (void)wRemoveMsg;
   MacOS_PumpEvents();
+  if (lpMsg) {
+    lpMsg->time = timeGetTime();
+  }
   return FALSE;
 }
 #define PeekMessage PeekMessageA

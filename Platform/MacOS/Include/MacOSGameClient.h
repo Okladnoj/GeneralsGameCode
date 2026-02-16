@@ -8,6 +8,7 @@ public:
   MacOSGameClient();
   virtual ~MacOSGameClient();
 
+  virtual void init(void) override;
   virtual void update(void) override;
 
   virtual Drawable *

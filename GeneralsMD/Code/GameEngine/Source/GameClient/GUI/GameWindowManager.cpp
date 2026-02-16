@@ -1105,6 +1105,12 @@ Int GameWindowManager::drawWindow(GameWindow *window) {
     return WIN_ERR_INVALID_WINDOW;
 
   if (BitIsSet(window->m_status, WIN_STATUS_HIDDEN) == FALSE) {
+    if (window->m_parent == nullptr && window->m_layout) {
+      printf("WM::drawWindow: Drawing visible root layout: %s (id: %d)\n",
+             window->m_instData.m_textLabelString.str(),
+             window->winGetWindowId());
+      fflush(stdout);
+    }
 
     if (!BitIsSet(window->m_status, WIN_STATUS_SEE_THRU) && window->m_draw)
       window->m_draw(window, &window->m_instData);

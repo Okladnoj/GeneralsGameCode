@@ -54,12 +54,18 @@ INCLUDES="-ICore/GameEngine/Include \
 -ICore/Libraries/Source/Compression \
 -Igitinfo \
 -ICore/Libraries/Source \
+-IGeneralsMD/Code/GameEngine/Include/Precompiled \
+-ICore/Libraries/Source/WWVegas/WWMath \
+-IGeneralsMD/Code/GameEngineDevice/Include \
+-IGeneralsMD/Code/GameEngineDevice/Source/W3DDevice/GameClient/GUI/GUICallbacks \
+-ICore/Libraries/Source/WWVegas \
+-IGeneralsMD/Code/Libraries/Source/WWVegas \
 -IPlatform/MacOS/Source/Main \
 -IGeneralsMD/Code/Main"
 
 # Compilation flags
 # Using -std=c++20 and -fobjc-arc for Objective-C++ files
-COMMON_FLAGS="-std=c++20 -O0 -g -D_DEBUG -DRA_MACOS -DRTS_ZEROHOUR -D_LIBCPP_HAS_NO_ASAN -DRTS_DEBUG -DALLOW_DEBUG_UTILS -DDEBUG_CRASHING -Wno-deprecated-declarations -Wno-missing-braces -Wno-c++20-designator -Wno-invalid-offsetof"
+COMMON_FLAGS="-std=c++20 -O0 -g -D_DEBUG -DRA_MACOS -DRTS_ZEROHOUR -D_LIBCPP_HAS_NO_ASAN -DRTS_DEBUG -DALLOW_DEBUG_UTILS -DDEBUG_CRASHING -Wno-deprecated-declarations -Wno-missing-braces -Wno-c++20-designator -Wno-invalid-offsetof -Wno-pessimizing-move"
 OBJC_FLAGS="-fobjc-arc -fobjc-exceptions"
 
 # 1. Compile source files
@@ -83,17 +89,16 @@ for src in "${SOURCES[@]}"; do
 
   echo "🔨 Compiling $src..."
   if [[ "$src" == *.mm ]]; then
-    clang++ -x objective-c++ -c "$src" -o "$obj" $INCLUDES $COMMON_FLAGS $OBJC_FLAGS &
+    clang++ -x objective-c++ -c "$src" -o "$obj" $INCLUDES $COMMON_FLAGS $OBJC_FLAGS
   elif [[ "$src" == *.c ]]; then
-    clang -c "$src" -o "$obj" $INCLUDES ${COMMON_FLAGS//-std=c++20/-std=c11} &
+    clang -c "$src" -o "$obj" $INCLUDES ${COMMON_FLAGS//-std=c++20/-std=c11}
   else
-    clang++ -c "$src" -o "$obj" -Wno-switch $INCLUDES $COMMON_FLAGS &
+    clang++ -c "$src" -o "$obj" -Wno-switch $INCLUDES $COMMON_FLAGS
   fi
 
-  ((JOB_COUNT++))
-  if [ "$JOB_COUNT" -ge "$MAX_JOBS" ]; then
-    wait
-    JOB_COUNT=0
+  if [ $? -ne 0 ]; then
+    echo "❌ Compilation failed for $src"
+    exit 1
   fi
 done
 

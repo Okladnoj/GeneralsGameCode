@@ -451,6 +451,10 @@ static void initLabelVersion() {
 /** Initialize the main menu */
 //-------------------------------------------------------------------------------------------------
 void MainMenuInit(WindowLayout *layout, void *userData) {
+  printf(
+      "MainMenuInit ENTERED, parentMainMenu=%p, FirstTimeRunningTheGame=%d\n",
+      (void *)parentMainMenu, (int)FirstTimeRunningTheGame);
+  fflush(stdout);
   TheWritableGlobalData->m_breakTheMovie = FALSE;
 
   TheShell->showShellMap(TRUE);
@@ -851,6 +855,13 @@ frameTicker is %d", timeStarted, time(nullptr) , currentTime));
 //-------------------------------------------------------------------------------------------------
 void DownloadMenuUpdate(WindowLayout *layout, void *userData);
 void MainMenuUpdate(WindowLayout *layout, void *userData) {
+  static int updateCount = 0;
+  if (updateCount % 100 == 0) {
+    printf("MainMenuUpdate: count %d\n", updateCount);
+    fflush(stdout);
+  }
+  updateCount++;
+
   if (TheGameLogic->isInGame() && !TheGameLogic->isInShellGame()) {
     return;
   }
@@ -871,7 +882,13 @@ void MainMenuUpdate(WindowLayout *layout, void *userData) {
   */
 
   if (justEntered) {
+    printf("MainMenuUpdate: justEntered=TRUE, initialGadgetDelay=%d\n",
+           initialGadgetDelay);
+    fflush(stdout);
     if (initialGadgetDelay == 1) {
+      printf("MainMenuUpdate: triggering "
+             "setGroup('MainMenuDefaultMenuLogoFade')\n");
+      fflush(stdout);
       TheTransitionHandler->setGroup("MainMenuDefaultMenuLogoFade");
       TheWindowManager->winSetFocus(parentMainMenu);
       initialGadgetDelay = 2;
@@ -975,8 +992,8 @@ void MainMenuUpdate(WindowLayout *layout, void *userData) {
   }
 
   // We'll only be successful if we've requested to
-  //	if(TheShell->isAnimReversed() && TheShell->isAnimFinished())
-  //		shutdownComplete( layout );
+  if (TheShell->isAnimReversed() && TheShell->isAnimFinished())
+    shutdownComplete(layout);
 
   //	if(winVidManager)
   //		winVidManager->update();
