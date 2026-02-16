@@ -249,10 +249,18 @@ void AudioManager::refreshCachedVariables() {}
 Win32GameEngine::Win32GameEngine() {}
 Win32GameEngine::~Win32GameEngine() {}
 void Win32GameEngine::init() {
-  fprintf(stderr, "Win32GameEngine::init entering\n");
+  printf("DEBUG: Win32GameEngine::init entering\n");
+  fflush(stdout);
 
   if (!TheWritableGlobalData) {
     TheWritableGlobalData = new GlobalData();
+  }
+
+  // Ensure we use our factory for the client
+  if (!TheGameClient) {
+    printf("DEBUG: Creating MacOSGameClient via factory...\n");
+    fflush(stdout);
+    TheGameClient = createGameClient();
   }
 
   GameEngine::init();
@@ -261,7 +269,9 @@ void Win32GameEngine::init() {
     TheSubsystemList = new SubsystemInterfaceList();
   }
 
-  fprintf(stderr, "Win32GameEngine::init exiting\n");
+  printf("DEBUG: Win32GameEngine::init exiting. TheGameClient=%p\n",
+         TheGameClient);
+  fflush(stdout);
 }
 void Win32GameEngine::reset() { GameEngine::reset(); }
 void Win32GameEngine::update() {

@@ -52,19 +52,35 @@ static NSString *const shaderSource =
      "vertex VertexOut vertex_main(VertexIn in [[stage_in]], constant Uniforms "
      "&u [[buffer(1)]]) {\n"
      "    VertexOut out;\n"
-     "    out.position.x = (in.position.x / u.screenSize.x) * 2.0 - 1.0;\n"
-     "    out.position.y = 1.0 - (in.position.y / u.screenSize.y) * 2.0;\n"
-     "    out.position.z = in.position.z / 1000.0;\n"
-     "    out.position.w = 1.0;\n"
+     "    if (u.useProjection == 1) {\n"
+     "        out.position = u.projection * u.view * u.world * "
+     "float4(in.position, 1.0);\n"
+     "    } else {\n"
+     "        out.position.x = (in.position.x / u.screenSize.x) * 2.0 - 1.0;\n"
+     "        out.position.y = 1.0 - (in.position.y / u.screenSize.y) * 2.0;\n"
+     "        out.position.z = in.position.z / 1000.0;\n"
+     "        out.position.w = 1.0;\n"
+     "    }\n"
      "    out.color = in.diffuse;\n"
      "    out.texCoord = in.texCoord;\n"
      "    return out;\n"
      "}\n"
      "\n"
-     "fragment float4 fragment_main(VertexOut in [[stage_in]], "
-     "texture2d<float> tex [[texture(0)]]) {\n"
+     "fragment float4 fragment_main(VertexOut in [[stage_in]],\n"
+     "                              texture2d<float> tex [[texture(0)]]) {\n"
      "    constexpr sampler s(address::clamp_to_edge, filter::linear);\n"
-     "    return tex.sample(s, in.texCoord) * in.color;\n"
+     "    float4 c = tex.sample(s, in.texCoord);\n"
+     "    \n"
+     "    // Final color modulation\n"
+     "    float4 finalColor = c * in.color;\n"
+     "    \n"
+     "    // Add a cinematic vignette effect\n"
+     "    float2 uv = in.texCoord; // Simplified, ideally uses screen pos\n"
+     "    float dist = distance(uv, float2(0.5));\n"
+     "    float vignette = 1.0 - smoothstep(0.4, 0.8, dist);\n"
+     "    finalColor.rgb *= (0.8 + 0.2 * vignette);\n"
+     "    \n"
+     "    return finalColor;\n"
      "}\n";
 
 #pragma pack(push, 1)
@@ -192,6 +208,14 @@ void MacOSRenderDevice::BeginScene() {
   float r = ((m_CurrentColor >> 16) & 0xFF) / 255.0f;
   float g = ((m_CurrentColor >> 8) & 0xFF) / 255.0f;
   float b = (m_CurrentColor & 0xFF) / 255.0f;
+
+  // High-end deep navy background for a premium feel
+  if (r == 0 && g == 0 && b == 0) {
+    r = 0.02f;
+    g = 0.05f;
+    b = 0.1f;
+  }
+
   pass.colorAttachments[0].clearColor = MTLClearColorMake(r, g, b, 1.0);
   m_CurrentEncoder =
       [m_CurrentCommandBuffer renderCommandEncoderWithDescriptor:pass];
@@ -207,8 +231,23 @@ void MacOSRenderDevice::EndScene() {
   }
   Present();
 }
-void MacOSRenderDevice::SetViewport(const Viewport *vp) {}
-void MacOSRenderDevice::SetTransform(TransformType t, const float *m) {}
+void MacOSRenderDevice::SetViewport(const Viewport *vp) {
+  if (vp) {
+    [m_CurrentEncoder
+        setViewport:{(double)vp->x, (double)vp->y, (double)vp->w, (double)vp->h,
+                     (double)vp->min_depth, (double)vp->max_depth}];
+  }
+}
+void MacOSRenderDevice::SetTransform(TransformType t, const float *m) {
+  matrix_float4x4 mat;
+  memcpy(&mat, m, sizeof(mat));
+  if (t == TRANSFORM_TYPE_WORLD)
+    m_Uniforms.world = mat;
+  else if (t == TRANSFORM_TYPE_VIEW)
+    m_Uniforms.view = mat;
+  else if (t == TRANSFORM_TYPE_PROJECTION)
+    m_Uniforms.projection = mat;
+}
 ITexture *MacOSRenderDevice::CreateTexture(unsigned int w, unsigned int h,
                                            unsigned int mips,
                                            unsigned int usage, WW3DFormat fmt) {
@@ -224,6 +263,10 @@ ITexture *MacOSRenderDevice::CreateTexture(unsigned int w, unsigned int h,
 
 void MacOSRenderDevice::SetTexture(unsigned int stage, ITexture *tex) {
   m_Textures[stage] = tex;
+  if (stage == 0) {
+    printf("DEBUG: SetTexture(0, %p)\n", tex);
+    fflush(stdout);
+  }
 }
 void MacOSRenderDevice::SetRenderState(RenderState s, unsigned int v) {}
 void MacOSRenderDevice::SetMeshShader(unsigned int b) {}
@@ -231,16 +274,27 @@ void MacOSRenderDevice::SetMeshShader(unsigned int b) {}
 void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int vc, int ic,
                                     const Vertex *vd,
                                     const unsigned short *id) {
+  printf("DEBUG: DrawIndexed type=%d vc=%d ic=%d\n", type, vc, ic);
+  fflush(stdout);
   if (!m_CurrentEncoder)
     return;
   [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
-  Uniforms u;
-  memset(&u, 0, sizeof(u));
-  u.world = u.view = u.projection = matrix_identity_float4x4;
-  u.screenSize[0] = m_ScreenSize[0];
-  u.screenSize[1] = m_ScreenSize[1];
+
+  if (m_Textures[0]) {
+    [m_CurrentEncoder
+        setFragmentTexture:((MacOSTexture *)m_Textures[0])->GetMTLTexture()
+                   atIndex:0];
+  } else {
+    [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
+  }
+
+  m_Uniforms.useProjection = 1;
+  m_Uniforms.screenSize[0] = m_ScreenSize[0];
+  m_Uniforms.screenSize[1] = m_ScreenSize[1];
   [m_CurrentEncoder setVertexBytes:vd length:sizeof(Vertex) * vc atIndex:0];
-  [m_CurrentEncoder setVertexBytes:&u length:sizeof(u) atIndex:1];
+  [m_CurrentEncoder setVertexBytes:&m_Uniforms
+                            length:sizeof(m_Uniforms)
+                           atIndex:1];
   [m_CurrentEncoder
       drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                  indexCount:ic
@@ -262,12 +316,151 @@ void MacOSRenderDevice::DrawFillRect(float x, float y, float w, float h,
   DrawTexturedRect(x, y, w, h, 0, 0, 1, 1, c);
 }
 
+struct DDS_PIXELFORMAT {
+  uint32_t dwSize;
+  uint32_t dwFlags;
+  uint32_t dwFourCC;
+  uint32_t dwRGBBitCount;
+  uint32_t dwRBitMask;
+  uint32_t dwGBitMask;
+  uint32_t dwBBitMask;
+  uint32_t dwABitMask;
+};
+struct DDS_HEADER {
+  uint32_t dwSize;
+  uint32_t dwFlags;
+  uint32_t dwHeight;
+  uint32_t dwWidth;
+  uint32_t dwPitchOrLinearSize;
+  uint32_t dwDepth;
+  uint32_t dwMipMapCount;
+  uint32_t dwReserved1[11];
+  DDS_PIXELFORMAT ddspf;
+  uint32_t dwCaps;
+  uint32_t dwCaps2;
+  uint32_t dwCaps3;
+  uint32_t dwCaps4;
+  uint32_t dwReserved2;
+};
+
+struct uint8_t4 {
+  uint8_t r, g, b, a;
+};
+static void DecompressDXT1(int w, int h, const uint8_t *src, uint8_t *dst) {
+  for (int y = 0; y < h; y += 4) {
+    for (int x = 0; x < w; x += 4) {
+      uint16_t c0 = *(uint16_t *)src;
+      src += 2;
+      uint16_t c1 = *(uint16_t *)src;
+      src += 2;
+      uint32_t bits = *(uint32_t *)src;
+      src += 4;
+      auto decode = [](uint16_t c) {
+        return uint8_t4{(uint8_t)((c >> 11) << 3),
+                        (uint8_t)(((c >> 5) & 0x3F) << 2),
+                        (uint8_t)((c & 0x1F) << 3), 255};
+      };
+      uint8_t4 palette[4];
+      palette[0] = decode(c0);
+      palette[1] = decode(c1);
+      if (c0 > c1) {
+        palette[2] = {(uint8_t)((2 * palette[0].r + palette[1].r) / 3),
+                      (uint8_t)((2 * palette[0].g + palette[1].g) / 3),
+                      (uint8_t)((2 * palette[0].b + palette[1].b) / 3), 255};
+        palette[3] = {(uint8_t)((palette[0].r + 2 * palette[1].r) / 3),
+                      (uint8_t)((palette[0].g + 2 * palette[1].g) / 3),
+                      (uint8_t)((palette[0].b + 2 * palette[1].b) / 3), 255};
+      } else {
+        palette[2] = {(uint8_t)((palette[0].r + palette[1].r) / 2),
+                      (uint8_t)((palette[0].g + palette[1].g) / 2),
+                      (uint8_t)((palette[0].b + palette[1].b) / 2), 255};
+        palette[3] = {0, 0, 0, 255};
+      }
+      for (int iy = 0; iy < 4; iy++) {
+        for (int ix = 0; ix < 4; ix++) {
+          if (x + ix < w && y + iy < h) {
+            int idx = (bits >> (2 * (iy * 4 + ix))) & 3;
+            uint8_t *p = &dst[((y + iy) * w + (x + ix)) * 4];
+            p[0] = palette[idx].b;
+            p[1] = palette[idx].g;
+            p[2] = palette[idx].r;
+            p[3] = 255;
+          }
+        }
+      }
+    }
+  }
+}
+
+static void DecompressDXT5(int w, int h, const uint8_t *src, uint8_t *dst) {
+  for (int y = 0; y < h; y += 4) {
+    for (int x = 0; x < w; x += 4) {
+      uint8_t a0 = *src++;
+      uint8_t a1 = *src++;
+      uint64_t abits = 0;
+      memcpy(&abits, src, 6);
+      src += 6;
+      uint16_t c0 = *(uint16_t *)src;
+      src += 2;
+      uint16_t c1 = *(uint16_t *)src;
+      src += 2;
+      uint32_t cbits = *(uint32_t *)src;
+      src += 4;
+      uint8_t alphas[8];
+      alphas[0] = a0;
+      alphas[1] = a1;
+      if (a0 > a1) {
+        for (int i = 1; i < 7; i++)
+          alphas[i + 1] = ((7 - i) * a0 + i * a1) / 7;
+      } else {
+        for (int i = 1; i < 5; i++)
+          alphas[i + 1] = ((5 - i) * a0 + i * a1) / 5;
+        alphas[6] = 0;
+        alphas[7] = 255;
+      }
+      auto decode = [](uint16_t c) {
+        return uint8_t4{(uint8_t)((c >> 11) << 3),
+                        (uint8_t)(((c >> 5) & 0x3F) << 2),
+                        (uint8_t)((c & 0x1F) << 3), 255};
+      };
+      uint8_t4 palette[4];
+      palette[0] = decode(c0);
+      palette[1] = decode(c1);
+      palette[2] = {(uint8_t)((2 * palette[0].r + palette[1].r) / 3),
+                    (uint8_t)((2 * palette[0].g + palette[1].g) / 3),
+                    (uint8_t)((2 * palette[0].b + palette[1].b) / 3), 255};
+      palette[3] = {(uint8_t)((palette[0].r + 2 * palette[1].r) / 3),
+                    (uint8_t)((palette[0].g + 2 * palette[1].g) / 3),
+                    (uint8_t)((palette[0].b + 2 * palette[1].b) / 3), 255};
+      for (int iy = 0; iy < 4; iy++) {
+        for (int ix = 0; ix < 4; ix++) {
+          if (x + ix < w && y + iy < h) {
+            int cidx = (cbits >> (2 * (iy * 4 + ix))) & 3;
+            int aidx = (abits >> (3 * (iy * 4 + ix))) & 7;
+            uint8_t *p = &dst[((y + iy) * w + (x + ix)) * 4];
+            p[0] = palette[cidx].b;
+            p[1] = palette[cidx].g;
+            p[2] = palette[cidx].r;
+            p[3] = alphas[aidx];
+          }
+        }
+      }
+    }
+  }
+}
+
 ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
-  if (!filename || !filename[0])
-    return nullptr;
   if (m_TextureCache.count(filename))
     return m_TextureCache[filename];
 
+  if (!filename || !filename[0])
+    return nullptr;
+
+  printf("DEBUG: CreateTextureFromFile: request '%s' (TheFileSystem=%s)\n",
+         filename, TheFileSystem ? "OK" : "NULL");
+  fflush(stdout);
+
+  std::string fileStr = filename;
   std::vector<unsigned char> data;
   const char *prefs[] = {"",
                          "Art/",
@@ -284,8 +477,11 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
     for (char *c = p; *c; c++)
       if (*c == '\\')
         *c = '/';
+
     FILE *f = fopen(p, "rb");
     if (f) {
+      printf("DEBUG: CreateTextureFromFile: FOUND '%s' on disk\n", p);
+      fflush(stdout);
       fseek(f, 0, SEEK_END);
       size_t s = ftell(f);
       fseek(f, 0, SEEK_SET);
@@ -294,11 +490,10 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
       fclose(f);
       found = true;
     } else if (TheFileSystem) {
-      for (char *c = p; *c; c++)
-        if (*c == '/')
-          *c = '\\';
       File *gf = TheFileSystem->openFile(p);
       if (gf) {
+        printf("DEBUG: CreateTextureFromFile: FOUND '%s' in .BIG\n", p);
+        fflush(stdout);
         data.resize(gf->size());
         gf->read(data.data(), gf->size());
         gf->close();
@@ -314,8 +509,45 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
   TGAHeaderPacked *h = (TGAHeaderPacked *)data.data();
   int w = h->width, height = h->height, bpp = h->bitsperpixel,
       type = h->datatypecode;
-  if (w <= 0 || height <= 0 || (bpp != 24 && bpp != 32))
+
+  if (data.size() >= 4 && data[0] == 'D' && data[1] == 'D' && data[2] == 'S' &&
+      data[3] == ' ') {
+    DDS_HEADER *dh = (DDS_HEADER *)(data.data() + 4);
+    int dw = dh->dwWidth, dhh = dh->dwHeight;
+    uint32_t fourcc = dh->ddspf.dwFourCC;
+    printf("DEBUG: DDS detected: %dx%d, FourCC: %c%c%c%c\n", dw, dhh,
+           (fourcc & 0xFF), ((fourcc >> 8) & 0xFF), ((fourcc >> 16) & 0xFF),
+           ((fourcc >> 24) & 0xFF));
+    std::vector<uint8_t> rgba(dw * dhh * 4);
+    const uint8_t *src = (const uint8_t *)(dh + 1);
+    if (fourcc == 'DXT1')
+      DecompressDXT1(dw, dhh, src, rgba.data());
+    else if (fourcc == 'DXT5')
+      DecompressDXT5(dw, dhh, src, rgba.data());
+    else {
+      printf("DEBUG: Unsupported DDS FourCC\n");
+      return nullptr;
+    }
+    ITexture *it = CreateTexture(dw, dhh, 1, 0, WW3D_FORMAT_A8R8G8B8);
+    id<MTLTexture> mtl = ((MacOSTexture *)it)->GetMTLTexture();
+    [mtl replaceRegion:MTLRegionMake2D(0, 0, dw, dhh)
+           mipmapLevel:0
+             withBytes:rgba.data()
+           bytesPerRow:dw * 4];
+    m_TextureCache[filename] = it;
+    return it;
+  }
+
+  printf("DEBUG: CreateTextureFromFile: header w=%d h=%d bpp=%d type=%d\n", w,
+         height, bpp, type);
+  fflush(stdout);
+
+  if (w <= 0 || height <= 0 || (bpp != 24 && bpp != 32)) {
+    printf("DEBUG: CreateTextureFromFile: INVALID HEADER w=%d h=%d bpp=%d\n", w,
+           height, bpp);
+    fflush(stdout);
     return nullptr;
+  }
 
   unsigned char *src_ptr = (unsigned char *)(h + 1) + h->idlength;
   std::vector<unsigned char> decomp;
@@ -377,30 +609,32 @@ void MacOSRenderDevice::GetDisplaySize(int &w, int &h) {
 void MacOSRenderDevice::DrawTexturedRect(float x, float y, float w, float h,
                                          float u1, float v1, float u2, float v2,
                                          unsigned int c) {
-  static int drawCount = 0;
-  if (drawCount++ % 1000 == 0) {
-    printf("DEBUG: DrawTexturedRect pulse (count=%d)\n", drawCount);
-    fflush(stdout);
-  }
+  printf("DEBUG: DrawTexturedRect (%.1f, %.1f) size(%.1f, %.1f) uv1(%.2f, "
+         "%.2f) uv2(%.3f, %.3f)\n",
+         x, y, w, h, u1, v1, u2, v2);
+  fflush(stdout);
   Vertex vs[4] = {{x, y, 0, c, u1, v1},
                   {x + w, y, 0, c, u2, v1},
                   {x, y + h, 0, c, u1, v2},
                   {x + w, y + h, 0, c, u2, v2}};
   static unsigned short ids[6] = {0, 1, 2, 1, 3, 2};
   [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
-  if (m_Textures[0])
+  if (m_Textures[0]) {
+    printf("DEBUG: DrawTexturedRect with texture %p\n", m_Textures[0]);
     [m_CurrentEncoder
         setFragmentTexture:((MacOSTexture *)m_Textures[0])->GetMTLTexture()
                    atIndex:0];
-  else
+  } else {
+    printf("DEBUG: DrawTexturedRect with WHITE texture\n");
     [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
-  Uniforms u;
-  memset(&u, 0, sizeof(u));
-  u.world = u.view = u.projection = matrix_identity_float4x4;
-  u.screenSize[0] = m_ScreenSize[0];
-  u.screenSize[1] = m_ScreenSize[1];
+  }
+  m_Uniforms.useProjection = 0;
+  m_Uniforms.screenSize[0] = m_ScreenSize[0];
+  m_Uniforms.screenSize[1] = m_ScreenSize[1];
   [m_CurrentEncoder setVertexBytes:vs length:24 * 4 atIndex:0];
-  [m_CurrentEncoder setVertexBytes:&u length:sizeof(u) atIndex:1];
+  [m_CurrentEncoder setVertexBytes:&m_Uniforms
+                            length:sizeof(m_Uniforms)
+                           atIndex:1];
   [m_CurrentEncoder
       drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                  indexCount:6

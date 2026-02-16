@@ -1,14 +1,15 @@
-#import <AppKit/AppKit.h>
-#import <Foundation/Foundation.h>
-
-#include "Common/AsciiString.h"
-#include "Common/UnicodeString.h"
 #include "GameClient/Display.h"
-#include "GameClient/GameWindowManager.h"
 #include "GameClient/Image.h"
+#include "GameClient/Mouse.h"
 #include "IRenderDevice.h"
 #include "Lib/BaseType.h"
-#include <cstring>
+#import "MacOSBuffers.h"
+#import "MacOSGameWindowManager.h"
+#import "MacOSRenderDevice_Internal.h"
+#import "MacOSTexture.h"
+#include "PreRTS.h"
+#import <AppKit/AppKit.h>
+#import <Foundation/Foundation.h>
 
 class MacOSDisplay : public Display {
 public:
@@ -16,6 +17,7 @@ public:
     TheDisplay = this;
     printf("DEBUG: MacOSDisplay created and assigned to TheDisplay at %p\n",
            this);
+    fflush(stdout);
   }
   virtual ~MacOSDisplay() {
     if (TheDisplay == this)
@@ -24,6 +26,7 @@ public:
 
   virtual void init(void) override {
     printf("DEBUG: MacOSDisplay::init called\n");
+    fflush(stdout);
     int w = 800, h = 600;
     GetRenderDevice()->GetDisplaySize(w, h);
     setWidth(w);
@@ -61,11 +64,11 @@ public:
       return;
     const char *filename = image->getFilename().str();
 
-    // We want to see if this is called!
-    static int count = 0;
-    if (count++ % 1000 == 0) {
-      printf("DEBUG: MacOSDisplay::drawImage '%s' at %d,%d\n", filename,
+    static int imgCount = 0;
+    if (imgCount++ % 100 == 0) {
+      printf("DEBUG: MacOSDisplay::drawImage '%s' at (%d,%d)\n", filename,
              (int)sx, (int)sy);
+      fflush(stdout);
     }
 
     ITexture *tex = GetRenderDevice()->CreateTextureFromFile(filename);
@@ -82,19 +85,31 @@ public:
   }
 
   virtual void draw(void) override {
+    if (++m_FrameCount % 1000 == 1) {
+      printf("DEBUG: MacOSDisplay::draw heartbeat frame %d\n", m_FrameCount);
+      fflush(stdout);
+    }
+
     GetRenderDevice()->BeginScene();
 
     // Call base class draw to render views (tactical map, etc)
     Display::draw();
 
     // Repaint windows (GUI)
-    if (TheWindowManager)
+    if (TheWindowManager) {
       TheWindowManager->winRepaint();
+    }
+
+    if (TheMouse) {
+      TheMouse->draw();
+    }
 
     GetRenderDevice()->EndScene();
   }
 
-  // Stubs for required virtuals from Display.h that might be abstract
+  static int m_FrameCount;
+
+  // Stubs for required virtuals from Display.h
   virtual void drawScaledVideoBuffer(VideoBuffer *buffer,
                                      VideoStreamInterface *stream) override {}
   virtual void drawVideoBuffer(VideoBuffer *buffer, Int sx, Int sy, Int ex,
@@ -125,6 +140,14 @@ public:
   virtual VideoBuffer *createVideoBuffer(void) override { return nullptr; }
   virtual void dumpAssetUsage(const char *mapname) override {}
   virtual void dumpModelAssets(const char *path) override {}
+  virtual void update(void) override {}
 };
 
-extern "C" Display *MacOS_CreateDisplay(void) { return new MacOSDisplay(); }
+extern "C" Display *MacOS_CreateDisplay(void) {
+  Display *d = new MacOSDisplay();
+  printf("DEBUG: MacOS_CreateDisplay CALL returning %p\n", d);
+  fflush(stdout);
+  return d;
+}
+
+int MacOSDisplay::m_FrameCount = 0;

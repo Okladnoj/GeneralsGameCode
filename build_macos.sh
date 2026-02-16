@@ -15,8 +15,9 @@ source Platform/MacOS/Scripts/files.sh
 INCLUDES="-ICore/GameEngine/Include \
 -IPlatform/MacOS/Include \
 -ICore/Libraries/Include \
+-ICore/GameEngine/Include \
 -IGeneralsMD/Code/GameEngine/Include \
--IGeneralsMD/Code/Libraries/Include \
+-IGeneralsMD/Code/GameEngineDevice/Include \
 -IPartiallyExtract/Code/GameEngine/Include \
 -IPartiallyExtract/Code/Libraries/Include \
 -IGenerals/Code/GameEngine/Include \

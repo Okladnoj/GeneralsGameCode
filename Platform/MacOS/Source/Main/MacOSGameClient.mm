@@ -29,6 +29,9 @@ public:
   virtual Bool loadFontData(GameFont *font) override { return TRUE; }
 };
 
+#include "GameClient/View.h"
+#include "W3DDevice/GameClient/W3DView.h"
+
 class MacOSView : public View {
 public:
   virtual void init(void) override { View::init(); }
@@ -51,7 +54,11 @@ public:
                                Coord3D *world) override {}
   virtual void screenToWorldAtZ(const ICoord2D *s, Coord3D *w,
                                 Real z) override {}
-  virtual void drawView(void) override {}
+  virtual void drawView(void) override {
+    static int draws = 0;
+    if (draws++ % 60 == 0)
+      printf("DEBUG: MacOSView::drawView heartbeat\n");
+  }
   virtual void updateView(void) override {}
   virtual void stepView() override {}
   virtual const Coord3D &get3DCameraPosition() const override {
@@ -153,25 +160,19 @@ void MacOSGameClient::update() {
   GameClient::update();
 }
 
-Display *MacOSGameClient::createGameDisplay(void) {
-  printf("DEBUG: MacOSGameClient::createGameDisplay called!\n");
-  return MacOS_CreateDisplay();
-}
-
 DisplayStringManager *MacOSGameClient::createDisplayStringManager(void) {
-  printf("DEBUG: MacOSGameClient::createDisplayStringManager called!\n");
   return MacOS_CreateDisplayStringManager();
 }
 
 FontLibrary *MacOSGameClient::createFontLibrary(void) {
-  printf("DEBUG: MacOSGameClient::createFontLibrary called!\n");
   return new MacOSFontLibrary();
 }
 
-InGameUI *MacOSGameClient::createInGameUI(void) {
-  printf("DEBUG: MacOSGameClient::createInGameUI called!\n");
-  return new MacOSInGameUI();
+Display *MacOSGameClient::createGameDisplay(void) {
+  return MacOS_CreateDisplay();
 }
+
+InGameUI *MacOSGameClient::createInGameUI(void) { return new MacOSInGameUI(); }
 
 SnowManager *MacOSGameClient::createSnowManager(void) {
   return new MacOSSnowManager();
