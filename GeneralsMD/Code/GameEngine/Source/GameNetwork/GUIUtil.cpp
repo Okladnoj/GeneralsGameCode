@@ -194,7 +194,8 @@ void PopulateColorComboBox(Int comboBox, GameWindow *comboArray[],
                              (isObserver) ? TheGameText->fetch("GUI:None")
                                           : TheGameText->fetch("GUI:???"),
                              def->getColor());
-  GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)-1);
+  GadgetComboBoxSetItemData(comboArray[comboBox], newIndex,
+                            (void *)(intptr_t)-1);
 
   if (isObserver) {
     GadgetComboBoxSetSelectedPos(comboArray[comboBox], 0);
@@ -209,7 +210,8 @@ void PopulateColorComboBox(Int comboBox, GameWindow *comboArray[],
     colorName = TheGameText->fetch(def->getTooltipName().str());
     newIndex = GadgetComboBoxAddEntry(comboArray[comboBox], colorName,
                                       def->getColor());
-    GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)c);
+    GadgetComboBoxSetItemData(comboArray[comboBox], newIndex,
+                              (void *)(uintptr_t)c);
   }
   if (wasObserver)
     GadgetComboBoxSetSelectedPos(comboArray[comboBox], 0);
@@ -229,7 +231,7 @@ void PopulatePlayerTemplateComboBox(Int comboBox, GameWindow *comboArray[],
   Int newIndex = GadgetComboBoxAddEntry(
       comboArray[comboBox], TheGameText->fetch("GUI:Random"), def->getColor());
   GadgetComboBoxSetItemData(comboArray[comboBox], newIndex,
-                            (void *)PLAYERTEMPLATE_RANDOM);
+                            (void *)(uintptr_t)PLAYERTEMPLATE_RANDOM);
 
   std::set<AsciiString> seenSides;
 
@@ -264,18 +266,16 @@ void PopulatePlayerTemplateComboBox(Int comboBox, GameWindow *comboArray[],
 
     newIndex = GadgetComboBoxAddEntry(
         comboArray[comboBox], TheGameText->fetch(side), def->getColor());
-    GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)c);
+    GadgetComboBoxSetItemData(comboArray[comboBox], newIndex,
+                              (void *)(uintptr_t)c);
   }
   seenSides.clear();
 
   // disabling observers for Multiplayer test
   if (allowObservers) {
     def = TheMultiplayerSettings->getColor(PLAYERTEMPLATE_OBSERVER);
-    newIndex = GadgetComboBoxAddEntry(comboArray[comboBox],
-                                      TheGameText->fetch("GUI:Observer"),
-                                      def->getColor());
     GadgetComboBoxSetItemData(comboArray[comboBox], newIndex,
-                              (void *)PLAYERTEMPLATE_OBSERVER);
+                              (void *)(uintptr_t)PLAYERTEMPLATE_OBSERVER);
   }
   GadgetComboBoxSetSelectedPos(comboArray[comboBox], 0);
 }
@@ -293,7 +293,8 @@ void PopulateTeamComboBox(Int comboBox, GameWindow *comboArray[],
       TheMultiplayerSettings->getColor(PLAYERTEMPLATE_RANDOM);
   Int newIndex = GadgetComboBoxAddEntry(
       comboArray[comboBox], TheGameText->fetch("Team:0"), def->getColor());
-  GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)-1);
+  GadgetComboBoxSetItemData(comboArray[comboBox], newIndex,
+                            (void *)(intptr_t)-1);
 
   if (isObserver) {
     GadgetComboBoxSetSelectedPos(comboArray[comboBox], 0);
@@ -306,7 +307,8 @@ void PopulateTeamComboBox(Int comboBox, GameWindow *comboArray[],
     teamName = TheGameText->fetch(teamStr.str());
     newIndex =
         GadgetComboBoxAddEntry(comboArray[comboBox], teamName, def->getColor());
-    GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)c);
+    GadgetComboBoxSetItemData(comboArray[comboBox], newIndex,
+                              (void *)(uintptr_t)c);
   }
   GadgetComboBoxSetSelectedPos(comboArray[comboBox], 0);
 }
@@ -333,7 +335,8 @@ void PopulateStartingCashComboBox(GameWindow *comboBox, GameInfo *myGame) {
         comboBox, formatMoneyForStartingCashComboBox(*it),
         comboBox->winGetEnabled() ? comboBox->winGetEnabledTextColor()
                                   : comboBox->winGetDisabledTextColor());
-    GadgetComboBoxSetItemData(comboBox, newIndex, (void *)it->countMoney());
+    GadgetComboBoxSetItemData(comboBox, newIndex,
+                              (void *)(uintptr_t)it->countMoney());
 
     if (myGame->getStartingCash().amountEqual(*it)) {
       currentSelectionIndex = newIndex;
@@ -347,7 +350,7 @@ void PopulateStartingCashComboBox(GameWindow *comboBox, GameInfo *myGame) {
         comboBox->winGetEnabled() ? comboBox->winGetEnabledTextColor()
                                   : comboBox->winGetDisabledTextColor());
     GadgetComboBoxSetItemData(comboBox, currentSelectionIndex,
-                              (void *)it->countMoney());
+                              (void *)(uintptr_t)it->countMoney());
   }
 
   GadgetComboBoxSetSelectedPos(comboBox, currentSelectionIndex);

@@ -909,6 +909,21 @@ GameWindowManager::winProcessMouseEvent(GameWindowMessage msg,
         if (window == nullptr)
           window = findWindowUnderMouse(toolTipWindow, mousePos,
                                         WIN_STATUS_BELOW, WIN_STATUS_HIDDEN);
+
+        static int winProcessCount = 0;
+        if (msg == GWM_MOUSE_POS && winProcessCount++ % 100 == 0) {
+          printf("DEBUG: winProcessMouseEvent: pos=(%d,%d) window=%p\n",
+                 mousePos->x, mousePos->y, (void *)window);
+          if (window) {
+            printf(
+                "DEBUG:   window ID=%d name=%s\n", window->winGetWindowId(),
+                window->winGetInstanceData()
+                    ? window->winGetInstanceData()->m_decoratedNameString.str()
+                    : "NULL");
+          }
+
+          fflush(stdout);
+        }
       }
 
       if (window)

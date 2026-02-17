@@ -270,10 +270,11 @@ void Win32GameEngine::init() {
     TheSubsystemList = new SubsystemInterfaceList();
   }
 
-  printf("DEBUG: Win32GameEngine::init exiting. TheGameClient=%p\n",
-         TheGameClient);
+  printf("DEBUG: Win32GameEngine::init exiting. TheGameClient=%p TheMouse=%p\n",
+         TheGameClient, TheMouse);
   fflush(stdout);
 }
+
 void Win32GameEngine::reset() { GameEngine::reset(); }
 void Win32GameEngine::update() {
   // THE HEARTBEAT: Begin a new Metal frame
@@ -311,6 +312,10 @@ void Win32GameEngine::serviceWindowsOS() {
     TranslateMessage(&msg);
     DispatchMessage(&msg);
   }
+
+  // Ensure TheMessageTime is updated even if there are no messages,
+  // to prevent UI freezing.
+  TheMessageTime = timeGetTime();
 }
 
 // Factory methods now as stubs to avoid linking W3D classes

@@ -290,7 +290,9 @@ void GameClient::init(void) {
     //
 
     // since we only allocate one of each, don't bother pooling 'em
-    fprintf(stderr, "GameClient::init: registering translators...\n");
+    printf("DEBUG: GameClient::init registering translators on stream %p...\n",
+           (void *)TheMessageStream);
+    fflush(stdout);
     m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") WindowTranslator, 10);
     fprintf(stderr, "Registered WindowTranslator: %p, vtable: %p\n",
@@ -639,6 +641,8 @@ void GameClient::update(void) {
     TheShell->showShell();
     shellShown = TRUE;
   }
+  fprintf(stderr, "DEBUG: GameClient::update - Steps before keyboard\n");
+  fflush(stderr);
   TheWritableGlobalData->m_afterIntro = FALSE;
 
   // Update snow particles.
@@ -652,6 +656,9 @@ void GameClient::update(void) {
 
   // update the keyboard
   if (TheKeyboard) {
+    fprintf(stderr,
+            "DEBUG: GameClient::update - Calling TheKeyboard->UPDATE()\n");
+    fflush(stderr);
     TheKeyboard->UPDATE();
     TheKeyboard->createStreamMessages();
   }
@@ -662,7 +669,7 @@ void GameClient::update(void) {
   }
   // update the mouse
   if (TheMouse) {
-    TheMouse->UPDATE();
+    TheMouse->update();
     TheMouse->createStreamMessages();
   }
 

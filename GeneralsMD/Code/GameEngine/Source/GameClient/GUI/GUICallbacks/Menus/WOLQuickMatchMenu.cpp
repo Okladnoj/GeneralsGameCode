@@ -267,7 +267,7 @@ static void populateQMColorComboBox(QuickMatchPreferences &pref) {
       TheMultiplayerSettings->getColor(PLAYERTEMPLATE_RANDOM);
   Int newIndex = GadgetComboBoxAddEntry(
       comboBoxColor, TheGameText->fetch("GUI:???"), def->getColor());
-  GadgetComboBoxSetItemData(comboBoxColor, newIndex, (void *)-1);
+  GadgetComboBoxSetItemData(comboBoxColor, newIndex, (void *)(intptr_t)-1);
 
   for (Int c = 0; c < numColors; ++c) {
     def = TheMultiplayerSettings->getColor(c);
@@ -277,7 +277,7 @@ static void populateQMColorComboBox(QuickMatchPreferences &pref) {
     colorName = TheGameText->fetch(def->getTooltipName().str());
     newIndex =
         GadgetComboBoxAddEntry(comboBoxColor, colorName, def->getColor());
-    GadgetComboBoxSetItemData(comboBoxColor, newIndex, (void *)c);
+    GadgetComboBoxSetItemData(comboBoxColor, newIndex, (void *)(uintptr_t)c);
   }
   GadgetComboBoxSetSelectedPos(comboBoxColor, pref.getColor());
 }

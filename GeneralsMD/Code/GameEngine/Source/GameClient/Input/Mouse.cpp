@@ -681,6 +681,9 @@ void Mouse::createStreamMessages(void) {
     switch (m_currMouse.leftEvent) {
 
     case GWM_LEFT_DOWN:
+      printf("MOUSE: Creating MSG_RAW_MOUSE_LEFT_BUTTON_DOWN at (%d, %d)\n",
+             m_currMouse.pos.x, m_currMouse.pos.y);
+      fflush(stdout);
       msg = TheMessageStream->appendMessage(
           GameMessage::MSG_RAW_MOUSE_LEFT_BUTTON_DOWN);
       msg->appendPixelArgument(m_currMouse.pos);

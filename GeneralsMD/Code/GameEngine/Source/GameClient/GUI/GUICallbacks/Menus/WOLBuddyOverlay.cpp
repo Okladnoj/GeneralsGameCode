@@ -457,10 +457,10 @@ void updateBuddyInfo(void) {
     }
     GadgetListBoxAddEntryText(buddyControls.listboxBuddies, formatStr,
                               GameSpyColor[GSCOLOR_DEFAULT], index, 1);
-    GadgetListBoxSetItemData(buddyControls.listboxBuddies, (void *)(profileID),
-                             index, 0);
-    GadgetListBoxSetItemData(buddyControls.listboxBuddies, (void *)(ITEM_BUDDY),
-                             index, 1);
+    GadgetListBoxSetItemData(buddyControls.listboxBuddies,
+                             (void *)(uintptr_t)(profileID), index, 0);
+    GadgetListBoxSetItemData(buddyControls.listboxBuddies,
+                             (void *)(uintptr_t)(ITEM_BUDDY), index, 1);
 
     if (profileID == selectedProfile)
       selected = index;
@@ -478,8 +478,8 @@ void updateBuddyInfo(void) {
     int index =
         GadgetListBoxAddEntryText(buddyControls.listboxBuddies, formatStr,
                                   GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-    GadgetListBoxSetItemData(buddyControls.listboxBuddies, (void *)(profileID),
-                             index, 0);
+    GadgetListBoxSetItemData(buddyControls.listboxBuddies,
+                             (void *)(uintptr_t)(profileID), index, 0);
 
     // insert status into box
     formatStr = TheGameText->fetch("GUI:BuddyAddReq");
@@ -1364,7 +1364,7 @@ void refreshIgnoreList(void) {
     name.translate(it->second);
     Int pos = GadgetListBoxAddEntryText(listboxIgnore, name,
                                         GameMakeColor(255, 100, 100, 255), -1);
-    GadgetListBoxSetItemData(listboxIgnore, (void *)it->first, pos);
+    GadgetListBoxSetItemData(listboxIgnore, (void *)(uintptr_t)it->first, pos);
     ++it;
   }
   IgnoreList tempList;

@@ -1040,20 +1040,25 @@ void InitSkirmishGameGadgets(void) {
     } else {
       GadgetComboBoxAddEntry(comboBoxPlayer[i], TheGameText->fetch("GUI:Open"),
                              white); // leave this first
-      GadgetComboBoxSetItemData(comboBoxPlayer[i], 0, (void *)SLOT_OPEN);
+      GadgetComboBoxSetItemData(comboBoxPlayer[i], 0,
+                                (void *)(uintptr_t)SLOT_OPEN);
       GadgetComboBoxAddEntry(comboBoxPlayer[i],
                              TheGameText->fetch("GUI:Closed"),
                              white); // leave this first
-      GadgetComboBoxSetItemData(comboBoxPlayer[i], 1, (void *)SLOT_CLOSED);
+      GadgetComboBoxSetItemData(comboBoxPlayer[i], 1,
+                                (void *)(uintptr_t)SLOT_CLOSED);
       GadgetComboBoxAddEntry(comboBoxPlayer[i],
                              TheGameText->fetch("GUI:EasyAI"), white);
-      GadgetComboBoxSetItemData(comboBoxPlayer[i], 2, (void *)SLOT_EASY_AI);
+      GadgetComboBoxSetItemData(comboBoxPlayer[i], 2,
+                                (void *)(uintptr_t)SLOT_EASY_AI);
       GadgetComboBoxAddEntry(comboBoxPlayer[i],
                              TheGameText->fetch("GUI:MediumAI"), white);
-      GadgetComboBoxSetItemData(comboBoxPlayer[i], 3, (void *)SLOT_MED_AI);
+      GadgetComboBoxSetItemData(comboBoxPlayer[i], 3,
+                                (void *)(uintptr_t)SLOT_MED_AI);
       GadgetComboBoxAddEntry(comboBoxPlayer[i],
                              TheGameText->fetch("GUI:HardAI"), white);
-      GadgetComboBoxSetItemData(comboBoxPlayer[i], 4, (void *)SLOT_BRUTAL_AI);
+      GadgetComboBoxSetItemData(comboBoxPlayer[i], 4,
+                                (void *)(uintptr_t)SLOT_BRUTAL_AI);
       GadgetComboBoxSetSelectedPos(comboBoxPlayer[i], 0);
     }
 
@@ -1087,8 +1092,9 @@ void InitSkirmishGameGadgets(void) {
     // i); 		buttonStartPositionID[i] =
     // TheNameKeyGenerator->nameToKey( tmpString
     //); 		buttonStartPosition[i] =
-    //TheWindowManager->winGetWindowFromId( parentSkirmishGameOptions,
-    // buttonStartPositionID[i] ); 		DEBUG_ASSERTCRASH(buttonStartPosition[i],
+    // TheWindowManager->winGetWindowFromId( parentSkirmishGameOptions,
+    // buttonStartPositionID[i] );
+    // DEBUG_ASSERTCRASH(buttonStartPosition[i],
     //("Could not find the ButtonStartPosition[%d]",i ));
     //
     tmpString.format("SkirmishGameOptionsMenu.wnd:ButtonMapStartPosition%d", i);
@@ -1531,7 +1537,7 @@ WindowMsgHandledType SkirmishGameOptionsMenuSystem(GameWindow *window,
     //					static NameKeyType sliderGameSpeedID =
     // TheNameKeyGenerator->nameToKey(
     //"SkirmishGameOptionsMenu.wnd:SliderGameSpeed" );
-    //GameWindow *sliderGameSpeed = TheWindowManager->winGetWindowFromId(
+    // GameWindow *sliderGameSpeed = TheWindowManager->winGetWindowFromId(
     // parentSkirmishGameOptions, sliderGameSpeedID );
     // GadgetSliderSetPosition( sliderGameSpeed,
     // TheGlobalData->m_framesPerSecondLimit );

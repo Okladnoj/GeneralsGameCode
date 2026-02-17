@@ -97,7 +97,15 @@ class MacOSVideoPlayer : public VideoPlayer {
 public:
   virtual void init(void) override { VideoPlayer::init(); }
   virtual void reset(void) override { VideoPlayer::reset(); }
-  virtual void update(void) override { VideoPlayer::update(); }
+  virtual void update(void) override {
+    static bool first = true;
+    if (first) {
+      printf("DEBUG: MacOSVideoPlayer::update called!\n");
+      fflush(stdout);
+      first = false;
+    }
+    VideoPlayer::update();
+  }
   virtual void deinit(void) override { VideoPlayer::deinit(); }
 };
 

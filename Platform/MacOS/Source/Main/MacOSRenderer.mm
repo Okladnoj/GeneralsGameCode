@@ -124,6 +124,11 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
                    vs.height * window.backingScaleFactor);
     m_ScreenSize[0] = (float)vs.width;
     m_ScreenSize[1] = (float)vs.height;
+    printf("DEBUG: METAL INITIALIZED: ScreenSize=(%.1f, %.1f) "
+           "DrawableSize=(%.1f, %.1f) Scale=%.1f\n",
+           m_ScreenSize[0], m_ScreenSize[1], m_MetalLayer.drawableSize.width,
+           m_MetalLayer.drawableSize.height, (float)window.backingScaleFactor);
+    fflush(stdout);
   }
 
   NSError *err = nil;
@@ -487,33 +492,21 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
       if (*c == '\\')
         *c = '/';
 
-    FILE *f = fopen(p, "rb");
-    if (f) {
-      fseek(f, 0, SEEK_END);
-      size_t s = ftell(f);
-      fseek(f, 0, SEEK_SET);
-      data.resize(s);
-      size_t readLen = fread(data.data(), 1, s, f);
-      fclose(f);
-      printf("DEBUG: CreateTextureFromFile: FOUND '%s' on disk, size=%zu "
-             "read=%zu. First bytes: %02X %02X %02X %02X\n",
-             p, s, readLen, data[0], data[1], data[2], data[3]);
-      fflush(stdout);
-      found = true;
-    } else if (TheFileSystem) {
+    if (TheFileSystem) {
       File *gf = TheFileSystem->openFile(p);
       if (gf) {
         size_t s = gf->size();
         data.resize(s);
         size_t readLen = gf->read(data.data(), s);
         gf->close();
-        printf("DEBUG: CreateTextureFromFile: FOUND '%s' in .BIG, size=%zu "
-               "read=%zu. First bytes: %02X %02X %02X %02X\n",
+        printf("DEBUG: CreateTextureFromFile: FOUND '%s', size=%zu read=%zu. "
+               "First bytes: %02X %02X %02X %02X\n",
                p, s, readLen, data[0], data[1], data[2], data[3]);
         fflush(stdout);
         found = true;
       }
     }
+
     if (found)
       break;
   }
