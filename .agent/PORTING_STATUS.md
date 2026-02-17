@@ -15,15 +15,16 @@
 
 ## 🔴 ACTIVE ISSUES
 - [x] **Fonts & Text:** ✅ **WORKING**. Dynamic strings and menu labels are rendered correctly.
-- **Gray Boxes UI:** Some UI elements (sliders, secondary buttons) appear as gray blocks. Likely missing texture lookups or unsupported sub-formats in `W3DAssetManager`.
+- [x] **Gray Boxes UI:** ✅ **VERIFIED**. Intentional debug markers from the original engine, not a rendering bug.
+- **3D World Rendering:** Currently black background or missing units. Requires shader transition from DX8-style to full Metal-compliant pipeline (Lighting, Splatting).
 - **Exit Crash:** `Signal 11` in `ObjectPoolClass` destructor during application shutdown.
 - **Lint Noise:** Massive amount of false/real lint errors in W3D files.
 
 ---
 
 ## 🏗 SHORT-TERM BACKLOG
-1. **3D Positional Audio & Music:** Transition mixer to `AVAudioEnvironmentNode` and implement music track playback.
-2. **Fix UI Texture Binding:** Debug `setTexture` in Metal renderer. Ensure pixel formats (BGRA vs RGBA) match the DDS decoder.
+1. **3D Rendering Pipeline:** Implement multi-attribute vertex formats (Normals, Tangents), enable Depth/Stencil buffer, and expand Metal shaders for basic lighting.
+2. **3D Positional Audio & Music:** Transition mixer to `AVAudioEnvironmentNode` and implement music track playback.
 3. **Fix Exit Crash:** Debug `ObjectPoolClass` destructor `Signal 11` during cleanup.
 4. **Lint Cleanup:** Address critical compilation warnings in `MacOSRenderDevice_Internal.h`.
 
