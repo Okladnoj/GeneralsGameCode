@@ -48,12 +48,38 @@ graph TD
         N --> P[Categorization into Render Bins]
     end
 
-    subgraph "Metal Backend"
+    subgraph "Metal Backend (DX8 Adapter)"
         M --> Q[Flush / renderOneObject]
-        Q --> R[DX8Wrapper / MacOSRenderDevice]
-        R --> S[Metal Draw Calls]
+        Q --> R[MetalDevice8 :: DrawPrimitive]
+        R --> S[Metal API / Command Encoders]
     end
 ```
+
+## Metal DirectX 8 Adapter (Stage 0)
+
+The macOS port uses a direct implementation of the `IDirect3D8` and `IDirect3DDevice8` interfaces (defined in `d3d8_stub.h`) to bridge the engine's legacy calls to the Apple Metal API.
+
+### Key Components
+
+- **`MetalInterface8`**: Implements `IDirect3D8`. Handles adapter enumeration and device creation.
+- **`MetalDevice8`**: Implements `IDirect3DDevice8`. Manages `MTLDevice`, `MTLCommandQueue`, and the `CAMetalLayer`.
+- **`D3DXStubs.cpp`**: Contains `extern "C"` factory functions to create these objects, isolating C++ from Objective-C++ where possible.
+
+### `win_compat.h` / Metal Isolation
+
+To avoid naming conflicts between Windows API stubs in `win_compat.h` and macOS system headers (e.g., `LoadResource`, `GetCurrentThread`), the following patterns are used:
+
+1.  **Opaque Pointers**: `MetalDevice8.h` uses `void*` for all Metal/ObjC types to avoid importing `<Metal/Metal.h>` in the header.
+2.  **Import Order**: In `.mm` files, macOS framework headers are imported **before** any headers that include `win_compat.h`.
+3.  **Conditional Guards**: Conflicting functions in `win_compat.h` are wrapped in `#if !defined(__OBJC__)`.
+
+### Frame Lifecycle in `MetalDevice8`
+
+1.  **`BeginScene`**: Acquires the next `id<CAMetalDrawable>` and creates a `id<MTLCommandBuffer>`.
+2.  **`Clear`**: Ends the current encoder (if any) and creates a new `MTLRenderCommandEncoder` with clear actions.
+3.  **`DrawPrimitive` (Stage 1)**: Will bind vertex/index buffers and issue Metal draw commands.
+4.  **`Present`**: Commits the command buffer and presents the drawable.
+
 
 ## Detailed Visibility Check (`RTS3DScene::Visibility_Check`)
 
@@ -112,7 +138,7 @@ Shadows are handled in `W3DScene::Flush` (before rendering objects) and during `
 
 ## Null Safety During Shell Phase (macOS-specific)
 
-On macOS, several game globals (`TheGameLogic`, `TheInGameUI`, `TheTacticalView`, `TheScriptEngine`) are **not yet initialized** when the shell/menu UI begins processing events. The original Windows code assumed these were always valid during rendering, but on macOS the initialization order differs slightly.
+On macOS, several game globals (`TheGameLogic`, `TheInGameUI`, `TheTacticalView`, `TheScriptEngine`, `TheTerrainVisual`) may not be initialized when the shell/menu UI begins processing events. Additionally, `TheTerrainVisual` is explicitly set to `nullptr` after its `init()` throws `ERROR_BUG` (memory pool issue with `HeightMapRenderObjClass`).
 
 ### Affected Call Paths (Fixed)
 
@@ -132,7 +158,26 @@ On macOS, several game globals (`TheGameLogic`, `TheInGameUI`, `TheTacticalView`
 | `OptionsMenuInit` (in-game check) | `TheGameLogic->isInGame()` with null `TheGameLogic` | Added `if (TheGameLogic &&)` guard |
 | `OptionsMenuInit` (`WinAdvancedDisplay`) | `WinAdvancedDisplay->winHide()` with null window | Added null guard |
 | `saveOptions` (scroll anchors, refresh) | `TheInGameUI->...` / `TheRecorder` / `TheLookAtTranslator` null | Added null guards |
-| `OptionsMenuSystem` (accept path) | `TheGameLogic->isInGame()` with null `TheGameLogic` | Added `!TheGameLogic ||` guard |
+| `OptionsMenuSystem` (accept path) | `TheGameLogic->isInGame()` with null `TheGameLogic` | Added `!TheGameLogic \|\|` guard |
+| `InGameUI::reset` (TheControlBar) | `TheControlBar->reset()` with null `TheControlBar` | Added `if (TheControlBar)` guard |
+| `InGameUI::reset` (TheTacticalView) | `TheTacticalView->setDefaultView()` with null `TheTacticalView` | Added `if (TheTacticalView)` guard |
+| `InGameUI::destroyPlacementIcons` | `TheTerrainVisual->removeFactionBibDrawable/removeAllBibs()` with null `TheTerrainVisual` | Added null guards |
+
+### TerrainVisual Init Exception Flow
+
+```
+GameEngine::init()
+  └→ GameClient::init()            (via initSubsystem)
+       └→ createTerrainVisual()     → new W3DTerrainVisual()
+           └→ W3DTerrainVisual::init()
+               └→ NEW_REF(HeightMapRenderObjClass, ())
+                   └→ ASSERTION FAILURE: "operator new should not be called"
+                   └→ throw ERROR_BUG (0xDEAD0001)
+       └→ CAUGHT in try-catch → TheTerrainVisual = nullptr
+       └→ init() continues normally
+  └→ initSubsystem(TheAI)         ← NOW REACHED ✅
+  └→ initSubsystem(TheGameLogic)  ← NOW REACHED ✅
+```
 
 ### Pattern
 

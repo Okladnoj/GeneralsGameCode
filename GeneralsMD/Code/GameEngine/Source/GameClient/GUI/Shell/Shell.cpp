@@ -491,10 +491,20 @@ void Shell::showShell(Bool runInit) {
 }
 
 void Shell::showShellMap(Bool useShellMap) {
+  printf("DEBUG: Shell::showShellMap(%d) initialFile='%s' TheGameLogic=%p "
+         "simReplays.empty=%d\n",
+         useShellMap, TheGlobalData->m_initialFile.str(), (void *)TheGameLogic,
+         TheGlobalData->m_simulateReplays.empty());
+  fflush(stdout);
   // we don't want any of this to show if we're loading straight into a file
   if (TheGlobalData->m_initialFile.isNotEmpty() || !TheGameLogic ||
       !TheGlobalData->m_simulateReplays.empty())
     return;
+  printf("DEBUG: Shell::showShellMap(%d) shellMapOn=%d inGame=%d gameMode=%d "
+         "shellMapName=%s\n",
+         useShellMap, TheGlobalData->m_shellMapOn, TheGameLogic->isInGame(),
+         TheGameLogic->getGameMode(), TheGlobalData->m_shellMapName.str());
+  fflush(stdout);
   if (useShellMap && TheGlobalData->m_shellMapOn) {
     // we're already in a shell game, return
     if (TheGameLogic->isInGame() && TheGameLogic->getGameMode() == GAME_SHELL)
@@ -504,6 +514,9 @@ void Shell::showShellMap(Bool useShellMap) {
       TheGameLogic->exitGame();
 
     TheWritableGlobalData->m_pendingFile = TheGlobalData->m_shellMapName;
+    printf("DEBUG: Shell::showShellMap - loading shell map: %s\n",
+           TheGlobalData->m_shellMapName.str());
+    fflush(stdout);
     InitGameLogicRandom(0);
     GameMessage *msg =
         TheMessageStream->appendMessage(GameMessage::MSG_NEW_GAME);

@@ -477,10 +477,28 @@ void GameClient::init(void) {
       nullptr, nullptr, "TheHotKeyManager");
   TheHotKeyManager->init();
 
-  TheSubsystemList->initSubsystem(TheTerrainVisual = createTerrainVisual(),
-                                  nullptr, nullptr, nullptr,
-                                  "TheTerrainVisual");
-  TheTerrainVisual->init();
+  // TheSuperHackers @fix macOS: TerrainVisual creation/init may throw ERROR_BUG
+  // during initial setup (e.g. DX8/render object allocation). This must NOT
+  // abort GameEngine::init(), because critical subsystems (TheGameLogic,
+  // TheAI, ThePlayerList) are initialized AFTER TheGameClient. Terrain gets
+  // re-initialized when a map is loaded anyway.
+  try {
+    TheSubsystemList->initSubsystem(TheTerrainVisual = createTerrainVisual(),
+                                    nullptr, nullptr, nullptr,
+                                    "TheTerrainVisual");
+    TheTerrainVisual->init();
+  } catch (ErrorCode ec) {
+    fprintf(stderr,
+            "WARNING: TheTerrainVisual creation/init threw ErrorCode 0x%X, "
+            "continuing without terrain.\n",
+            (unsigned)ec);
+    TheTerrainVisual = nullptr;
+  } catch (...) {
+    fprintf(stderr,
+            "WARNING: TheTerrainVisual creation/init threw unknown exception, "
+            "continuing without terrain.\n");
+    TheTerrainVisual = nullptr;
+  }
 
   // allocate the ray effects manager
   TheSubsystemList->initSubsystem(TheRayEffects = MSGNEW("GameClientSubsystem")

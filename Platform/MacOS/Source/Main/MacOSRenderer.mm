@@ -425,23 +425,37 @@ void MacOSRenderDevice::DrawIndexed(PrimitiveType t, int ic,
                             length:sizeof(m_Uniforms)
                            atIndex:1];
 
-  MacOSVertexBufferClass *mvb = (MacOSVertexBufferClass *)vb;
-  MacOSIndexBufferClass *mib = (MacOSIndexBufferClass *)ib;
+  // vb is VertexBufferClass* (actually DX8VertexBufferClass*)
+  // ib is IndexBufferClass* (actually DX8IndexBufferClass*)
+  // The MacOS buffer objects are INSIDE these DX8 wrappers
+  DX8VertexBufferClass *dx8vb = static_cast<DX8VertexBufferClass *>(vb);
+  DX8IndexBufferClass *dx8ib = static_cast<DX8IndexBufferClass *>(ib);
 
-  [m_CurrentEncoder
-      setVertexBuffer:(__bridge id<MTLBuffer>)mvb->Get_Metal_Buffer()
-               offset:0
-              atIndex:0];
+  MacOSVertexBufferClass *mvb =
+      (MacOSVertexBufferClass *)dx8vb->Get_DX8_Vertex_Buffer();
+  MacOSIndexBufferClass *mib =
+      (MacOSIndexBufferClass *)dx8ib->Get_DX8_Index_Buffer();
+
+  if (!mvb || !mib)
+    return;
+
+  void *metalVB = mvb->Get_Metal_Buffer();
+  void *metalIB = mib->Get_Metal_Buffer();
+  if (!metalVB || !metalIB)
+    return;
+
+  [m_CurrentEncoder setVertexBuffer:(__bridge id<MTLBuffer>)metalVB
+                             offset:0
+                            atIndex:0];
 
   MTLIndexType indexType =
       mib->Is_32Bit() ? MTLIndexTypeUInt32 : MTLIndexTypeUInt16;
 
-  [m_CurrentEncoder
-      drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                 indexCount:ic
-                  indexType:indexType
-                indexBuffer:(__bridge id<MTLBuffer>)mib->Get_Metal_Buffer()
-          indexBufferOffset:0];
+  [m_CurrentEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                               indexCount:ic
+                                indexType:indexType
+                              indexBuffer:(__bridge id<MTLBuffer>)metalIB
+                        indexBufferOffset:0];
 }
 void MacOSRenderDevice::DrawDebugText(const char *t, float x, float y,
                                       unsigned int c) {}

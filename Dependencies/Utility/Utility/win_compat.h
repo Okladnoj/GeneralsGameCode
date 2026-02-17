@@ -1785,7 +1785,9 @@ inline DWORD GetCurrentThreadId() {
   return (DWORD)(uintptr_t)pthread_self();
 #endif
 }
+#if !defined(__OBJC__) // Clashes with macOS CarbonCore MacGetCurrentThread
 inline HANDLE GetCurrentThread() { return (HANDLE)-2; }
+#endif
 extern char g_GeneralsCommandLine[2048];
 inline LPCSTR GetCommandLineA() { return g_GeneralsCommandLine; }
 inline BOOL SHGetSpecialFolderPathA(HWND hwnd, LPSTR pszPath, int csidl,
@@ -1933,7 +1935,9 @@ inline BOOL GetMonitorInfo(HMONITOR hMonitor, LPMONITORINFO lpmi) {
 inline HRSRC FindResource(HMODULE hModule, LPCSTR lpName, LPCSTR lpType) {
   return NULL;
 }
+#if !defined(__OBJC__) // Clashes with macOS CarbonCore MacLoadResource
 inline HGLOBAL LoadResource(HMODULE hModule, HRSRC hResInfo) { return NULL; }
+#endif
 inline LPVOID LockResource(HGLOBAL hResData) { return NULL; }
 inline DWORD SizeofResource(HMODULE hModule, HRSRC hResInfo) { return 0; }
 inline void GetSystemTime(SYSTEMTIME *lpSystemTime) {
@@ -2369,7 +2373,9 @@ inline FARPROC GetProcAddress(HMODULE hModule, LPCSTR lpProcName) {
   return NULL;
 }
 
+#if !defined(__OBJC__) // Clashes with macOS HIServices GetCurrentProcess
 inline HANDLE GetCurrentProcess() { return (HANDLE)-1; }
+#endif
 inline BOOL AllocConsole() { return TRUE; }
 inline BOOL FreeConsole() { return TRUE; }
 inline BOOL SetConsoleMode(HANDLE hConsoleHandle, DWORD dwMode) { return TRUE; }

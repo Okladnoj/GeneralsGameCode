@@ -2164,11 +2164,13 @@ void InGameUI::reset(void) {
   // reset the command bar
   printf("InGameUI::reset: resetting TheControlBar...\n");
   fflush(stdout);
-  TheControlBar->reset();
+  if (TheControlBar)
+    TheControlBar->reset();
   printf("InGameUI::reset: TheControlBar reset.\n");
   fflush(stdout);
 
-  TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f);
+  if (TheTacticalView)
+    TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f);
 
   printf("InGameUI::reset: ResetInGameChat...\n");
   fflush(stdout);
@@ -3201,12 +3203,15 @@ void InGameUI::destroyPlacementIcons(void) {
   for (i = 0; i < TheGlobalData->m_maxLineBuildObjects; ++i) {
 
     if (m_placeIcon[i]) {
-      TheTerrainVisual->removeFactionBibDrawable(m_placeIcon[i]);
-      TheGameClient->destroyDrawable(m_placeIcon[i]);
+      if (TheTerrainVisual)
+        TheTerrainVisual->removeFactionBibDrawable(m_placeIcon[i]);
+      if (TheGameClient)
+        TheGameClient->destroyDrawable(m_placeIcon[i]);
     }
     m_placeIcon[i] = nullptr;
   }
-  TheTerrainVisual->removeAllBibs();
+  if (TheTerrainVisual)
+    TheTerrainVisual->removeAllBibs();
 }
 
 //-------------------------------------------------------------------------------------------------

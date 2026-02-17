@@ -40,6 +40,7 @@ INCLUDES="-ICore/GameEngine/Include \
 -ICore/Libraries/Source/WWVegas \
 -IGeneralsMD/Code/Libraries/Source/WWVegas/WW3D2 \
 -IPlatform/MacOS/Source/Main \
+-IPlatform/MacOS/Source/Metal \
 -IGeneralsMD/Code/Libraries/Source/WWVegas \
 -ICore/Libraries/Source/WWVegas/WW3D2 \
 -IGeneralsMD/Code/Libraries/Source/WWVegas/WW3D2 \

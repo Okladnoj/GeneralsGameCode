@@ -593,6 +593,8 @@ SOURCES=(
   "Platform/MacOS/Source/Audio/MacOSAudioManager.mm"
   "Platform/MacOS/Source/Debug/MacOSScreenshot.mm"
   "Platform/MacOS/Source/Main/D3DXStubs.cpp"
+  "Platform/MacOS/Source/Metal/MetalDevice8.mm"
+  "Platform/MacOS/Source/Metal/MetalInterface8.mm"
   "Platform/MacOS/Source/Stubs/GameSpyStubs.cpp"
   "Platform/MacOS/Source/Stubs/LZHLStubs.cpp"
   "Platform/MacOS/Source/Stubs/GitInfoStubs.cpp"
