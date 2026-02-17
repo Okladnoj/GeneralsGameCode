@@ -72,9 +72,9 @@ int MacOS_Main(int argc, char *argv[]) {
     CommandLine::parseCommandLineForStartup();
 
     // Create window
-    int w = 1024;
-    int h = 768;
-    if (TheGlobalData) {
+    int w = 800;
+    int h = 600;
+    if (TheGlobalData && TheGlobalData->m_xResolution > 0) {
       w = TheGlobalData->m_xResolution;
       h = TheGlobalData->m_yResolution;
     }
@@ -143,16 +143,20 @@ void *MacOS_CreateWindow(int width, int height, const char *title) {
 void MacOS_PumpEvents() {
   static int pumpCount = 0;
   BOOL isActive = [NSApp isActive];
-  if (pumpCount++ % 500 == 0) {
+  if (pumpCount++ % 50 == 0) {
     NSWindow *keyWin = [NSApp keyWindow];
     printf("DEBUG: Pump heartbeat #%d, isActive=%d, keyWin=%p\n", pumpCount,
            (int)isActive, (__bridge void *)keyWin);
     fflush(stdout);
   }
 
-  if (pumpCount % 200 == 0 && !isActive) {
+  if (pumpCount % 100 == 0 && !isActive) {
     [NSApp activateIgnoringOtherApps:YES];
-    [[[NSApp windows] firstObject] makeKeyWindow];
+    NSWindow *firstWin = [[NSApp windows] firstObject];
+    if (firstWin) {
+      [firstWin makeKeyAndOrderFront:nil];
+      [firstWin makeKeyWindow];
+    }
   }
 
   @autoreleasepool {
@@ -197,24 +201,36 @@ void MacOS_PumpEvents() {
       case NSEventTypeMouseMoved:
       case NSEventTypeLeftMouseDragged:
       case NSEventTypeRightMouseDragged:
-      case NSEventTypeOtherMouseDragged: {
+      case NSEventTypeOtherMouseDragged:
+      case NSEventTypeLeftMouseDown:
+      case NSEventTypeLeftMouseUp: {
         if (TheMouse) {
           NSPoint loc = [event locationInWindow];
           NSWindow *win = [event window];
+          if (!win)
+            win = [NSApp keyWindow];
+          if (!win)
+            win = [[NSApp windows] firstObject];
+
           if (win) {
-            NSRect content = [win contentRectForFrameRect:[win frame]];
+            NSView *cv = [win contentView];
+            float h = [cv bounds].size.height;
             int x = (int)loc.x;
-            int y = (int)(content.size.height - loc.y);
-            ((StdMouse *)TheMouse)
-                ->addEvent(MACOS_MOUSE_MOVE, x, y, 0, 0, timestamp);
-          } else {
-            // If win is nil, use the first available window
-            NSWindow *firstWin = [[NSApp windows] firstObject];
-            if (firstWin) {
-              NSRect content =
-                  [firstWin contentRectForFrameRect:[firstWin frame]];
-              int x = (int)loc.x;
-              int y = (int)(content.size.height - loc.y);
+            int y = (int)(h - loc.y);
+
+            NSEventType type = [event type];
+            if (type == NSEventTypeLeftMouseDown) {
+              printf("COCOA: DOWN x=%d y=%d (rawY=%.1f WinH=%.1f)\n", x, y,
+                     loc.y, h);
+              fflush(stdout);
+              ((StdMouse *)TheMouse)
+                  ->addEvent(MACOS_MOUSE_LBUTTON_DOWN, x, y, 0, 0, timestamp);
+            } else if (type == NSEventTypeLeftMouseUp) {
+              printf("COCOA: UP x=%d y=%d\n", x, y);
+              fflush(stdout);
+              ((StdMouse *)TheMouse)
+                  ->addEvent(MACOS_MOUSE_LBUTTON_UP, x, y, 0, 0, timestamp);
+            } else {
               ((StdMouse *)TheMouse)
                   ->addEvent(MACOS_MOUSE_MOVE, x, y, 0, 0, timestamp);
             }
@@ -222,45 +238,6 @@ void MacOS_PumpEvents() {
         }
         break;
       }
-
-      case NSEventTypeLeftMouseDown:
-        printf("COCOA: LeftMouseDown RAW\n");
-        fflush(stdout);
-        if (TheMouse) {
-          NSPoint loc = [event locationInWindow];
-          NSWindow *win = [event window];
-          if (win) {
-            NSRect content = [win contentRectForFrameRect:[win frame]];
-            int x = (int)loc.x;
-            int y = (int)(content.size.height - loc.y);
-            ((StdMouse *)TheMouse)
-                ->addEvent(MACOS_MOUSE_LBUTTON_DOWN, x, y, 0, 0, timestamp);
-          } else {
-            NSWindow *firstWin = [[NSApp windows] firstObject];
-            if (firstWin) {
-              NSRect content =
-                  [firstWin contentRectForFrameRect:[firstWin frame]];
-              int x = (int)loc.x;
-              int y = (int)(content.size.height - loc.y);
-              ((StdMouse *)TheMouse)
-                  ->addEvent(MACOS_MOUSE_LBUTTON_DOWN, x, y, 0, 0, timestamp);
-            }
-          }
-        }
-        break;
-      case NSEventTypeLeftMouseUp:
-        if (TheMouse) {
-          NSPoint loc = [event locationInWindow];
-          NSWindow *win = [event window];
-          if (win) {
-            NSRect content = [win contentRectForFrameRect:[win frame]];
-            int x = (int)loc.x;
-            int y = (int)(content.size.height - loc.y);
-            ((StdMouse *)TheMouse)
-                ->addEvent(MACOS_MOUSE_LBUTTON_UP, x, y, 0, 0, timestamp);
-          }
-        }
-        break;
 
       case NSEventTypeRightMouseDown:
         if (TheMouse) {

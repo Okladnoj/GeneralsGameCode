@@ -160,6 +160,12 @@ WindowTranslator::~WindowTranslator() {}
 //=============================================================================
 GameMessageDisposition
 WindowTranslator::translateGameMessage(const GameMessage *msg) {
+  static int xlatCount = 0;
+  if (++xlatCount % 10 == 0) {
+    printf("XLAT: translateGameMessage call #%d type=%d\n", xlatCount,
+           msg->getType());
+    fflush(stdout);
+  }
   GameMessageDisposition disp = KEEP_MESSAGE;
   Bool forceKeepMessage = FALSE;
   WinInputReturnCode returnCode = WIN_INPUT_NOT_USED;
@@ -224,9 +230,19 @@ WindowTranslator::translateGameMessage(const GameMessage *msg) {
 
     // process the mouse event position
     GameWindowMessage gwm = rawMouseToWindowMessage(msg);
-    if (TheWindowManager)
+    if (gwm != GWM_NONE) {
+      printf("XLAT: GWM=%d at (%d, %d)\n", (int)gwm, mousePos.x, mousePos.y);
+      fflush(stdout);
+    }
+    if (TheWindowManager) {
       returnCode =
           TheWindowManager->winProcessMouseEvent(gwm, &mousePos, nullptr);
+      if (gwm != GWM_MOUSE_POS && gwm != GWM_NONE) {
+        printf("XLAT: winProcessMouseEvent result=%d (USED=%d)\n",
+               (int)returnCode, (int)WIN_INPUT_USED);
+        fflush(stdout);
+      }
+    }
 
     if (TheShell && TheShell->isShellActive())
       returnCode = WIN_INPUT_USED;

@@ -1,6 +1,7 @@
 #include "StdMouse.h"
 #include "Common/GlobalData.h"
 #include "GameClient/Display.h"
+#include "GameClient/GameWindow.h"
 #include "GameClient/Image.h"
 #include "always.h"
 
@@ -11,7 +12,10 @@ StdMouse::StdMouse(void) {
 
 StdMouse::~StdMouse(void) {}
 
-void StdMouse::init(void) { setVisibility(TRUE); }
+void StdMouse::init(void) {
+  m_inputMovesAbsolute = TRUE;
+  setVisibility(TRUE);
+}
 
 void StdMouse::reset(void) {
   m_nextFreeIndex = 0;
@@ -48,12 +52,17 @@ void StdMouse::setCursor(MouseCursor cursor) {
 }
 
 void StdMouse::setVisibility(Bool visible) {
+  m_visible = visible;
+  printf("DEBUG: StdMouse::setVisibility(%s) -> m_visible is now %d\n",
+         visible ? "TRUE" : "FALSE", (int)m_visible);
+  fflush(stdout);
 #if defined(__APPLE__) && defined(__OBJC__)
   @autoreleasepool {
     if (visible) {
       [NSCursor unhide];
     } else {
-      [NSCursor hide];
+      // Force unhide for now to help debugging
+      [NSCursor unhide];
     }
   }
 #endif
@@ -67,6 +76,15 @@ void StdMouse::draw(void) {
   if (info->imageName.isNotEmpty()) {
     const Image *img =
         TheMappedImageCollection->findImageByName(info->imageName);
+    if (!img) {
+      static AsciiString lastMissingCursor;
+      if (lastMissingCursor != info->imageName) {
+        printf("DEBUG: StdMouse::draw: CURSOR IMAGE NOT FOUND: %s\n",
+               info->imageName.str());
+        fflush(stdout);
+        lastMissingCursor = info->imageName;
+      }
+    }
     if (img) {
       Int w = img->getImageWidth();
       Int h = img->getImageHeight();
@@ -76,6 +94,10 @@ void StdMouse::draw(void) {
       TheDisplay->drawImage(img, x, y, x + w, y + h,
                             GameMakeColor(255, 255, 255, 255),
                             Display::DRAW_IMAGE_ALPHA);
+    } else {
+      // DEBUG FALLBACK: Big Green square (20x20) so it's impossible to miss
+      TheDisplay->drawFillRect(m_currMouse.pos.x - 10, m_currMouse.pos.y - 10,
+                               20, 20, GameMakeColor(0, 255, 0, 255));
     }
   }
 
@@ -101,6 +123,15 @@ void StdMouse::loseFocus() {
 }
 
 UnsignedByte StdMouse::getMouseEvent(MouseIO *result, Bool flush) {
+  static int pollCount = 0;
+  if (pollCount++ % 500 == 0) {
+    // printf("DEBUG: StdMouse::getMouseEvent polled %d times, buffer
+    // size=%d\n",
+    //        pollCount, (m_nextFreeIndex - m_nextGetIndex + MAX_EVENTS) %
+    //        MAX_EVENTS);
+    // fflush(stdout);
+  }
+
   if (m_nextGetIndex == m_nextFreeIndex) {
     if (result) {
       memset(result, 0, sizeof(MouseIO));
@@ -121,33 +152,26 @@ UnsignedByte StdMouse::getMouseEvent(MouseIO *result, Bool flush) {
   result->time = ev.time;
   result->wheelPos = ev.wheelDelta;
 
-  m_currMouse.pos.x = ev.x;
-  m_currMouse.pos.y = ev.y;
-
   switch (ev.type) {
   case MACOS_MOUSE_LBUTTON_DOWN:
     result->leftState = MBS_Down;
-    m_currMouse.leftState = MBS_Down;
     break;
   case MACOS_MOUSE_LBUTTON_UP:
     result->leftState = MBS_Up;
-    m_currMouse.leftState = MBS_Up;
     break;
   case MACOS_MOUSE_RBUTTON_DOWN:
     result->rightState = MBS_Down;
-    m_currMouse.rightState = MBS_Down;
     break;
   case MACOS_MOUSE_RBUTTON_UP:
     result->rightState = MBS_Up;
-    m_currMouse.rightState = MBS_Up;
     break;
   case MACOS_MOUSE_MBUTTON_DOWN:
     result->middleState = MBS_Down;
-    m_currMouse.middleState = MBS_Down;
     break;
   case MACOS_MOUSE_MBUTTON_UP:
     result->middleState = MBS_Up;
-    m_currMouse.middleState = MBS_Up;
+    break;
+  default:
     break;
   }
 
@@ -162,6 +186,26 @@ UnsignedByte StdMouse::getMouseEvent(MouseIO *result, Bool flush) {
 
 void StdMouse::addEvent(int type, int x, int y, int button, int wheelDelta,
                         unsigned int time) {
+  // OPTIMIZATION: If same as last move event, skip to avoid flooding
+  static int lastX = -1, lastY = -1;
+  if (type == MACOS_MOUSE_MOVE && x == lastX && y == lastY) {
+    return;
+  }
+  if (type == MACOS_MOUSE_MOVE) {
+    lastX = x;
+    lastY = y;
+  }
+
+  // DEBUG: Update position immediately so 'draw' stays in sync
+  m_currMouse.pos.x = x;
+  m_currMouse.pos.y = y;
+
+  // LOG ALL BUTTON EVENTS
+  if (type != MACOS_MOUSE_MOVE) {
+    printf("QUEUE: addEvent type=%d at (%d, %d)\n", type, x, y);
+    fflush(stdout);
+  }
+
   unsigned int nextIndex = (m_nextFreeIndex + 1) % MAX_EVENTS;
   if (nextIndex == m_nextGetIndex) {
     // Buffer overflow, drop oldest event

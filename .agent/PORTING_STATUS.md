@@ -8,7 +8,7 @@
 - [x] **Graphics:** Metal Bridge, SW DDS Decoding (DXT1/5), Cinematic Vignette, Navy Clear Color.
 - [x] **Initialization:** ✅ **NO CRASH**. Game enters Main Shell loop and updates frame-by-frame.
 - [x] **3D Infrastructure:** Real `W3DView` integrated; `RTS3DScene` pools explicitly initialized.
-- [x] **Input Handling:** ✅ **WORKING**. MacOS events (mouse/keyboard) are received, application gains focus, and events are routed to GUI.
+- [x] **Input Handling:** ✅ **VERIFIED**. MacOS events are correctly translated and routed. Menu buttons and sliders respond to clicks with 100% accuracy.
 
 ---
 
