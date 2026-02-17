@@ -5,7 +5,7 @@
 
 ## 🚀 Status Quo
 - [x] **Subsystems:** Memory (fixed pool race condition), Filesystem (.big), INI, Input, Window.
-- [ ] **Audio Engine:** 🔴 **STUBBED**. `AudioManager` stubs in `MacOSMain.mm` need implementation via CoreAudio/AVAudioEngine.
+- [x] **Audio Engine:** ✅ **WORKING (UI & Sounds)**. `MacOSAudioManager` implemented using `AVAudioEngine`. Supports extraction from `.big` archives with local caching.
 - [x] **Graphics:** Metal Bridge, SW DDS Decoding (DXT1/5), Cinematic Vignette, Navy Clear Color.
 - [x] **Initialization:** ✅ **NO CRASH**. Game enters Main Shell loop and updates frame-by-frame.
 - [x] **3D Infrastructure:** Real `W3DView` integrated; `RTS3DScene` pools explicitly initialized.
@@ -22,10 +22,10 @@
 ---
 
 ## 🏗 SHORT-TERM BACKLOG
-1. **Implement CoreAudio/AVAudioEngine Bridge:** Create `MacOSAudioManager` to handle UI and in-game sounds.
+1. **3D Positional Audio & Music:** Transition mixer to `AVAudioEnvironmentNode` and implement music track playback.
 2. **Fix UI Texture Binding:** Debug `setTexture` in Metal renderer. Ensure pixel formats (BGRA vs RGBA) match the DDS decoder.
-3. **Implement CoreText / Font Library:** Bridge `DisplayStringManager` to a visible rendering system.
-4. **Address Exit Crash:** Debug `ObjectPoolClass` destructor `Signal 11`.
+3. **Fix Exit Crash:** Debug `ObjectPoolClass` destructor `Signal 11` during cleanup.
+4. **Lint Cleanup:** Address critical compilation warnings in `MacOSRenderDevice_Internal.h`.
 
 
 ---

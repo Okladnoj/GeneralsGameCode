@@ -588,6 +588,7 @@ SOURCES=(
   "Platform/MacOS/Source/Main/MacOSGameWindowManager.mm"
   "Platform/MacOS/Source/Main/MacOSGadgetDraw.mm"
   "Platform/MacOS/Source/Main/MacOSMain.mm"
+  "Platform/MacOS/Source/Audio/MacOSAudioManager.mm"
   "Platform/MacOS/Source/Main/D3DXStubs.cpp"
   "Platform/MacOS/Source/Stubs/GameSpyStubs.cpp"
   "Platform/MacOS/Source/Stubs/LZHLStubs.cpp"

@@ -113,7 +113,7 @@ echo "Linking with ${#OBJECTS[@]} objects..."
 # Use a response file to avoid command line length limits
 printf "%s\n" "${OBJECTS[@]}" > build/macos/objects.txt
 
-clang++ @build/macos/objects.txt -o "$EXECUTABLE" -lz -framework Foundation -framework Cocoa -framework Metal -framework QuartzCore
+clang++ @build/macos/objects.txt -o "$EXECUTABLE" -lz -framework Foundation -framework Cocoa -framework Metal -framework QuartzCore -framework AVFoundation
 
 echo "✅ Build successful!"
 echo "📍 Location: $EXECUTABLE"

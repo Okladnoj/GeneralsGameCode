@@ -25,6 +25,7 @@
 #include "GameClient/ClientInstance.h"
 #include "GameClient/Keyboard.h"
 #include "GameClient/Mouse.h"
+#include "MacOSAudioManager.h"
 
 // The big one that includes almost everything else
 #include "GameLogic/GameLogic.h"
@@ -478,8 +479,8 @@ WebBrowser *Win32GameEngine::createWebBrowser(void) {
   return new StubWebBrowser();
 }
 AudioManager *Win32GameEngine::createAudioManager(void) {
-  fprintf(stderr, "FACTORY: createAudioManager\n");
-  return new AudioManagerDummy();
+  fprintf(stderr, "!!!! MACOS AUDIOMANAGER CREATED !!!!\n");
+  return ::new MacOSAudioManager();
 }
 
 #if 0
