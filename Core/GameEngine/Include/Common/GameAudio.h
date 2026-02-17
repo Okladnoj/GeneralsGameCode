@@ -149,10 +149,10 @@ public:
 #endif
 
   // From SubsystemInterface
-  virtual void init();
-  virtual void postProcessLoad();
-  virtual void reset();
-  virtual void update();
+  virtual void init() override;
+  virtual void postProcessLoad() override;
+  virtual void reset() override;
+  virtual void update() override;
 
   // device dependent stop, pause and resume
   virtual void stopAudio(AudioAffect which) = 0;
@@ -415,62 +415,75 @@ protected:
 class AudioManagerDummy : public AudioManager {
 #if defined(RTS_DEBUG)
   virtual void audioDebugDisplay(DebugDisplayInterface *dd, void *userData,
-                                 FILE *fp) {}
+                                 FILE *fp) override {}
 #endif
-  virtual void stopAudio(AudioAffect which) {}
-  virtual void pauseAudio(AudioAffect which) {}
-  virtual void resumeAudio(AudioAffect which) {}
-  virtual void pauseAmbient(Bool shouldPause) {}
-  virtual void killAudioEventImmediately(AudioHandle audioEvent) {}
-  virtual void nextMusicTrack() {}
-  virtual void prevMusicTrack() {}
-  virtual Bool isMusicPlaying() const { return false; }
+  virtual void stopAudio(AudioAffect which) override {}
+  virtual void pauseAudio(AudioAffect which) override {}
+  virtual void resumeAudio(AudioAffect which) override {}
+  virtual void pauseAmbient(Bool shouldPause) override {}
+  virtual void killAudioEventImmediately(AudioHandle audioEvent) override {}
+  virtual void nextMusicTrack() override {}
+  virtual void prevMusicTrack() override {}
+  virtual Bool isMusicPlaying() const override { return false; }
   virtual Bool hasMusicTrackCompleted(const AsciiString &trackName,
-                                      Int numberOfTimes) const {
+                                      Int numberOfTimes) const override {
     return false;
   }
-  virtual AsciiString getMusicTrackName() const { return ""; }
-  virtual void openDevice() {}
-  virtual void closeDevice() {}
-  virtual void *getDevice() { return nullptr; }
+  virtual AsciiString getMusicTrackName() const override { return ""; }
+  virtual void openDevice() override {}
+  virtual void closeDevice() override {}
+  virtual void *getDevice() override { return nullptr; }
   virtual void notifyOfAudioCompletion(UnsignedInt audioCompleted,
-                                       UnsignedInt flags) {}
-  virtual UnsignedInt getProviderCount(void) const { return 0; };
-  virtual AsciiString getProviderName(UnsignedInt providerNum) const {
+                                       UnsignedInt flags) override {}
+  virtual UnsignedInt getProviderCount(void) const override { return 0; };
+  virtual AsciiString getProviderName(UnsignedInt providerNum) const override {
     return "";
   }
-  virtual UnsignedInt getProviderIndex(AsciiString providerName) const {
+  virtual UnsignedInt
+  getProviderIndex(AsciiString providerName) const override {
     return 0;
   }
-  virtual void selectProvider(UnsignedInt providerNdx) {}
-  virtual void unselectProvider(void) {}
-  virtual UnsignedInt getSelectedProvider(void) const { return 0; }
-  virtual void setSpeakerType(UnsignedInt speakerType) {}
-  virtual UnsignedInt getSpeakerType(void) { return 0; }
-  virtual UnsignedInt getNum2DSamples(void) const { return 0; }
-  virtual UnsignedInt getNum3DSamples(void) const { return 0; }
-  virtual UnsignedInt getNumStreams(void) const { return 0; }
-  virtual Bool doesViolateLimit(AudioEventRTS *event) const { return false; }
-  virtual Bool isPlayingLowerPriority(AudioEventRTS *event) const {
+  virtual void selectProvider(UnsignedInt providerNdx) override {}
+  virtual void unselectProvider(void) override {}
+  virtual UnsignedInt getSelectedProvider(void) const override { return 0; }
+  virtual void setSpeakerType(UnsignedInt speakerType) override {}
+  virtual UnsignedInt getSpeakerType(void) override { return 0; }
+  virtual UnsignedInt getNum2DSamples(void) const override { return 0; }
+  virtual UnsignedInt getNum3DSamples(void) const override { return 0; }
+  virtual UnsignedInt getNumStreams(void) const override { return 0; }
+  virtual Bool doesViolateLimit(AudioEventRTS *event) const override {
     return false;
   }
-  virtual Bool isPlayingAlready(AudioEventRTS *event) const { return false; }
-  virtual Bool isObjectPlayingVoice(UnsignedInt objID) const { return false; }
-  virtual void adjustVolumeOfPlayingAudio(AsciiString eventName,
-                                          Real newVolume) {}
-  virtual void removePlayingAudio(AsciiString eventName) {}
-  virtual void removeAllDisabledAudio() {}
-  virtual Bool has3DSensitiveStreamsPlaying(void) const { return false; }
-  virtual void *getHandleForBink(void) { return nullptr; }
-  virtual void releaseHandleForBink(void) {}
-  virtual void friend_forcePlayAudioEventRTS(const AudioEventRTS *eventToPlay) {
+  virtual Bool isPlayingLowerPriority(AudioEventRTS *event) const override {
+    return false;
   }
-  virtual void setPreferredProvider(AsciiString providerNdx) {}
-  virtual void setPreferredSpeaker(AsciiString speakerType) {}
-  virtual Real getFileLengthMS(AsciiString strToLoad) const { return -1; }
-  virtual void closeAnySamplesUsingFile(const void *fileToClose) {}
-  virtual void setDeviceListenerPosition(void) {}
+  virtual Bool isPlayingAlready(AudioEventRTS *event) const override {
+    return false;
+  }
+  virtual Bool isObjectPlayingVoice(UnsignedInt objID) const override {
+    return false;
+  }
+  virtual void adjustVolumeOfPlayingAudio(AsciiString eventName,
+                                          Real newVolume) override {}
+  virtual void removePlayingAudio(AsciiString eventName) override {}
+  virtual void removeAllDisabledAudio() override {}
+  virtual Bool has3DSensitiveStreamsPlaying(void) const override {
+    return false;
+  }
+  virtual void *getHandleForBink(void) override { return nullptr; }
+  virtual void releaseHandleForBink(void) override {}
+  virtual void
+  friend_forcePlayAudioEventRTS(const AudioEventRTS *eventToPlay) override {}
+  virtual void setPreferredProvider(AsciiString providerNdx) override {}
+  virtual void setPreferredSpeaker(AsciiString speakerType) override {}
+  virtual Real getFileLengthMS(AsciiString strToLoad) const override {
+    return -1;
+  }
+  virtual void closeAnySamplesUsingFile(const void *fileToClose) override {}
+  virtual void setDeviceListenerPosition(void) override {}
   virtual void update() override {}
+  virtual void init() override {}
+  virtual void reset() override {}
 };
 
 extern AudioManager *TheAudio;

@@ -477,36 +477,27 @@ inline void GameLogic::setWidth(Real width) { m_width = width; }
 inline Real GameLogic::getWidth(void) { return m_width; }
 inline void GameLogic::setHeight(Real height) { m_height = height; }
 inline Real GameLogic::getHeight(void) { return m_height; }
-inline UnsignedInt GameLogic::getFrame(void) { return this ? m_frame : 0; }
+inline UnsignedInt GameLogic::getFrame(void) { return m_frame; }
 
-inline Bool GameLogic::isInGame(void) {
-  return this ? m_gameMode != GAME_NONE : FALSE;
-}
-inline GameMode GameLogic::getGameMode(void) {
-  return this ? m_gameMode : GAME_NONE;
-}
-inline Bool GameLogic::isInLanGame(void) {
-  return this ? (m_gameMode == GAME_LAN) : FALSE;
-}
+inline Bool GameLogic::isInGame(void) { return m_gameMode != GAME_NONE; }
+inline GameMode GameLogic::getGameMode(void) { return m_gameMode; }
+inline Bool GameLogic::isInLanGame(void) { return m_gameMode == GAME_LAN; }
 inline Bool GameLogic::isInSkirmishGame(void) {
-  return this ? (m_gameMode == GAME_SKIRMISH) : FALSE;
+  return m_gameMode == GAME_SKIRMISH;
 }
 inline Bool GameLogic::isInMultiplayerGame(void) {
-  return this ? ((m_gameMode == GAME_LAN) || (m_gameMode == GAME_INTERNET))
-              : FALSE;
+  return (m_gameMode == GAME_LAN) || (m_gameMode == GAME_INTERNET);
 }
 inline Bool GameLogic::isInInteractiveGame() const {
   return isInInteractiveGame(m_gameMode);
 }
 inline Bool GameLogic::isInReplayGame(void) {
-  return this ? (m_gameMode == GAME_REPLAY) : FALSE;
+  return m_gameMode == GAME_REPLAY;
 }
 inline Bool GameLogic::isInInternetGame(void) {
-  return this ? (m_gameMode == GAME_INTERNET) : FALSE;
+  return m_gameMode == GAME_INTERNET;
 }
-inline Bool GameLogic::isInShellGame(void) {
-  return this ? (m_gameMode == GAME_SHELL) : FALSE;
-}
+inline Bool GameLogic::isInShellGame(void) { return m_gameMode == GAME_SHELL; }
 inline UnsignedShort GameLogic::getSuperweaponRestriction() const {
   return m_superweaponRestriction;
 }

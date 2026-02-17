@@ -708,7 +708,9 @@ private:                                                                       \
          ARGPOOLNAME, The##ARGCLASS##Pool->getAllocationSize(),                \
          sizeof(ARGCLASS)));                                                   \
     return The##ARGCLASS##Pool;                                                \
-  }
+  }                                                                            \
+                                                                               \
+public:
 
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------

@@ -17,48 +17,52 @@
 */
 
 /***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
+ ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S
+ ****
  ***********************************************************************************************
  *                                                                                             *
- *                 Project Name : WWLib                                                        *
+ *                 Project Name : WWLib *
  *                                                                                             *
- *                     $Archive:: /Commando/Code/wwlib/mempool.h                              $*
+ *                     $Archive:: /Commando/Code/wwlib/mempool.h $*
  *                                                                                             *
- *                       Author:: Greg Hjelstrom                                               *
+ *                       Author:: Greg Hjelstrom *
  *                                                                                             *
- *                     $Modtime:: 9/26/01 3:11p                                               $*
+ *                     $Modtime:: 9/26/01 3:11p $*
  *                                                                                             *
- *                    $Revision:: 9                                                           $*
+ *                    $Revision:: 9 $*
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- *   ObjectPoolClass::ObjectPoolClass -- constructor for ObjectPoolClass                       *
- *   ObjectPoolClass::~ObjectPoolClass -- destructor for ObjectPoolClass                       *
- *   ObjectPoolClass::Allocate_Object -- allocates an object for the user                      *
- *   ObjectPoolClass::Free_Object -- releases obj back into the pool                           *
- *   ObjectPoolClass::Allocate_Object_Memory -- internal function which returns memory for an  *
- *   ObjectPoolClass::Free_Object_Memory -- internal function, returns object's memory to the  *
- *   AutoPoolClass::operator new -- overridden new which calls the internal ObjectPool          *
- *   AutoPoolClass::operator delete -- overridden delete which calls the internal ObjectPool    *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ * Functions: * ObjectPoolClass::ObjectPoolClass -- constructor for
+ *ObjectPoolClass                       * ObjectPoolClass::~ObjectPoolClass --
+ *destructor for ObjectPoolClass                       *
+ *   ObjectPoolClass::Allocate_Object -- allocates an object for the user *
+ *   ObjectPoolClass::Free_Object -- releases obj back into the pool *
+ *   ObjectPoolClass::Allocate_Object_Memory -- internal function which returns
+ *memory for an  * ObjectPoolClass::Free_Object_Memory -- internal function,
+ *returns object's memory to the  * AutoPoolClass::operator new -- overridden
+ *new which calls the internal ObjectPool          * AutoPoolClass::operator
+ *delete -- overridden delete which calls the internal ObjectPool    *
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *- - - - - - - */
 
 #pragma once
 
 #include "bittype.h"
-#include "wwdebug.h"
 #include "mutex.h"
+#include "wwdebug.h"
 #include <new>
-#include <stdlib.h>
 #include <stddef.h>
-
-
+#include <stdlib.h>
 
 /**********************************************************************************************
 ** ObjectPoolClass
 **
-** This class is designed to allocate blocks of objects of type T and then dole them out
-** to you individually.  The motivation for it is the situation where you are allocating
-** and freeing lots of little objects directly off the heap.  Through the use of this
+** This class is designed to allocate blocks of objects of type T and then dole
+*them out
+** to you individually.  The motivation for it is the situation where you are
+*allocating
+** and freeing lots of little objects directly off the heap.  Through the use of
+*this
 ** class, far fewer allocations will be actually made.
 **
 ** Example Usage:
@@ -68,39 +72,34 @@
 ** NodePool.Free_Object(node);
 **
 **********************************************************************************************/
-template<class T,int BLOCK_SIZE = 64>
-class ObjectPoolClass
-{
+template <class T, int BLOCK_SIZE = 64> class ObjectPoolClass {
 public:
+  ObjectPoolClass(void);
+  ~ObjectPoolClass(void);
 
-	ObjectPoolClass(void);
-	~ObjectPoolClass(void);
+  T *Allocate_Object(void);
+  void Free_Object(T *obj);
 
-	T *		Allocate_Object(void);
-	void		Free_Object(T * obj);
-
-	T *		Allocate_Object_Memory(void);
-	void		Free_Object_Memory(T * obj);
+  T *Allocate_Object_Memory(void);
+  void Free_Object_Memory(T *obj);
 
 protected:
-
-	T	*		FreeListHead;
-	uint32 *	BlockListHead;
-	int		FreeObjectCount;
-	int		TotalObjectCount;
-	FastCriticalSectionClass ObjectPoolCS;
-
+  T *FreeListHead;
+  void *BlockListHead;
+  int FreeObjectCount;
+  int TotalObjectCount;
+  FastCriticalSectionClass ObjectPoolCS;
 };
-
-
 
 /**********************************************************************************************
 ** AutoPoolClass
 **
-** This class is designed to be derived from in order to give your class built-in
+** This class is designed to be derived from in order to give your class
+*built-in
 ** object pool behavior.  The new and delete operators for your class will call
 ** to the internal ObjectPoolClass for fast allocation and de-allocation.  This
-** is very well suited to being the base class for a list node class for example.
+** is very well suited to being the base class for a list node class for
+*example.
 **
 ** Notes:
 ** - The array forms of new and delete are not supported
@@ -127,23 +126,18 @@ protected:
 ** }
 **
 **********************************************************************************************/
-template<class T, int BLOCK_SIZE = 64>
-class AutoPoolClass
-{
+template <class T, int BLOCK_SIZE = 64> class AutoPoolClass {
 public:
-
-	static void *	operator new(size_t size);
-	static void		operator delete(void * memory);
+  static void *operator new(size_t size);
+  static void operator delete(void *memory);
 
 private:
+  // not implemented
+  static void *operator new[](size_t size);
+  static void operator delete[](void *memory);
 
-	// not implemented
-	static void *	operator new [] (size_t size);
-	static void		operator delete[] (void * memory);
-
-	// This must be staticly declared by user
-	static ObjectPoolClass<T,BLOCK_SIZE>	Allocator;
-
+  // This must be staticly declared by user
+  static ObjectPoolClass<T, BLOCK_SIZE> Allocator;
 };
 
 /*
@@ -152,218 +146,202 @@ private:
 ** the class.
 */
 #if defined(_MSC_VER) && _MSC_VER < 1300
-#define DEFINE_AUTO_POOL(T,BLOCKSIZE) \
-ObjectPoolClass<T,BLOCKSIZE> AutoPoolClass<T,BLOCKSIZE>::Allocator;
+#define DEFINE_AUTO_POOL(T, BLOCKSIZE)                                         \
+  ObjectPoolClass<T, BLOCKSIZE> AutoPoolClass<T, BLOCKSIZE>::Allocator;
 #else
-#define DEFINE_AUTO_POOL(T,BLOCKSIZE) \
-template<>\
-ObjectPoolClass<T,BLOCKSIZE> AutoPoolClass<T,BLOCKSIZE>::Allocator = {}
+#define DEFINE_AUTO_POOL(T, BLOCKSIZE)                                         \
+  template <>                                                                  \
+  ObjectPoolClass<T, BLOCKSIZE> AutoPoolClass<T, BLOCKSIZE>::Allocator = {}
 #endif
 
+/***********************************************************************************************
+ * ObjectPoolClass::ObjectPoolClass -- constructor for ObjectPoolClass *
+ *                                                                                             *
+ * Initializes the object pool to the empty state *
+ *                                                                                             *
+ * INPUT: *
+ *                                                                                             *
+ * OUTPUT: *
+ *                                                                                             *
+ * WARNINGS: *
+ *                                                                                             *
+ * HISTORY: *
+ *=============================================================================================*/
+template <class T, int BLOCK_SIZE>
+ObjectPoolClass<T, BLOCK_SIZE>::ObjectPoolClass(void)
+    : FreeListHead(nullptr), BlockListHead(nullptr), FreeObjectCount(0),
+      TotalObjectCount(0) {}
 
 /***********************************************************************************************
- * ObjectPoolClass::ObjectPoolClass -- constructor for ObjectPoolClass                         *
+ * ObjectPoolClass::~ObjectPoolClass -- destructor for ObjectPoolClass *
  *                                                                                             *
- * Initializes the object pool to the empty state                                              *
+ * deletes the blocks of memory in use by the object pool. *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
+ * HISTORY: *
  *=============================================================================================*/
-template<class T,int BLOCK_SIZE>
-ObjectPoolClass<T,BLOCK_SIZE>::ObjectPoolClass(void) :
-	FreeListHead(nullptr),
-	BlockListHead(nullptr),
-	FreeObjectCount(0),
-	TotalObjectCount(0)
-{
+template <class T, int BLOCK_SIZE>
+ObjectPoolClass<T, BLOCK_SIZE>::~ObjectPoolClass(void) {
+  // assert that the user gave back all of the memory he was using
+  WWASSERT(FreeObjectCount == TotalObjectCount);
+
+  // delete all of the blocks we allocated
+  int block_count = 0;
+  while (BlockListHead != nullptr) {
+    void *next_block = *(void **)BlockListHead;
+    ::operator delete(BlockListHead);
+    BlockListHead = next_block;
+    block_count++;
+  }
+  WWASSERT(block_count == TotalObjectCount / BLOCK_SIZE);
 }
 
 /***********************************************************************************************
- * ObjectPoolClass::~ObjectPoolClass -- destructor for ObjectPoolClass                         *
+ * ObjectPoolClass::Allocate_Object -- allocates an object for the user *
  *                                                                                             *
- * deletes the blocks of memory in use by the object pool.                                     *
+ * If there are no free objects, another block of objects will be allocated. *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
+ * HISTORY: * 7/29/99    GTH : Created. *
  *=============================================================================================*/
-template<class T,int BLOCK_SIZE>
-ObjectPoolClass<T,BLOCK_SIZE>::~ObjectPoolClass(void)
-{
-	// assert that the user gave back all of the memory he was using
-	WWASSERT(FreeObjectCount == TotalObjectCount);
+template <class T, int BLOCK_SIZE>
+T *ObjectPoolClass<T, BLOCK_SIZE>::Allocate_Object(void) {
+  // allocate memory for the object
+  T *obj = Allocate_Object_Memory();
 
-	// delete all of the blocks we allocated
-	int block_count = 0;
-	while (BlockListHead != nullptr) {
-		uint32 * next_block = *(uint32 **)BlockListHead;
-		::operator delete(BlockListHead);
-		BlockListHead = next_block;
-		block_count++;
-	}
-	WWASSERT(block_count == TotalObjectCount / BLOCK_SIZE);
-}
-
-
-
-/***********************************************************************************************
- * ObjectPoolClass::Allocate_Object -- allocates an object for the user                        *
- *                                                                                             *
- * If there are no free objects, another block of objects will be allocated.                   *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   7/29/99    GTH : Created.                                                                 *
- *=============================================================================================*/
-template<class T,int BLOCK_SIZE>
-T * ObjectPoolClass<T,BLOCK_SIZE>::Allocate_Object(void)
-{
-	// allocate memory for the object
-	T * obj = Allocate_Object_Memory();
-
-	// construct the object in-place
-	return new (obj) T;
+  // construct the object in-place
+  return new (obj) T;
 }
 
 /***********************************************************************************************
- * ObjectPoolClass::Free_Object -- releases obj back into the pool                             *
+ * ObjectPoolClass::Free_Object -- releases obj back into the pool *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   7/29/99    GTH : Created.                                                                 *
+ * HISTORY: * 7/29/99    GTH : Created. *
  *=============================================================================================*/
-template<class T,int BLOCK_SIZE>
-void ObjectPoolClass<T,BLOCK_SIZE>::Free_Object(T * obj)
-{
-	// destruct the object
-	obj->T::~T();
+template <class T, int BLOCK_SIZE>
+void ObjectPoolClass<T, BLOCK_SIZE>::Free_Object(T *obj) {
+  // destruct the object
+  obj->T::~T();
 
-	// release the memory
-	Free_Object_Memory(obj);
+  // release the memory
+  Free_Object_Memory(obj);
 }
 
 /***********************************************************************************************
- * ObjectPoolClass::Allocate_Object_Memory -- internal function which returns memory for an in *
+ * ObjectPoolClass::Allocate_Object_Memory -- internal function which returns
+ *memory for an in *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   7/29/99    GTH : Created.                                                                 *
+ * HISTORY: * 7/29/99    GTH : Created. *
  *=============================================================================================*/
-template<class T,int BLOCK_SIZE>
-T * ObjectPoolClass<T,BLOCK_SIZE>::Allocate_Object_Memory(void)
-{
-	FastCriticalSectionClass::LockClass lock(ObjectPoolCS);
+template <class T, int BLOCK_SIZE>
+T *ObjectPoolClass<T, BLOCK_SIZE>::Allocate_Object_Memory(void) {
+  FastCriticalSectionClass::LockClass lock(ObjectPoolCS);
 
-	if ( FreeListHead == nullptr ) {
+  if (FreeListHead == nullptr) {
 
-		// No free objects, allocate another block
-		uint32 * tmp_block_head = BlockListHead;
-		BlockListHead = (uint32*)::operator new( sizeof(T) * BLOCK_SIZE + sizeof(uint32 *));
-		// Link this block into the block list
-		*(void **)BlockListHead = tmp_block_head;
+    // No free objects, allocate another block
+    void *tmp_block_head = BlockListHead;
+    BlockListHead =
+        (void *)::operator new(sizeof(T) * BLOCK_SIZE + sizeof(void *));
+    // Link this block into the block list
+    *(void **)BlockListHead = tmp_block_head;
 
-		// Link the objects in the block into the free object list
-		FreeListHead = (T*)(BlockListHead + 1);
-		for ( int i = 0; i < BLOCK_SIZE; i++ ) {
-			*(T**)(&(FreeListHead[i])) = &(FreeListHead[i+1]);	// link up the elements
-		}
-		*(T**)(&(FreeListHead[BLOCK_SIZE-1])) = nullptr;				// Mark the end
+    // Link the objects in the block into the free object list
+    FreeListHead = (T *)((unsigned char *)BlockListHead + sizeof(void *));
+    for (int i = 0; i < BLOCK_SIZE; i++) {
+      *(T **)(&(FreeListHead[i])) =
+          &(FreeListHead[i + 1]); // link up the elements
+    }
+    *(T **)(&(FreeListHead[BLOCK_SIZE - 1])) = nullptr; // Mark the end
 
-		FreeObjectCount += BLOCK_SIZE;
-		TotalObjectCount += BLOCK_SIZE;
-	}
+    FreeObjectCount += BLOCK_SIZE;
+    TotalObjectCount += BLOCK_SIZE;
+  }
 
-	T * obj = FreeListHead;						// Get the next free object
-	FreeListHead = *(T**)(FreeListHead);	// Bump the Head
-	FreeObjectCount--;
+  T *obj = FreeListHead;                // Get the next free object
+  FreeListHead = *(T **)(FreeListHead); // Bump the Head
+  FreeObjectCount--;
 
-	return obj;
+  return obj;
 }
 
-
 /***********************************************************************************************
- * ObjectPoolClass::Free_Object_Memory -- internal function, returns object's memory to the po *
+ * ObjectPoolClass::Free_Object_Memory -- internal function, returns object's
+ *memory to the po *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   7/29/99    GTH : Created.                                                                 *
+ * HISTORY: * 7/29/99    GTH : Created. *
  *=============================================================================================*/
-template<class T,int BLOCK_SIZE>
-void ObjectPoolClass<T,BLOCK_SIZE>::Free_Object_Memory(T * obj)
-{
-	FastCriticalSectionClass::LockClass lock(ObjectPoolCS);
+template <class T, int BLOCK_SIZE>
+void ObjectPoolClass<T, BLOCK_SIZE>::Free_Object_Memory(T *obj) {
+  FastCriticalSectionClass::LockClass lock(ObjectPoolCS);
 
-	WWASSERT(obj != nullptr);
-	*(T**)(obj) = FreeListHead;		// Link to the Head
-	FreeListHead = obj;					// Set the Head
-	FreeObjectCount++;
+  WWASSERT(obj != nullptr);
+  *(T **)(obj) = FreeListHead; // Link to the Head
+  FreeListHead = obj;          // Set the Head
+  FreeObjectCount++;
 }
 
-
 /***********************************************************************************************
- * AutoPoolClass::operator new -- overridden new which calls the internal ObjectPool            *
+ * AutoPoolClass::operator new -- overridden new which calls the internal
+ *ObjectPool            *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   7/29/99    GTH : Created.                                                                 *
+ * HISTORY: * 7/29/99    GTH : Created. *
  *=============================================================================================*/
-template<class T, int BLOCK_SIZE>
-void * AutoPoolClass<T,BLOCK_SIZE>::operator new( size_t size )
-{
-	WWASSERT(size == sizeof(T));
-	return (void *)(Allocator.Allocate_Object_Memory());
+template <class T, int BLOCK_SIZE>
+void *AutoPoolClass<T, BLOCK_SIZE>::operator new(size_t size) {
+  WWASSERT(size == sizeof(T));
+  return (void *)(Allocator.Allocate_Object_Memory());
 }
 
-
 /***********************************************************************************************
- * AutoPoolClass::operator delete -- overridden delete which calls the internal ObjectPool      *
+ * AutoPoolClass::operator delete -- overridden delete which calls the internal
+ *ObjectPool      *
  *                                                                                             *
- * INPUT:                                                                                      *
+ * INPUT: *
  *                                                                                             *
- * OUTPUT:                                                                                     *
+ * OUTPUT: *
  *                                                                                             *
- * WARNINGS:                                                                                   *
+ * WARNINGS: *
  *                                                                                             *
- * HISTORY:                                                                                    *
- *   7/29/99    GTH : Created.                                                                 *
+ * HISTORY: * 7/29/99    GTH : Created. *
  *=============================================================================================*/
-template<class T, int BLOCK_SIZE>
-void AutoPoolClass<T,BLOCK_SIZE>::operator delete( void * memory )
-{
-	if ( memory == nullptr ) return;
-	Allocator.Free_Object_Memory((T*)memory);
+template <class T, int BLOCK_SIZE>
+void AutoPoolClass<T, BLOCK_SIZE>::operator delete(void *memory) {
+  if (memory == nullptr)
+    return;
+  Allocator.Free_Object_Memory((T *)memory);
 }
