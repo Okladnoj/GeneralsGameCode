@@ -122,5 +122,5 @@ echo "📍 Location: $EXECUTABLE"
 if [[ "$1" == "--run" ]]; then
     echo "🚀 Running Generals... (Logging to Platform/MacOS/Build/Logs/run.log)"
     mkdir -p Platform/MacOS/Build/Logs
-    ./$EXECUTABLE -quickstart 2>&1 | tee Platform/MacOS/Build/Logs/run.log
+    ./$EXECUTABLE 2>&1 | tee Platform/MacOS/Build/Logs/run.log
 fi
