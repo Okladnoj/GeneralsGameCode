@@ -38,6 +38,7 @@
 #include "Common/ArchiveFileSystem.h"
 #include "Common/FileSystem.h"
 #include "Common/LocalFileSystem.h"
+#import "IRenderDevice.h"
 #import "MacOSGameClient.h"
 #import "MacOSRenderer.h"
 #import "MacOSWindowManager.h"
@@ -275,11 +276,21 @@ void Win32GameEngine::init() {
 }
 void Win32GameEngine::reset() { GameEngine::reset(); }
 void Win32GameEngine::update() {
+  // THE HEARTBEAT: Begin a new Metal frame
+  if (GetRenderDevice()) {
+    GetRenderDevice()->BeginScene();
+  }
+
   // The engine relies on TheMessageTime for GUI transitions and animations.
-  // We provide a "heartbeat" time at the start of the frame.
   TheMessageTime = timeGetTime();
 
   GameEngine::update();
+
+  // THE PRESENTATION: End the frame and show it on screen
+  if (GetRenderDevice()) {
+    GetRenderDevice()->EndScene();
+  }
+
   serviceWindowsOS();
 }
 void Win32GameEngine::serviceWindowsOS() {

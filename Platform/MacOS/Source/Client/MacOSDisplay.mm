@@ -160,9 +160,18 @@ public:
                                      VideoStreamInterface *stream) override {}
   virtual void drawVideoBuffer(VideoBuffer *buffer, Int sx, Int sy, Int ex,
                                Int ey) override {}
-  virtual void setClipRegion(IRegion2D *region) override {}
-  virtual Bool isClippingEnabled(void) override { return FALSE; }
-  virtual void enableClipping(Bool onoff) override {}
+  virtual void setClipRegion(IRegion2D *region) override {
+    if (region) {
+      GetRenderDevice()->SetScissorRect((int)region->lo.x, (int)region->lo.y,
+                                        (int)(region->hi.x - region->lo.x),
+                                        (int)(region->hi.y - region->lo.y));
+      GetRenderDevice()->EnableScissor(true);
+    }
+  }
+  virtual Bool isClippingEnabled(void) override { return TRUE; }
+  virtual void enableClipping(Bool onoff) override {
+    GetRenderDevice()->EnableScissor(onoff ? true : false);
+  }
   virtual void setTimeOfDay(TimeOfDay tod) override {}
   virtual void createLightPulse(const Coord3D *pos, const RGBColor *color,
                                 Real innerRadius, Real attenuationWidth,

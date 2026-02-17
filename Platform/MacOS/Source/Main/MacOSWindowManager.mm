@@ -2,6 +2,21 @@
 #import "always.h"
 #import <Cocoa/Cocoa.h>
 
+@interface MacOSWindow : NSWindow
+@end
+
+@implementation MacOSWindow
+- (BOOL)canBecomeKeyWindow {
+  return YES;
+}
+- (BOOL)canBecomeMainWindow {
+  return YES;
+}
+- (BOOL)acceptsFirstResponder {
+  return YES;
+}
+@end
+
 @interface MacOSWindowDelegate
     : NSObject <NSWindowDelegate, NSApplicationDelegate>
 @end
@@ -89,10 +104,11 @@ void *MacOS_CreateWindow(int width, int height, const char *title) {
   [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
   NSRect frame = NSMakeRect(0, 0, width, height);
-  NSWindow *window = [[NSWindow alloc]
+  MacOSWindow *window = [[MacOSWindow alloc]
       initWithContentRect:frame
                 styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
-                          NSWindowStyleMaskMiniaturizable
+                          NSWindowStyleMaskMiniaturizable |
+                          NSWindowStyleMaskResizable
                   backing:NSBackingStoreBuffered
                     defer:NO];
 
@@ -113,8 +129,9 @@ void *MacOS_CreateWindow(int width, int height, const char *title) {
   [window makeKeyWindow];
   [window makeMainWindow];
 
-  printf("MacOS_CreateWindow: Window visibility: %s\n",
-         [window isVisible] ? "YES" : "NO");
+  printf("MacOS_CreateWindow: Window visibility: %s, frame=(%f,%f,%f,%f)\n",
+         [window isVisible] ? "YES" : "NO", frame.origin.x, frame.origin.y,
+         frame.size.width, frame.size.height);
   fflush(stdout);
 
   return (__bridge void *)window;
@@ -124,6 +141,20 @@ void *MacOS_CreateWindow(int width, int height, const char *title) {
 #import "StdMouse.h"
 
 void MacOS_PumpEvents() {
+  static int pumpCount = 0;
+  BOOL isActive = [NSApp isActive];
+  if (pumpCount++ % 500 == 0) {
+    NSWindow *keyWin = [NSApp keyWindow];
+    printf("DEBUG: Pump heartbeat #%d, isActive=%d, keyWin=%p\n", pumpCount,
+           (int)isActive, (__bridge void *)keyWin);
+    fflush(stdout);
+  }
+
+  if (pumpCount % 200 == 0 && !isActive) {
+    [NSApp activateIgnoringOtherApps:YES];
+    [[[NSApp windows] firstObject] makeKeyWindow];
+  }
+
   @autoreleasepool {
     NSEvent *event;
     while ((event = [NSApp nextEventMatchingMask:NSEventMaskAny
@@ -131,18 +162,34 @@ void MacOS_PumpEvents() {
                                           inMode:NSDefaultRunLoopMode
                                          dequeue:YES])) {
 
+      NSEventType type = [event type];
+
+      // Debugging: Log EVERY event type to find the crash
+      if (type != NSEventTypeMouseMoved) {
+        // printf("COCOA EVENT: type=%lu\n", (unsigned long)type);
+        // fflush(stdout);
+      }
+
       unsigned int timestamp = (unsigned int)([event timestamp] * 1000.0);
 
-      switch ([event type]) {
+      switch (type) {
       case NSEventTypeKeyDown:
         if (TheKeyboard) {
           unsigned char keyCode = [event keyCode];
+          printf("INPUT: KeyDown raw=%d\n", keyCode);
+          fflush(stdout);
           ((StdKeyboard *)TheKeyboard)->addEvent(keyCode, true, timestamp);
+        } else {
+          printf("INPUT: KeyDown %d IGNORED (TheKeyboard is null)\n",
+                 [event keyCode]);
+          fflush(stdout);
         }
         break;
       case NSEventTypeKeyUp:
         if (TheKeyboard) {
           unsigned char keyCode = [event keyCode];
+          printf("INPUT: KeyUp raw=%d\n", keyCode);
+          fflush(stdout);
           ((StdKeyboard *)TheKeyboard)->addEvent(keyCode, false, timestamp);
         }
         break;
@@ -153,7 +200,6 @@ void MacOS_PumpEvents() {
       case NSEventTypeOtherMouseDragged: {
         if (TheMouse) {
           NSPoint loc = [event locationInWindow];
-          // Note: Window might be nil if event is not directed to a window
           NSWindow *win = [event window];
           if (win) {
             NSRect content = [win contentRectForFrameRect:[win frame]];
@@ -161,12 +207,25 @@ void MacOS_PumpEvents() {
             int y = (int)(content.size.height - loc.y);
             ((StdMouse *)TheMouse)
                 ->addEvent(MACOS_MOUSE_MOVE, x, y, 0, 0, timestamp);
+          } else {
+            // If win is nil, use the first available window
+            NSWindow *firstWin = [[NSApp windows] firstObject];
+            if (firstWin) {
+              NSRect content =
+                  [firstWin contentRectForFrameRect:[firstWin frame]];
+              int x = (int)loc.x;
+              int y = (int)(content.size.height - loc.y);
+              ((StdMouse *)TheMouse)
+                  ->addEvent(MACOS_MOUSE_MOVE, x, y, 0, 0, timestamp);
+            }
           }
         }
         break;
       }
 
       case NSEventTypeLeftMouseDown:
+        printf("COCOA: LeftMouseDown RAW\n");
+        fflush(stdout);
         if (TheMouse) {
           NSPoint loc = [event locationInWindow];
           NSWindow *win = [event window];
@@ -176,6 +235,16 @@ void MacOS_PumpEvents() {
             int y = (int)(content.size.height - loc.y);
             ((StdMouse *)TheMouse)
                 ->addEvent(MACOS_MOUSE_LBUTTON_DOWN, x, y, 0, 0, timestamp);
+          } else {
+            NSWindow *firstWin = [[NSApp windows] firstObject];
+            if (firstWin) {
+              NSRect content =
+                  [firstWin contentRectForFrameRect:[firstWin frame]];
+              int x = (int)loc.x;
+              int y = (int)(content.size.height - loc.y);
+              ((StdMouse *)TheMouse)
+                  ->addEvent(MACOS_MOUSE_LBUTTON_DOWN, x, y, 0, 0, timestamp);
+            }
           }
         }
         break;
@@ -228,8 +297,22 @@ void MacOS_PumpEvents() {
         }
         break;
 
+      case NSEventTypeFlagsChanged:
+        // Handle modifier keys (Shift, Ctrl, Alt)
+        if (TheKeyboard) {
+          unsigned long flags = [event modifierFlags];
+          // We could translate flags to key events here if needed
+        }
+        break;
+
       default:
         break;
+      }
+
+      // Proactively handle activation if we get a click but aren't active
+      if (type == NSEventTypeLeftMouseDown && !isActive) {
+        [NSApp activateIgnoringOtherApps:YES];
+        [[event window] makeKeyWindow];
       }
 
       [NSApp sendEvent:event];

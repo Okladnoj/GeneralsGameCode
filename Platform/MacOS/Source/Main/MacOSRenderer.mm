@@ -70,9 +70,8 @@ static NSString *const shaderSource =
      "                              texture2d<float> tex [[texture(0)]]) {\n"
      "    constexpr sampler s(address::clamp_to_edge, filter::linear);\n"
      "    float4 c = tex.sample(s, in.texCoord);\n"
-     "    \n"
-     "    // Final color modulation - NO VIGNETTE for now to rule it out\n"
-     "    return c * in.color;\n"
+     "    if (c.a < 0.1) discard_fragment();\n"
+     "    return c * in.color.bgra;\n"
      "}\n";
 
 #pragma pack(push, 1)
@@ -131,16 +130,29 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
   id<MTLLibrary> lib = [m_Device newLibraryWithSource:shaderSource
                                               options:nil
                                                 error:&err];
+  if (!lib) {
+    printf("METAL ERROR: Library creation failed: %s\n",
+           [[err localizedDescription] UTF8String]);
+    return false;
+  }
   id<MTLFunction> vf = [lib newFunctionWithName:@"vertex_main"],
                   ff = [lib newFunctionWithName:@"fragment_main"];
+  if (!vf || !ff) {
+    printf("METAL ERROR: Function lookup failed: vf=%p ff=%p\n", vf, ff);
+    return false;
+  }
   MTLRenderPipelineDescriptor *psd = [[MTLRenderPipelineDescriptor alloc] init];
   psd.vertexFunction = vf;
   psd.fragmentFunction = ff;
   psd.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
   psd.colorAttachments[0].blendingEnabled = YES;
+  psd.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
+  psd.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
   psd.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
+  psd.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
   psd.colorAttachments[0].destinationRGBBlendFactor =
       MTLBlendFactorOneMinusSourceAlpha;
+  psd.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorZero;
 
   MTLVertexDescriptor *vd = [[MTLVertexDescriptor alloc] init];
   vd.attributes[0].format = MTLVertexFormatFloat3;
@@ -155,6 +167,11 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
   vd.layouts[0].stride = 24;
   psd.vertexDescriptor = vd;
   m_AlphaPS = [m_Device newRenderPipelineStateWithDescriptor:psd error:&err];
+  if (!m_AlphaPS) {
+    printf("METAL ERROR: Pipeline creation failed: %s\n",
+           [[err localizedDescription] UTF8String]);
+    return false;
+  }
 
   uint32_t white = 0xFFFFFFFF;
   m_WhiteTexture = [m_Device
@@ -472,23 +489,28 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
 
     FILE *f = fopen(p, "rb");
     if (f) {
-      printf("DEBUG: CreateTextureFromFile: FOUND '%s' on disk\n", p);
-      fflush(stdout);
       fseek(f, 0, SEEK_END);
       size_t s = ftell(f);
       fseek(f, 0, SEEK_SET);
       data.resize(s);
-      fread(data.data(), 1, s, f);
+      size_t readLen = fread(data.data(), 1, s, f);
       fclose(f);
+      printf("DEBUG: CreateTextureFromFile: FOUND '%s' on disk, size=%zu "
+             "read=%zu. First bytes: %02X %02X %02X %02X\n",
+             p, s, readLen, data[0], data[1], data[2], data[3]);
+      fflush(stdout);
       found = true;
     } else if (TheFileSystem) {
       File *gf = TheFileSystem->openFile(p);
       if (gf) {
-        printf("DEBUG: CreateTextureFromFile: FOUND '%s' in .BIG\n", p);
-        fflush(stdout);
-        data.resize(gf->size());
-        gf->read(data.data(), gf->size());
+        size_t s = gf->size();
+        data.resize(s);
+        size_t readLen = gf->read(data.data(), s);
         gf->close();
+        printf("DEBUG: CreateTextureFromFile: FOUND '%s' in .BIG, size=%zu "
+               "read=%zu. First bytes: %02X %02X %02X %02X\n",
+               p, s, readLen, data[0], data[1], data[2], data[3]);
+        fflush(stdout);
         found = true;
       }
     }
@@ -507,14 +529,17 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
     DDS_HEADER *dh = (DDS_HEADER *)(data.data() + 4);
     int dw = dh->dwWidth, dhh = dh->dwHeight;
     uint32_t fourcc = dh->ddspf.dwFourCC;
-    printf("DEBUG: DDS detected: %dx%d, FourCC: %c%c%c%c\n", dw, dhh,
+    const uint32_t FOURCC_DXT1 = 0x31545844; // 'DXT1'
+    const uint32_t FOURCC_DXT5 = 0x35545844; // 'DXT5'
+
+    printf("DEBUG: DDS detected: %dx%d, FourCC: %c%c%c%c (0x%08X)\n", dw, dhh,
            (fourcc & 0xFF), ((fourcc >> 8) & 0xFF), ((fourcc >> 16) & 0xFF),
-           ((fourcc >> 24) & 0xFF));
+           ((fourcc >> 24) & 0xFF), fourcc);
     std::vector<uint8_t> rgba(dw * dhh * 4);
     const uint8_t *src = (const uint8_t *)(dh + 1);
-    if (fourcc == 'DXT1')
+    if (fourcc == FOURCC_DXT1)
       DecompressDXT1(dw, dhh, src, rgba.data());
-    else if (fourcc == 'DXT5')
+    else if (fourcc == FOURCC_DXT5)
       DecompressDXT5(dw, dhh, src, rgba.data());
     else {
       printf("DEBUG: Unsupported DDS FourCC\n");
@@ -530,11 +555,12 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
     return it;
   }
 
-  printf("DEBUG: CreateTextureFromFile: header w=%d h=%d bpp=%d type=%d\n", w,
-         height, bpp, type);
+  printf("DEBUG: CreateTextureFromFile: %s w=%d h=%d bpp=%d type=%d "
+         "(palette=%d)\n",
+         filename, w, height, bpp, type, h->colourmaptype);
   fflush(stdout);
 
-  if (w <= 0 || height <= 0 || (bpp != 24 && bpp != 32)) {
+  if (w <= 0 || height <= 0 || (bpp != 8 && bpp != 24 && bpp != 32)) {
     printf("DEBUG: CreateTextureFromFile: INVALID HEADER w=%d h=%d bpp=%d\n", w,
            height, bpp);
     fflush(stdout);
@@ -542,9 +568,31 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
   }
 
   unsigned char *src_ptr = (unsigned char *)(h + 1) + h->idlength;
+
+  // Support 8-bit palettized TGA (used in some UI parts like logos/icons)
+  struct RGBCol {
+    uint8_t b, g, r, a;
+  };
+  std::vector<RGBCol> palette(256);
+  if (h->colourmaptype == 1) {
+    int len = h->colourmaplength;
+    int depth = h->colourmapdepth; // 24 or 32
+    int db = depth / 8;
+    unsigned char *p_ptr = src_ptr;
+    src_ptr += len * db;
+    for (int i = 0; i < len; i++) {
+      palette[i].b = p_ptr[i * db + 0];
+      palette[i].g = p_ptr[i * db + 1];
+      palette[i].r = p_ptr[i * db + 2];
+      palette[i].a = (db == 4) ? p_ptr[i * db + 3] : 255;
+    }
+  }
+
   std::vector<unsigned char> decomp;
   int bv = bpp / 8;
-  if (type == 10 || type == 11) { // RLE
+  // Type 1 = Uncompressed Color-mapped, 9 = RLE Color-mapped, 2/3 =
+  // Uncompressed RGB/Gray, 10/11 = RLE RGB/Gray
+  if (type == 10 || type == 11 || type == 9) { // RLE
     decomp.resize(w * height * bv);
     unsigned char *dst = decomp.data();
     int pixels_count = 0, total_pixels = w * height;
@@ -573,14 +621,21 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
   bool flipY = !(h->imagedescriptor & 0x20);
   for (int y = 0; y < height; y++) {
     int sy = flipY ? (height - 1 - y) : y;
-    unsigned char *srow = src_ptr + (sy * w * bv);
-    unsigned char *drow = rgba.data() + (y * w * 4);
+    const unsigned char *sline = src_ptr + (sy * w * bv);
+    unsigned char *dline = rgba.data() + (y * w * 4);
     for (int x = 0; x < w; x++) {
-      drow[x * 4 + 0] = srow[0];
-      drow[x * 4 + 1] = srow[1];
-      drow[x * 4 + 2] = srow[2];
-      drow[x * 4 + 3] = (bv == 4) ? srow[3] : 255;
-      srow += bv;
+      if (bv == 1 && h->colourmaptype == 1) { // 8-bit palettized
+        uint8_t idx = sline[x];
+        dline[x * 4 + 0] = palette[idx].b;
+        dline[x * 4 + 1] = palette[idx].g;
+        dline[x * 4 + 2] = palette[idx].r;
+        dline[x * 4 + 3] = palette[idx].a;
+      } else {
+        dline[x * 4 + 0] = sline[x * bv + 0]; // B
+        dline[x * 4 + 1] = sline[x * bv + 1]; // G
+        dline[x * 4 + 2] = sline[x * bv + 2]; // R
+        dline[x * 4 + 3] = (bv == 4) ? sline[x * bv + 3] : 255;
+      }
     }
   }
 
@@ -598,12 +653,38 @@ void MacOSRenderDevice::GetDisplaySize(int &w, int &h) {
   w = (int)m_ScreenSize[0];
   h = (int)m_ScreenSize[1];
 }
+
+void MacOSRenderDevice::SetScissorRect(int x, int y, int w, int h) {
+  if (m_CurrentEncoder) {
+    MTLScissorRect rect = {(NSUInteger)x, (NSUInteger)y, (NSUInteger)w,
+                           (NSUInteger)h};
+    // Ensure the rect is within the drawable bounds
+    if (rect.x + rect.width > (NSUInteger)m_MetalLayer.drawableSize.width)
+      rect.width = (NSUInteger)m_MetalLayer.drawableSize.width - rect.x;
+    if (rect.y + rect.height > (NSUInteger)m_MetalLayer.drawableSize.height)
+      rect.height = (NSUInteger)m_MetalLayer.drawableSize.height - rect.y;
+
+    // Scissor rect must be at least 1x1 in Metal to be valid
+    if (rect.width > 0 && rect.height > 0) {
+      [m_CurrentEncoder setScissorRect:rect];
+    }
+  }
+}
+
+void MacOSRenderDevice::EnableScissor(bool enable) {
+  if (!enable && m_CurrentEncoder) {
+    // Reset to full screen
+    MTLScissorRect rect = {0, 0, (NSUInteger)m_MetalLayer.drawableSize.width,
+                           (NSUInteger)m_MetalLayer.drawableSize.height};
+    [m_CurrentEncoder setScissorRect:rect];
+  }
+}
 void MacOSRenderDevice::DrawTexturedRect(float x, float y, float w, float h,
                                          float u1, float v1, float u2, float v2,
                                          unsigned int c) {
-  printf("DEBUG: DrawTexturedRect (%.1f, %.1f) size(%.1f, %.1f) uv1(%.2f, "
-         "%.2f) uv2(%.3f, %.3f)\n",
-         x, y, w, h, u1, v1, u2, v2);
+  printf("DEBUG: DrawTexturedRect (%.1f, %.1f) size(%.1f, %.1f) uv1(%.3f, "
+         "%.3f) uv2(%.3f, %.3f) color=%08X\n",
+         x, y, w, h, u1, v1, u2, v2, c);
   fflush(stdout);
   Vertex vs[4] = {{x, y, 0, c, u1, v1},
                   {x + w, y, 0, c, u2, v1},
@@ -623,7 +704,7 @@ void MacOSRenderDevice::DrawTexturedRect(float x, float y, float w, float h,
   m_Uniforms.useProjection = 0;
   m_Uniforms.screenSize[0] = m_ScreenSize[0];
   m_Uniforms.screenSize[1] = m_ScreenSize[1];
-  [m_CurrentEncoder setVertexBytes:vs length:24 * 4 atIndex:0];
+  [m_CurrentEncoder setVertexBytes:vs length:sizeof(Vertex) * 4 atIndex:0];
   [m_CurrentEncoder setVertexBytes:&m_Uniforms
                             length:sizeof(m_Uniforms)
                            atIndex:1];

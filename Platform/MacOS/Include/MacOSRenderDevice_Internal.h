@@ -68,6 +68,8 @@ public:
   void DrawLine(float x1, float y1, float x2, float y2, float width,
                 unsigned int color) override;
   void GetDisplaySize(int &w, int &h) override;
+  void SetScissorRect(int x, int y, int w, int h) override;
+  void EnableScissor(bool enable) override;
 
 private:
   static id<MTLDevice> m_StaticDevice;

@@ -107,10 +107,12 @@ MacOSGameClient::MacOSGameClient() {
 MacOSGameClient::~MacOSGameClient() {}
 
 void MacOSGameClient::init() {
-  printf("DEBUG: MacOSGameClient::init calling GameClient::init()...\n");
+  printf("DEBUG: MacOSGameClient::init entering.\n");
   fflush(stdout);
+
   GameClient::init();
-  printf("DEBUG: MacOSGameClient::init returned from GameClient::init()...\n");
+
+  printf("DEBUG: MacOSGameClient::init (base class returned).\n");
   fflush(stdout);
 }
 
@@ -150,8 +152,20 @@ GameWindowManager *MacOSGameClient::createWindowManager(void) {
   return new MacOSGameWindowManager();
 }
 
-Keyboard *MacOSGameClient::createKeyboard(void) { return new StdKeyboard(); }
-Mouse *MacOSGameClient::createMouse(void) { return new StdMouse(); }
+Keyboard *MacOSGameClient::createKeyboard(void) {
+  fprintf(stderr, "DEBUG: MacOSGameClient::createKeyboard called!\n");
+  fflush(stderr);
+  return new StdKeyboard();
+}
+Mouse *MacOSGameClient::createMouse(void) {
+  Mouse *m = new StdMouse();
+  fprintf(stderr,
+          "DEBUG: MacOSGameClient::createMouse called! Returning %p (storage "
+          "at %p)\n",
+          (void *)m, (void *)&TheMouse);
+  fflush(stderr);
+  return m;
+}
 void MacOSGameClient::setFrameRate(Real msecsPerFrame) {}
 
 // Stubs for friend functions

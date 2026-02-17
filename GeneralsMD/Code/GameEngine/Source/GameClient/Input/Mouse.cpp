@@ -179,9 +179,7 @@ void Mouse::updateMouseData() {
 
   // prevent reentrancy in the event we make this mouse multi-threaded
   if (busy == FALSE) {
-
     busy = TRUE;
-
     // Get latest mouse events from DirectX
     do {
       do {
@@ -627,7 +625,6 @@ void Mouse::reset(void) {
 /** Update the states of the mouse position and buttons */
 //-------------------------------------------------------------------------------------------------
 void Mouse::update(void) {
-
   // update the mouse data
   updateMouseData();
 }
@@ -812,8 +809,13 @@ void Mouse::setCursorTooltip(UnicodeString tooltip, Int delay,
   m_isTooltipEmpty = tooltip.isEmpty();
   m_tooltipDelay = delay;
 
+  if (m_tooltipDisplayString == nullptr) {
+    return;
+  }
+
   Bool forceRecalc = FALSE;
-  if (!tooltip.isEmpty() && width != m_lastTooltipWidth) {
+  if (!tooltip.isEmpty() && width != m_lastTooltipWidth &&
+      TheDisplay != nullptr) {
     forceRecalc = TRUE;
     Int widthInPixels = (Int)(TheDisplay->getWidth() * m_tooltipWidth * width);
     if (widthInPixels < 10) {

@@ -70,11 +70,13 @@ struct Viewport {
   float min_depth, max_depth;
 };
 
+#pragma pack(push, 1)
 struct Vertex {
   float x, y, z;
   unsigned int diffuse;
   float u, v;
 };
+#pragma pack(pop)
 
 class ITexture {
 public:
@@ -130,6 +132,8 @@ public:
                         unsigned int color) = 0;
 
   virtual void GetDisplaySize(int &w, int &h) = 0;
+  virtual void SetScissorRect(int x, int y, int w, int h) = 0;
+  virtual void EnableScissor(bool enable) = 0;
 };
 
 extern "C" IRenderDevice *GetRenderDevice();

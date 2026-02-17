@@ -1,4 +1,4 @@
-**Goal:** Fix 3D Rendering & Texture Fidelity.
+**Goal:** Fix 3D Rendering & Texture Fidelity.![alt text](image.png)
 **Build:** ✅ **SUCCEEDED** (932 objects).
 
 ---
@@ -7,14 +7,16 @@
 - [x] **Subsystems:** Memory (fixed pool race condition), Filesystem (.big), INI, Input, Window.
 - [x] **Graphics:** Metal Bridge, SW DDS Decoding (DXT1/5), Cinematic Vignette, Navy Clear Color.
 - [x] **Initialization:** ✅ **NO CRASH**. Game enters Main Shell loop and updates frame-by-frame.
-- [x] **3D Infrastructure:** Real `W3DView` integrated; `RTS3DScene` pools explicitly initialized to avoid race conditions.
+- [x] **3D Infrastructure:** Real `W3DView` integrated; `RTS3DScene` pools explicitly initialized.
+- [x] **Input Handling:** ✅ **WORKING**. MacOS events (mouse/keyboard) are received, application gains focus, and events are routed to GUI.
 
 ---
 
 ## 🔴 ACTIVE ISSUES
-- **Gray Boxes UI:** UI textures (DDS/TGA) bind correctly in logs but appear as gray blocks. Texture sampler state or SRV binding issue in `MacOSRenderer.mm`.
-- **Missing Text:** Fonts are not rendering. `MacOSFontLibrary` needs real implementation (likely using CoreText or a simple bitmap font bridge).
-- **Lint Noise:** Massive amount of false/real lint errors in W3D files due to missing includes or 64-bit type mismatches.
+- [x] **Fonts & Text:** ✅ **WORKING**. Dynamic strings and menu labels are rendered correctly.
+- **Gray Boxes UI:** Some UI elements (sliders, secondary buttons) appear as gray blocks. Likely missing texture lookups or unsupported sub-formats in `W3DAssetManager`.
+- **Exit Crash:** `Signal 11` in `ObjectPoolClass` destructor during application shutdown.
+- **Lint Noise:** Massive amount of false/real lint errors in W3D files.
 
 ---
 

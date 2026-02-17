@@ -11,20 +11,14 @@ StdMouse::StdMouse(void) {
 
 StdMouse::~StdMouse(void) {}
 
-void StdMouse::init(void) {
-  Mouse::init();
-  setVisibility(TRUE);
-}
+void StdMouse::init(void) { setVisibility(TRUE); }
 
 void StdMouse::reset(void) {
   m_nextFreeIndex = 0;
   m_nextGetIndex = 0;
 }
 
-void StdMouse::update(void) {
-  // Event polling is now handled in Win32GameEngine::serviceWindowsOS
-  // which calls addEvent. We just need to process our buffer here if needed.
-}
+void StdMouse::update(void) { Mouse::update(); }
 
 void StdMouse::initCursorResources(void) {
   // macOS system cursors are usually fine, but we could load custom ones here
@@ -108,6 +102,13 @@ void StdMouse::loseFocus() {
 
 UnsignedByte StdMouse::getMouseEvent(MouseIO *result, Bool flush) {
   if (m_nextGetIndex == m_nextFreeIndex) {
+    if (result) {
+      memset(result, 0, sizeof(MouseIO));
+      result->pos = m_currMouse.pos;
+      result->leftState = m_currMouse.leftState;
+      result->rightState = m_currMouse.rightState;
+      result->middleState = m_currMouse.middleState;
+    }
     return 0;
   }
 
@@ -120,31 +121,40 @@ UnsignedByte StdMouse::getMouseEvent(MouseIO *result, Bool flush) {
   result->time = ev.time;
   result->wheelPos = ev.wheelDelta;
 
-  result->leftState = MBS_None;
-  result->rightState = MBS_None;
-  result->middleState = MBS_None;
+  m_currMouse.pos.x = ev.x;
+  m_currMouse.pos.y = ev.y;
 
   switch (ev.type) {
   case MACOS_MOUSE_LBUTTON_DOWN:
     result->leftState = MBS_Down;
+    m_currMouse.leftState = MBS_Down;
     break;
   case MACOS_MOUSE_LBUTTON_UP:
     result->leftState = MBS_Up;
+    m_currMouse.leftState = MBS_Up;
     break;
   case MACOS_MOUSE_RBUTTON_DOWN:
     result->rightState = MBS_Down;
+    m_currMouse.rightState = MBS_Down;
     break;
   case MACOS_MOUSE_RBUTTON_UP:
     result->rightState = MBS_Up;
+    m_currMouse.rightState = MBS_Up;
     break;
   case MACOS_MOUSE_MBUTTON_DOWN:
     result->middleState = MBS_Down;
+    m_currMouse.middleState = MBS_Down;
     break;
   case MACOS_MOUSE_MBUTTON_UP:
     result->middleState = MBS_Up;
+    m_currMouse.middleState = MBS_Up;
     break;
-  default:
-    break;
+  }
+
+  if (ev.type != MACOS_MOUSE_MOVE) {
+    printf("INPUT: Mouse Event type=%d pos=(%d,%d) L-State=%d\n", ev.type, ev.x,
+           ev.y, (int)result->leftState);
+    fflush(stdout);
   }
 
   return 1;
