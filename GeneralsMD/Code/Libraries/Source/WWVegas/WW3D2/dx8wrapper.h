@@ -125,6 +125,28 @@ WWINLINE void DX8_ErrorCode(unsigned res) {
   Log_DX8_ErrorCode(res);
 }
 
+#ifdef __APPLE__
+#define DX8CALL_HRES(x, res)                                                   \
+  {                                                                            \
+    DX8_Assert();                                                              \
+    res = DX8Wrapper::_Get_D3D_Device8()->x;                                   \
+    DX8_ErrorCode(res);                                                        \
+    number_of_DX8_calls++;                                                     \
+  }
+#define DX8CALL(x)                                                             \
+  {                                                                            \
+    DX8_Assert();                                                              \
+    DX8_ErrorCode(DX8Wrapper::_Get_D3D_Device8()->x);                          \
+    number_of_DX8_calls++;                                                     \
+  }
+#define DX8CALL_D3D(x)                                                         \
+  {                                                                            \
+    DX8_Assert();                                                              \
+    DX8_ErrorCode(DX8Wrapper::_Get_D3D8()->x);                                 \
+    number_of_DX8_calls++;                                                     \
+  }
+#define DX8_THREAD_ASSERT() ;
+#else
 #ifdef WWDEBUG
 #define DX8CALL_HRES(x, res)                                                   \
   DX8_Assert();                                                                \
@@ -154,9 +176,10 @@ WWINLINE void DX8_ErrorCode(unsigned res) {
   DX8Wrapper::_Get_D3D_Device8()->x;                                           \
   number_of_DX8_calls++;
 #define DX8CALL_D3D(x)                                                         \
-  DX8Wrapper::_Get_D3D8()->x;                                                  \
+  DX8_Interface::_Get_D3D8()->x;                                               \
   number_of_DX8_calls++;
 #define DX8_THREAD_ASSERT() ;
+#endif
 #endif
 
 #define no_EXTENDED_STATS
@@ -549,7 +572,16 @@ public:
   // shader system updates KJM ^
 
   static IDirect3DDevice8 *_Get_D3D_Device8() { return D3DDevice; }
-  static IDirect3D8 *_Get_D3D8() { return D3DInterface; }
+  static IDirect3D8 *_Get_D3D8() {
+    static int count = 0;
+    if (count++ < 20) {
+      if (!D3DInterface) {
+        fprintf(stderr, "DEBUG: _Get_D3D8: D3DInterface is NULL (call %d)!\n",
+                count);
+      }
+    }
+    return D3DInterface;
+  }
   /// Returns the display format - added by TR for video playback - not part of
   /// W3D
   static WW3DFormat getBackBufferFormat(void);
@@ -778,7 +810,7 @@ protected:
 // shader system updates KJM v
 WWINLINE void DX8Wrapper::Set_Vertex_Shader(DWORD vertex_shader) {
 #if 0 //(gth) some code is bypassing this accessor function so we can't count on
-      //this variable...
+      // this variable...
       // may be incorrect if shaders are created and destroyed dynamically
 	if (Vertex_Shader==vertex_shader) return;
 #endif

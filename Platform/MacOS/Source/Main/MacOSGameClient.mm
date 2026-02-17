@@ -177,10 +177,12 @@ Mouse *MacOSGameClient::createMouse(void) {
 void MacOSGameClient::setFrameRate(Real msecsPerFrame) {}
 
 // Stubs for friend functions
+#import "GameClient/Drawable.h"
+
 Drawable *
 MacOSGameClient::friend_createDrawable(const ThingTemplate *thing,
                                        DrawableStatusBits statusBits) {
-  return nullptr;
+  return new Drawable(thing, statusBits);
 }
 void MacOSGameClient::addScorch(const Coord3D *pos, Real radius,
                                 Scorches type) {}

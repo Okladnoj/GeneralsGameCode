@@ -59,6 +59,9 @@ PlaceEventTranslator::~PlaceEventTranslator() {}
 //-------------------------------------------------------------------------------------------------
 GameMessageDisposition
 PlaceEventTranslator::translateGameMessage(const GameMessage *msg) {
+  if (!TheInGameUI || !TheTacticalView) {
+    return KEEP_MESSAGE;
+  }
   GameMessageDisposition disp = KEEP_MESSAGE;
 
   switch (msg->getType()) {

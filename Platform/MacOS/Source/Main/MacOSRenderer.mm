@@ -30,13 +30,16 @@ static NSString *const shaderSource =
      "\n"
      "struct VertexIn {\n"
      "    float3 position [[attribute(0)]];\n"
-     "    float4 diffuse [[attribute(1)]];\n"
-     "    float2 texCoord [[attribute(2)]];\n"
+     "    float3 normal [[attribute(1)]];\n"
+     "    float4 diffuse [[attribute(2)]];\n"
+     "    float2 texCoord [[attribute(3)]];\n"
+     "    float2 texCoord2 [[attribute(4)]];\n"
      "};\n"
      "\n"
      "struct VertexOut {\n"
      "    float4 position [[position]];\n"
      "    float4 color;\n"
+     "    float3 worldNormal;\n"
      "    float2 texCoord;\n"
      "};\n"
      "\n"
@@ -58,10 +61,12 @@ static NSString *const shaderSource =
      "    } else {\n"
      "        out.position.x = (in.position.x / u.screenSize.x) * 2.0 - 1.0;\n"
      "        out.position.y = 1.0 - (in.position.y / u.screenSize.y) * 2.0;\n"
-     "        out.position.z = in.position.z / 1000.0;\n"
+     "        out.position.z = in.position.z;\n" // Depth is already correct for
+                                                 // 3D
      "        out.position.w = 1.0;\n"
      "    }\n"
      "    out.color = in.diffuse;\n"
+     "    out.worldNormal = (u.world * float4(in.normal, 0.0)).xyz;\n"
      "    out.texCoord = in.texCoord;\n"
      "    return out;\n"
      "}\n"
@@ -97,7 +102,8 @@ id<MTLDevice> MacOSRenderDevice::GetMTLDevice() { return m_StaticDevice; }
 MacOSRenderDevice::MacOSRenderDevice()
     : m_Device(nil), m_CommandQueue(nil), m_CurrentEncoder(nil),
       m_CurrentCommandBuffer(nil), m_MetalLayer(nil), m_AlphaPS(nil),
-      m_CurrentColor(0), m_CurrentDrawable(nil), m_WhiteTexture(nil) {
+      m_CurrentColor(0), m_CurrentDrawable(nil), m_WhiteTexture(nil),
+      m_DepthTexture(nil), m_DepthStencilState(nil) {
   m_ScreenSize[0] = 800;
   m_ScreenSize[1] = 600;
   for (int i = 0; i < 8; ++i)
@@ -124,6 +130,23 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
                    vs.height * window.backingScaleFactor);
     m_ScreenSize[0] = (float)vs.width;
     m_ScreenSize[1] = (float)vs.height;
+
+    // Create Depth Texture
+    MTLTextureDescriptor *td = [MTLTextureDescriptor
+        texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
+                                     width:m_MetalLayer.drawableSize.width
+                                    height:m_MetalLayer.drawableSize.height
+                                 mipmapped:NO];
+    td.usage = MTLTextureUsageRenderTarget;
+    td.storageMode = MTLStorageModePrivate;
+    m_DepthTexture = [m_Device newTextureWithDescriptor:td];
+
+    // Create Depth Stencil State
+    MTLDepthStencilDescriptor *dsd = [[MTLDepthStencilDescriptor alloc] init];
+    dsd.depthCompareFunction = MTLCompareFunctionLessEqual;
+    dsd.depthWriteEnabled = YES;
+    m_DepthStencilState = [m_Device newDepthStencilStateWithDescriptor:dsd];
+
     printf("DEBUG: METAL INITIALIZED: ScreenSize=(%.1f, %.1f) "
            "DrawableSize=(%.1f, %.1f) Scale=%.1f\n",
            m_ScreenSize[0], m_ScreenSize[1], m_MetalLayer.drawableSize.width,
@@ -150,6 +173,47 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
   psd.vertexFunction = vf;
   psd.fragmentFunction = ff;
   psd.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+  psd.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float;
+
+  // --- 3D VERTEX DESCRIPTOR (44 bytes) ---
+  MTLVertexDescriptor *vd3d = [[MTLVertexDescriptor alloc] init];
+  vd3d.attributes[0].format = MTLVertexFormatFloat3; // Pos
+  vd3d.attributes[0].offset = 0;
+  vd3d.attributes[0].bufferIndex = 0;
+  vd3d.attributes[1].format = MTLVertexFormatFloat3; // Normal
+  vd3d.attributes[1].offset = 12;
+  vd3d.attributes[1].bufferIndex = 0;
+  vd3d.attributes[2].format = MTLVertexFormatUChar4Normalized; // Diffuse
+  vd3d.attributes[2].offset = 24;
+  vd3d.attributes[2].bufferIndex = 0;
+  vd3d.attributes[3].format = MTLVertexFormatFloat2; // UV1
+  vd3d.attributes[3].offset = 28;
+  vd3d.attributes[3].bufferIndex = 0;
+  vd3d.attributes[4].format = MTLVertexFormatFloat2; // UV2
+  vd3d.attributes[4].offset = 36;
+  vd3d.attributes[4].bufferIndex = 0;
+  vd3d.layouts[0].stride = 44;
+
+  // --- UI VERTEX DESCRIPTOR (24 bytes) ---
+  MTLVertexDescriptor *vdui = [[MTLVertexDescriptor alloc] init];
+  vdui.attributes[0].format = MTLVertexFormatFloat3; // Pos
+  vdui.attributes[0].offset = 0;
+  vdui.attributes[0].bufferIndex = 0;
+  vdui.attributes[2].format =
+      MTLVertexFormatUChar4Normalized; // Diffuse (at index 2 in shader)
+  vdui.attributes[2].offset = 12;
+  vdui.attributes[2].bufferIndex = 0;
+  vdui.attributes[3].format = MTLVertexFormatFloat2; // UV
+  vdui.attributes[3].offset = 16;
+  vdui.attributes[3].bufferIndex = 0;
+  vdui.layouts[0].stride = 24;
+
+  // Opaque 3D
+  psd.vertexDescriptor = vd3d;
+  psd.colorAttachments[0].blendingEnabled = NO;
+  m_OpaquePS = [m_Device newRenderPipelineStateWithDescriptor:psd error:&err];
+
+  // Alpha 3D
   psd.colorAttachments[0].blendingEnabled = YES;
   psd.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
   psd.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
@@ -158,23 +222,14 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
   psd.colorAttachments[0].destinationRGBBlendFactor =
       MTLBlendFactorOneMinusSourceAlpha;
   psd.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorZero;
-
-  MTLVertexDescriptor *vd = [[MTLVertexDescriptor alloc] init];
-  vd.attributes[0].format = MTLVertexFormatFloat3;
-  vd.attributes[0].offset = 0;
-  vd.attributes[0].bufferIndex = 0;
-  vd.attributes[1].format = MTLVertexFormatUChar4Normalized;
-  vd.attributes[1].offset = 12;
-  vd.attributes[1].bufferIndex = 0;
-  vd.attributes[2].format = MTLVertexFormatFloat2;
-  vd.attributes[2].offset = 16;
-  vd.attributes[2].bufferIndex = 0;
-  vd.layouts[0].stride = 24;
-  psd.vertexDescriptor = vd;
   m_AlphaPS = [m_Device newRenderPipelineStateWithDescriptor:psd error:&err];
-  if (!m_AlphaPS) {
-    printf("METAL ERROR: Pipeline creation failed: %s\n",
-           [[err localizedDescription] UTF8String]);
+
+  // UI (2D)
+  psd.vertexDescriptor = vdui;
+  m_UIPS = [m_Device newRenderPipelineStateWithDescriptor:psd error:&err];
+
+  if (!m_OpaquePS || !m_AlphaPS || !m_UIPS) {
+    printf("METAL ERROR: Pipeline creation failed!\n");
     return false;
   }
 
@@ -231,8 +286,13 @@ void MacOSRenderDevice::BeginScene() {
   }
 
   pass.colorAttachments[0].clearColor = MTLClearColorMake(r, g, b, 1.0);
+  pass.depthAttachment.texture = m_DepthTexture;
+  pass.depthAttachment.loadAction = MTLLoadActionClear;
+  pass.depthAttachment.clearDepth = 1.0;
+
   m_CurrentEncoder =
       [m_CurrentCommandBuffer renderCommandEncoderWithDescriptor:pass];
+  [m_CurrentEncoder setDepthStencilState:m_DepthStencilState];
   [m_CurrentEncoder
       setViewport:{0, 0, (double)m_MetalLayer.drawableSize.width,
                    (double)m_MetalLayer.drawableSize.height, 0, 1}];
@@ -253,26 +313,34 @@ void MacOSRenderDevice::SetViewport(const Viewport *vp) {
   }
 }
 void MacOSRenderDevice::SetTransform(TransformType t, const float *m) {
+  printf("DEBUG: SetTransform type=%d\n", (int)t);
+  fflush(stdout);
   matrix_float4x4 mat;
   memcpy(&mat, m, sizeof(mat));
-  if (t == TRANSFORM_TYPE_WORLD)
+  if (t == 0) // TRANSFORM_TYPE_WORLD
     m_Uniforms.world = mat;
-  else if (t == TRANSFORM_TYPE_VIEW)
+  else if (t == 1) // TRANSFORM_TYPE_VIEW
     m_Uniforms.view = mat;
-  else if (t == TRANSFORM_TYPE_PROJECTION)
+  else if (t == 2) // TRANSFORM_TYPE_PROJECTION
     m_Uniforms.projection = mat;
 }
 ITexture *MacOSRenderDevice::CreateTexture(unsigned int w, unsigned int h,
                                            unsigned int mips,
                                            unsigned int usage, WW3DFormat fmt) {
+  bool mipmapped = (mips == 0 || mips > 1);
   id<MTLTexture> tex = [m_Device
       newTextureWithDescriptor:
           [MTLTextureDescriptor
               texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
                                            width:w
                                           height:h
-                                       mipmapped:(mips > 1)]];
-  return new MacOSTexture(w, h, mips, usage, fmt, tex);
+                                       mipmapped:mipmapped]];
+
+  int actual_mips = mips;
+  if (mips == 0) {
+    actual_mips = 1 + floor(log2(std::max(w, h)));
+  }
+  return new MacOSTexture(w, h, actual_mips, usage, fmt, tex);
 }
 
 void MacOSRenderDevice::SetTexture(unsigned int stage, ITexture *tex) {
@@ -292,7 +360,7 @@ void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int vc, int ic,
   fflush(stdout);
   if (!m_CurrentEncoder)
     return;
-  [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
+  [m_CurrentEncoder setRenderPipelineState:m_UIPS];
 
   if (m_Textures[0]) {
     [m_CurrentEncoder
@@ -302,10 +370,10 @@ void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int vc, int ic,
     [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
   }
 
-  m_Uniforms.useProjection = 1;
+  m_Uniforms.useProjection = 0; // NDC for UI
   m_Uniforms.screenSize[0] = m_ScreenSize[0];
   m_Uniforms.screenSize[1] = m_ScreenSize[1];
-  [m_CurrentEncoder setVertexBytes:vd length:sizeof(Vertex) * vc atIndex:0];
+  [m_CurrentEncoder setVertexBytes:vd length:24 * vc atIndex:0];
   [m_CurrentEncoder setVertexBytes:&m_Uniforms
                             length:sizeof(m_Uniforms)
                            atIndex:1];
@@ -322,7 +390,43 @@ void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int vc, int ic,
 
 void MacOSRenderDevice::DrawIndexed(PrimitiveType t, int ic,
                                     IndexBufferClass *ib,
-                                    VertexBufferClass *vb) {}
+                                    VertexBufferClass *vb) {
+  printf("DEBUG: DrawIndexed (3D) ic=%d vb=%p\n", ic, vb);
+  fflush(stdout);
+  if (!m_CurrentEncoder || !ib || !vb)
+    return;
+
+  [m_CurrentEncoder setRenderPipelineState:m_OpaquePS];
+
+  if (m_Textures[0]) {
+    [m_CurrentEncoder
+        setFragmentTexture:((MacOSTexture *)m_Textures[0])->GetMTLTexture()
+                   atIndex:0];
+  } else {
+    [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
+  }
+
+  m_Uniforms.useProjection = 1;
+  m_Uniforms.screenSize[0] = m_ScreenSize[0];
+  m_Uniforms.screenSize[1] = m_ScreenSize[1];
+  [m_CurrentEncoder setVertexBytes:&m_Uniforms
+                            length:sizeof(m_Uniforms)
+                           atIndex:1];
+
+  MacOSVertexBufferClass *mvb = (MacOSVertexBufferClass *)vb;
+  MacOSIndexBufferClass *mib = (MacOSIndexBufferClass *)ib;
+
+  [m_CurrentEncoder setVertexBuffer:mvb->Get_Metal_Buffer() offset:0 atIndex:0];
+
+  MTLIndexType indexType =
+      mib->Is_32Bit() ? MTLIndexTypeUInt32 : MTLIndexTypeUInt16;
+
+  [m_CurrentEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                               indexCount:ic
+                                indexType:indexType
+                              indexBuffer:mib->Get_Metal_Buffer()
+                        indexBufferOffset:0];
+}
 void MacOSRenderDevice::DrawDebugText(const char *t, float x, float y,
                                       unsigned int c) {}
 void MacOSRenderDevice::DrawFillRect(float x, float y, float w, float h,

@@ -7,7 +7,7 @@
 - [x] **Subsystems:** Memory (fixed pool race condition), Filesystem (.big), INI, Input, Window.
 - [x] **Audio Engine:** ✅ **WORKING (UI & Sounds)**. `MacOSAudioManager` implemented using `AVAudioEngine`. Supports extraction from `.big` archives with local caching.
 - [x] **Graphics:** Metal Bridge, SW DDS Decoding (DXT1/5), Cinematic Vignette, Navy Clear Color.
-- [x] **Initialization:** ✅ **NO CRASH**. Game enters Main Shell loop and updates frame-by-frame.
+- [x] **Initialization:** ✅ **VERIFIED**. Direct3D 8 wrapper (mocks) correctly implemented, linked, and initialized on macOS. `IsInitted` flag is set, and mock devices are successfully created.
 - [x] **3D Infrastructure:** Real `W3DView` integrated; `RTS3DScene` pools explicitly initialized.
 - [x] **Input Handling:** ✅ **VERIFIED**. MacOS events are correctly translated and routed. Menu buttons and sliders respond to clicks with 100% accuracy.
 
@@ -16,8 +16,8 @@
 ## 🔴 ACTIVE ISSUES
 - [x] **Fonts & Text:** ✅ **WORKING**. Dynamic strings and menu labels are rendered correctly.
 - [x] **Gray Boxes UI:** ✅ **VERIFIED**. Intentional debug markers from the original engine, not a rendering bug.
-- **3D World Rendering:** Currently black background or missing units. Requires shader transition from DX8-style to full Metal-compliant pipeline (Lighting, Splatting).
-- **Exit Crash:** `Signal 11` in `ObjectPoolClass` destructor during application shutdown.
+- **3D World Rendering:** Currently non-functional. **Cause identified:** Crash in `Render_FVF_Category_Container_List`. The engine tries to iterate through empty or malformed FVT category lists when using mock devices.
+- **Exit Crash:** `Signal 11` in `ObjectPoolClass<MultiListNodeClass>` destructor during application shutdown.
 - **Lint Noise:** Massive amount of false/real lint errors in W3D files.
 
 ---

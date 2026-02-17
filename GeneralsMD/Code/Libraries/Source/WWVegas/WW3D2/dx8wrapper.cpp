@@ -92,6 +92,11 @@
 
 #include "shdlib.h"
 
+#ifdef __APPLE__
+extern "C" IDirect3D8 *CreateMacOSD3D8();
+extern "C" IDirect3DDevice8 *CreateMacOSD3DDevice8();
+#endif
+
 const int DEFAULT_RESOLUTION_WIDTH = 640;
 const int DEFAULT_RESOLUTION_HEIGHT = 480;
 const int DEFAULT_BIT_DEPTH = 32;
@@ -312,12 +317,54 @@ bool DX8Wrapper::Init(void *hwnd, bool lite) {
   D3DInterface = nullptr;
   D3DDevice = nullptr;
 
+#ifdef __APPLE__
+  fprintf(stderr, "DEBUG: DX8Wrapper::Init: Starting macOS initialization\n");
+  fflush(stderr);
+  // Initialize capabilities for macOS/Metal
+  D3DCAPS8 caps;
+  memset(&caps, 0, sizeof(caps));
+  caps.VertexShaderVersion = 0x0101; // D3DVS_VERSION(1, 1)
+  caps.PixelShaderVersion = 0x0101;  // D3DPS_VERSION(1, 1)
+  caps.MaxSimultaneousTextures = 8;
+  caps.MaxTextureBlendStages = 8;
+  caps.DevCaps = 0x00010000; // D3DDEVCAPS_HWTRANSFORMANDLIGHT
+
+  D3DADAPTER_IDENTIFIER8 adapterId;
+  memset(&adapterId, 0, sizeof(adapterId));
+  strncpy(adapterId.Description, "Apple Metal Renderer", 511);
+
+  fprintf(stderr, "DEBUG: DX8Wrapper::Init: Creating mocks\n");
+  fflush(stderr);
+  D3DInterface = CreateMacOSD3D8();
+  D3DDevice = CreateMacOSD3DDevice8();
+  fprintf(stderr,
+          "DEBUG: DX8Wrapper::Init: mocks created: Interface=%p, Device=%p\n",
+          D3DInterface, D3DDevice);
+  fflush(stderr);
+  CurrentCaps =
+      new DX8Caps(D3DInterface, caps, WW3D_FORMAT_A8R8G8B8, adapterId);
+
+  ResolutionWidth = 800;
+  ResolutionHeight = 600;
+  BitDepth = 32;
+  IsWindowed = true;
+
+  // Minimal state setup
+  fprintf(stderr, "DEBUG: DX8Wrapper::Init: Setting basic render state\n");
+  fflush(stderr);
+  Set_DX8_Render_State(D3DRS_ZENABLE, D3DZB_TRUE);
+  fprintf(stderr, "DEBUG: DX8Wrapper::Init: basic render state set\n");
+  fflush(stderr);
+  IsInitted = true;
+#endif
+
   WWDEBUG_SAY(("Reset DX8Wrapper statistics"));
   Reset_Statistics();
 
   Invalidate_Cached_Render_States();
 
   if (!lite) {
+#ifndef __APPLE__
     D3D8Lib = LoadLibrary("D3D8.DLL");
 
     if (D3D8Lib == nullptr)
@@ -345,6 +392,7 @@ bool DX8Wrapper::Init(void *hwnd, bool lite) {
       return (false);
     }
     IsInitted = true;
+#endif
 
     /*
     ** Enumerate the available devices
@@ -1925,6 +1973,16 @@ void DX8Wrapper::Clear(bool clear_color, bool clear_z_stencil,
                        unsigned int stencil) {
   DX8_THREAD_ASSERT();
 
+#ifdef __APPLE__
+  printf("DEBUG: DX8Wrapper::Clear calling dev->Clear()\n");
+  fflush(stdout);
+  IRenderDevice *dev = GetRenderDevice();
+  if (dev) {
+    dev->Clear(Convert_Color(color, dest_alpha));
+  }
+  printf("DEBUG: DX8Wrapper::Clear EXIT\n");
+  fflush(stdout);
+#else
   // If we try to clear a stencil buffer which is not there, the entire call
   // will fail KJM fixed this to get format from back buffer (incase render to
   // texture is used)
@@ -1958,11 +2016,26 @@ void DX8Wrapper::Clear(bool clear_color, bool clear_z_stencil,
     DX8CALL(
         Clear(0, nullptr, flags, Convert_Color(color, dest_alpha), z, stencil));
   }
+#endif
 }
 
 void DX8Wrapper::Set_Viewport(CONST D3DVIEWPORT8 *pViewport) {
   DX8_THREAD_ASSERT();
+#ifdef __APPLE__
+  IRenderDevice *dev = GetRenderDevice();
+  if (dev) {
+    Viewport vp;
+    vp.x = pViewport->X;
+    vp.y = pViewport->Y;
+    vp.w = pViewport->Width;
+    vp.h = pViewport->Height;
+    vp.min_depth = pViewport->MinZ;
+    vp.max_depth = pViewport->MaxZ;
+    dev->SetViewport(&vp);
+  }
+#else
   DX8CALL(SetViewport(pViewport));
+#endif
 }
 
 // ----------------------------------------------------------------------------
@@ -2269,6 +2342,11 @@ void DX8Wrapper::Draw(unsigned primitive_type, unsigned short start_index,
       DX8_RECORD_RENDER(polygon_count, vertex_count, render_state.shader);
       DX8_RECORD_DRAW_CALLS();
 #ifdef __APPLE__
+      static int appleDrawCount = 0;
+      if (appleDrawCount++ % 1000 == 0) {
+        printf("DEBUG: WW3D -> Metal Draw call %d\n", appleDrawCount);
+        fflush(stdout);
+      }
       IRenderDevice *dev = GetRenderDevice();
       dev->SetTransform(TRANSFORM_TYPE_WORLD,
                         (const float *)&render_state.world);

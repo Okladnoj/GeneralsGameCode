@@ -34,6 +34,8 @@ public:
     printf("DEBUG: MacOSDisplay::init called\n");
     fflush(stdout);
 
+    WW3D::Init(nullptr);
+
     if (W3DDisplay::m_3DScene == nullptr) {
       printf("DEBUG: MacOSDisplay::init: Creating RTS3DScene...\n");
       fflush(stdout);
@@ -136,7 +138,7 @@ public:
       fflush(stdout);
     }
 
-    GetRenderDevice()->BeginScene();
+    WW3D::Begin_Render(true, true, Vector3(0.02f, 0.05f, 0.1f));
 
     // Call base class draw to render views (tactical map, etc)
     Display::draw();
@@ -150,7 +152,7 @@ public:
       TheMouse->draw();
     }
 
-    GetRenderDevice()->EndScene();
+    WW3D::End_Render();
   }
 
   static int m_FrameCount;

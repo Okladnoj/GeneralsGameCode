@@ -81,6 +81,7 @@ private:
 
   id<MTLRenderPipelineState> m_OpaquePS;
   id<MTLRenderPipelineState> m_AlphaPS;
+  id<MTLRenderPipelineState> m_UIPS;
   id<MTLSamplerState> m_LinearSampler;
   id<MTLSamplerState> m_PointSampler;
 
@@ -94,6 +95,8 @@ private:
   Uniforms m_Uniforms;
   void updateUniforms();
 
+  id<MTLTexture> m_DepthTexture;
+  id<MTLDepthStencilState> m_DepthStencilState;
   id<MTLTexture> m_WhiteTexture;
   std::map<std::string, ITexture *> m_TextureCache;
 };

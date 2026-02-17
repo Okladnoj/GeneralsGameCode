@@ -75,6 +75,7 @@ MAX_JOBS=$(sysctl -n hw.ncpu)
 JOB_COUNT=0
 
 for src in "${SOURCES[@]}"; do
+  echo "DEBUG: Processing $src"
   if [ ! -f "$src" ]; then
     echo "⚠️ Warning: File not found: $src"
     continue
@@ -89,6 +90,7 @@ for src in "${SOURCES[@]}"; do
   fi
 
   echo "🔨 Compiling $src..."
+  echo "DEBUG: obj is [$obj]"
   if [[ "$src" == *.mm ]]; then
     clang++ -x objective-c++ -c "$src" -o "$obj" $INCLUDES $COMMON_FLAGS $OBJC_FLAGS
   elif [[ "$src" == *.c ]]; then
