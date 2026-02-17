@@ -1065,7 +1065,10 @@ void Mouse::resetTooltipDelay(void) {
 /** Draw the mouse tooltip if one is set */
 //-------------------------------------------------------------------------------------------------
 void Mouse::drawTooltip(void) {
-  if (TheScriptEngine->getFade() != ScriptEngine::FADE_NONE) {
+  // TheSuperHackers @bugfix Guard against null TheScriptEngine during
+  // shell/menu phase
+  if (TheScriptEngine &&
+      TheScriptEngine->getFade() != ScriptEngine::FADE_NONE) {
     return;
   }
 

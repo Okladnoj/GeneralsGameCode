@@ -70,6 +70,18 @@ Int OptionPreferences::getIdealStaticGameDetail(void) { return 2; }
 Real OptionPreferences::getGammaValue(void) { return 1.0f; }
 Int OptionPreferences::getTextureReduction(void) { return 0; }
 void OptionPreferences::getResolution(Int *xres, Int *yres) {
+#ifdef RA_MACOS
+  extern void MacOS_GetScreenSize(int &w, int &h);
+  int w = 0, h = 0;
+  MacOS_GetScreenSize(w, h);
+  if (w > 0 && h > 0) {
+    if (xres)
+      *xres = w;
+    if (yres)
+      *yres = h;
+    return;
+  }
+#endif
   if (xres)
     *xres = 800;
   if (yres)

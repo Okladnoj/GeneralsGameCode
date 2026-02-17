@@ -37,6 +37,7 @@ struct Uniforms {
 class MacOSRenderDevice : public IRenderDevice {
 public:
   MacOSRenderDevice();
+  virtual ~MacOSRenderDevice(); // This is implementation-specific
   static id<MTLDevice> GetMTLDevice();
 
   bool Initialize(void *windowHandle) override;

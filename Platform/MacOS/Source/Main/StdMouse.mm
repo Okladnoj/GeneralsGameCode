@@ -18,6 +18,8 @@ void StdMouse::init(void) {
 }
 
 void StdMouse::reset(void) {
+  Mouse::reset();
+  m_inputMovesAbsolute = TRUE;
   m_nextFreeIndex = 0;
   m_nextGetIndex = 0;
 }
@@ -196,7 +198,7 @@ void StdMouse::addEvent(int type, int x, int y, int button, int wheelDelta,
     lastY = y;
   }
 
-  // DEBUG: Update position immediately so 'draw' stays in sync
+  // Update position immediately so 'draw' stays in sync
   m_currMouse.pos.x = x;
   m_currMouse.pos.y = y;
 

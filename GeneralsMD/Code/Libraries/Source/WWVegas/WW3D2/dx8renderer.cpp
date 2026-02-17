@@ -2176,18 +2176,60 @@ void DX8MeshRendererClass::Request_Log_Statistics() {
 // ---------------------------------------------------------------------------
 
 static void Render_FVF_Category_Container_List(FVFCategoryList &list) {
+  if (&list == nullptr) {
+    fprintf(
+        stderr,
+        "ERROR: Render_FVF_Category_Container_List: list reference is NULL\n");
+    return;
+  }
+
+  // Basic integrity check of the MultiList
+  if (list.Is_Empty()) {
+    return;
+  }
+
   FVFCategoryListIterator it(&list);
+  int count = 0;
   while (!it.Is_Done()) {
-    it.Peek_Obj()->Render();
+    DX8FVFCategoryContainer *container = it.Peek_Obj();
+
+    // Validate container pointer before use
+    if (container == nullptr) {
+      fprintf(stderr,
+              "WARNING: Render_FVF_Category_Container_List: NULL container at "
+              "index %d\n",
+              count);
+    } else {
+      // Use a defensive try-catch or just check some stable field if possible.
+      // For now, let's just log and call Render.
+      fprintf(stderr, "DEBUG: Rendering container %d (%p), FVF=0x%08X\n", count,
+              container, container->Get_FVF());
+      fflush(stderr);
+      container->Render();
+    }
+
     it.Next();
+    count++;
+
+    // Safety break to prevent infinite loops if list is circular/corrupt
+    if (count > 10000) {
+      fprintf(stderr, "ERROR: Render_FVF_Category_Container_List: Possible "
+                      "infinite loop detected (count > 10000)\n");
+      break;
+    }
   }
 }
 
 static void
 Render_FVF_Category_Container_List_Delayed_Passes(FVFCategoryList &list) {
+  if (&list == nullptr)
+    return;
   FVFCategoryListIterator it(&list);
   while (!it.Is_Done()) {
-    it.Peek_Obj()->Render_Delayed_Procedural_Material_Passes();
+    DX8FVFCategoryContainer *container = it.Peek_Obj();
+    if (container) {
+      container->Render_Delayed_Procedural_Material_Passes();
+    }
     it.Next();
   }
 }
@@ -2215,11 +2257,21 @@ void DX8MeshRendererClass::Flush(void) {
   ** in solving this for skins)
   */
   for (i = 0; i < texture_category_container_lists_rigid.Count(); ++i) {
+    if (texture_category_container_lists_rigid[i] == nullptr) {
+      fprintf(stderr,
+              "ERROR: DX8MeshRendererClass::Flush: rigid list [%d] is NULL\n",
+              i);
+      continue;
+    }
     Render_FVF_Category_Container_List(
         *texture_category_container_lists_rigid[i]);
   }
 
-  Render_FVF_Category_Container_List(*texture_category_container_list_skin);
+  if (texture_category_container_list_skin == nullptr) {
+    fprintf(stderr, "ERROR: DX8MeshRendererClass::Flush: skin list is NULL\n");
+  } else {
+    Render_FVF_Category_Container_List(*texture_category_container_list_skin);
+  }
 
   Render_Decal_Meshes();
 

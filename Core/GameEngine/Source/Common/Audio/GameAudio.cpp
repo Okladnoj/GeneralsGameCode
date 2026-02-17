@@ -993,6 +993,11 @@ Bool AudioManager::isCurrentSpeakerTypeSurroundSound() {
 
 //-------------------------------------------------------------------------------------------------
 Bool AudioManager::shouldPlayLocally(const AudioEventRTS *audioEvent) {
+  // TheSuperHackers @bugfix Guard against null ThePlayerList during shell/menu
+  // phase. UI sounds should always play locally when there is no player list.
+  if (!ThePlayerList) {
+    return TRUE;
+  }
   Player *localPlayer = ThePlayerList->getLocalPlayer();
   if (!localPlayer->isPlayerActive()) {
     // We are dead, thus are observing. Get the player we are observing. It's

@@ -522,6 +522,14 @@ Bool W3DView::isWithinCameraHeightConstraints() const {
 //-------------------------------------------------------------------------------------------------
 void W3DView::getPickRay(const ICoord2D *screen, Vector3 *rayStart,
                          Vector3 *rayEnd) {
+  // TheSuperHackers @bugfix Null-check m_3DCamera to prevent crash during early
+  // initialization when camera may not be set up yet.
+  if (m_3DCamera == nullptr) {
+    rayStart->Set(0, 0, 0);
+    rayEnd->Set(0, 0, 1);
+    return;
+  }
+
   Real logX;
   Real logY;
   Real screenX = screen->x - m_originX;
@@ -1315,6 +1323,16 @@ void W3DView::update(void) {
 /** Find region which contains all drawables in 3D space. */
 //-------------------------------------------------------------------------------------------------
 void W3DView::getAxisAlignedViewRegion(Region3D &axisAlignedRegion) {
+  CameraClass *cam = get3DCamera();
+  if (cam == nullptr) {
+    axisAlignedRegion.lo.x = -1000.0f;
+    axisAlignedRegion.lo.y = -1000.0f;
+    axisAlignedRegion.lo.z = -1000.0f;
+    axisAlignedRegion.hi.x = 1000.0f;
+    axisAlignedRegion.hi.y = 1000.0f;
+    axisAlignedRegion.hi.z = 1000.0f;
+    return;
+  }
   //
   // get the 4 points in 3D space of the 4 corners of the view, we will use a z
   // = 0.0f value so that we can get everything ... even stuff below the terrain
@@ -1332,11 +1350,16 @@ void W3DView::getAxisAlignedViewRegion(Region3D &axisAlignedRegion) {
   axisAlignedRegion.setFromPointsNoZ(box, ARRAY_SIZE(box));
 
   // low and high regions will be based of the extent of the map
-  Region3D mapExtent;
-  Real safeValue = 999999;
-  TheTerrainLogic->getExtent(&mapExtent);
-  axisAlignedRegion.lo.z = mapExtent.lo.z - safeValue;
-  axisAlignedRegion.hi.z = mapExtent.hi.z + safeValue;
+  if (TheTerrainLogic != nullptr) {
+    Region3D mapExtent;
+    Real safeValue = 999999;
+    TheTerrainLogic->getExtent(&mapExtent);
+    axisAlignedRegion.lo.z = mapExtent.lo.z - safeValue;
+    axisAlignedRegion.hi.z = mapExtent.hi.z + safeValue;
+  } else {
+    axisAlignedRegion.lo.z = -1000.0f;
+    axisAlignedRegion.hi.z = 5000.0f;
+  }
 
   // we want to overscan a little bit so that we get objects that are partially
   // offscreen
@@ -1430,10 +1453,27 @@ void W3DView::drawView(void) { DRAW(); }
 
 // DECLARE_PERF_TIMER(W3DView_drawView)
 void W3DView::draw(void) {
+  static int drawCount = 0;
+  if (drawCount++ % 60 == 0) {
+    printf("DEBUG: W3DView::draw entering (count=%d)\n", drawCount);
+    fflush(stdout);
+  }
   // USE_PERF_TIMER(W3DView_drawView)
   Bool skipRender = false;
   Bool doExtraRender = false;
   CustomScenePassModes customScenePassMode = SCENE_PASS_DEFAULT;
+  if (this == nullptr) {
+    return;
+  }
+  CameraClass *cam3D = get3DCamera();
+  if (cam3D == nullptr || m_2DCamera == nullptr) {
+    if (drawCount % 60 == 0) {
+      printf("DEBUG: W3DView::draw - null camera (3D=%p, 2D=%p), returning\n",
+             cam3D, m_2DCamera);
+      fflush(stdout);
+    }
+    return;
+  }
   Bool preRenderResult = false;
 
   if (m_viewFilterMode && m_viewFilter > FT_NULL_FILTER &&
@@ -1450,13 +1490,13 @@ void W3DView::draw(void) {
     }
   }
 
-  if (!skipRender) {
+  if (!skipRender && W3DDisplay::m_3DScene && cam3D) {
     // Render 3D scene from our camera
     W3DDisplay::m_3DScene->setCustomPassMode(customScenePassMode);
     if (m_isWireFrameEnabled)
       W3DDisplay::m_3DScene->Set_Extra_Pass_Polygon_Mode(
           SceneClass::EXTRA_PASS_CLEAR_LINE);
-    W3DDisplay::m_3DScene->doRender(m_3DCamera);
+    W3DDisplay::m_3DScene->doRender(cam3D);
     W3DDisplay::m_3DScene->Set_Extra_Pass_Polygon_Mode(
         SceneClass::EXTRA_PASS_DISABLE);
     m_isWireFrameEnabled = m_nextWireFrameEnabled;
@@ -1593,7 +1633,9 @@ void W3DView::draw(void) {
   if (TheGlobalData->m_debugCamera) {
     UnsignedInt c = 0xaaffffff;
     Coord3D worldPos = *getPosition();
-    worldPos.z = TheTerrainLogic->getGroundHeight(worldPos.x, worldPos.y);
+    worldPos.z = (TheTerrainLogic != nullptr)
+                     ? TheTerrainLogic->getGroundHeight(worldPos.x, worldPos.y)
+                     : 0.0f;
 
     Coord3D p1, p2;
     ICoord2D s1, s2;
@@ -1673,7 +1715,15 @@ void W3DView::draw(void) {
   TheGameClient->flushTextBearingDrawables();
 
   // Render 2D scene
-  W3DDisplay::m_2DScene->doRender(m_2DCamera);
+  if (W3DDisplay::m_2DScene && m_2DCamera) {
+    if (drawCount % 60 == 0) {
+      printf("DEBUG: W3DView::draw - rendering 2D scene\n");
+      fflush(stdout);
+    }
+    W3DDisplay::m_2DScene->doRender(m_2DCamera);
+  } else if (!m_2DCamera) {
+    // MiniLog: 2D Camera is null in W3DView::draw
+  }
 }
 
 // ------------------------------------------------------------------------------------------------

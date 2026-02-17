@@ -1138,14 +1138,14 @@ static void saveOptions(void) {
   //	Bool isChecked = GadgetCheckBoxIsChecked(checkAudioHardware);
   //	TheAudio->setHardwareAccelerated(isChecked);
   //	(*pref)["3DAudioProvider"] =
-  //TheAudio->getProviderName(TheAudio->getSelectedProvider());
+  // TheAudio->getProviderName(TheAudio->getSelectedProvider());
   //
   //-------------------------------------------------------------------------------------------------
   //	// speaker type
   //	isChecked = GadgetCheckBoxIsChecked(checkAudioSurround);
   //	TheAudio->setSpeakerSurround(isChecked);
   //	(*pref)["SpeakerType"] =
-  //TheAudio->translateUnsignedIntToSpeakerType(TheAudio->getSpeakerType());
+  // TheAudio->translateUnsignedIntToSpeakerType(TheAudio->getSpeakerType());
   //
   //-------------------------------------------------------------------------------------------------
   // language filter
@@ -1368,7 +1368,8 @@ static void saveOptions(void) {
         (mode & ScreenEdgeScrollMode_EnabledInWindowedApp) ? "yes" : "no";
     (*pref)["ScreenEdgeScrollEnabledInFullscreenApp"] =
         (mode & ScreenEdgeScrollMode_EnabledInFullscreenApp) ? "yes" : "no";
-    TheLookAtTranslator->setScreenEdgeScrollMode(mode);
+    if (TheLookAtTranslator)
+      TheLookAtTranslator->setScreenEdgeScrollMode(mode);
   }
 
   // TheSuperHackers @todo Add checkbox ?
@@ -1382,7 +1383,8 @@ static void saveOptions(void) {
   {
     Bool enabled = pref->getArchiveReplaysEnabled();
     (*pref)["ArchiveReplays"] = enabled ? "yes" : "no";
-    TheRecorder->setArchiveEnabled(enabled);
+    if (TheRecorder)
+      TheRecorder->setArchiveEnabled(enabled);
   }
 
   //-------------------------------------------------------------------------------------------------
@@ -1400,7 +1402,7 @@ static void saveOptions(void) {
   //-------------------------------------------------------------------------------------------------
   // draw scroll anchor
   {
-    if (TheInGameUI->getDrawRMBScrollAnchor())
+    if (TheInGameUI && TheInGameUI->getDrawRMBScrollAnchor())
       (*pref)["DrawScrollAnchor"] = "yes";
     else
       (*pref)["DrawScrollAnchor"] = "no";
@@ -1409,7 +1411,7 @@ static void saveOptions(void) {
   //-------------------------------------------------------------------------------------------------
   // move scroll anchor
   {
-    if (TheInGameUI->getMoveRMBScrollAnchor())
+    if (TheInGameUI && TheInGameUI->getMoveRMBScrollAnchor())
       (*pref)["MoveScrollAnchor"] = "yes";
     else
       (*pref)["MoveScrollAnchor"] = "no";
@@ -1515,7 +1517,8 @@ static void saveOptions(void) {
     AsciiString prefString;
     prefString.format("%d", val);
     (*pref)["NetworkLatencyFontSize"] = prefString;
-    TheInGameUI->refreshNetworkLatencyResources();
+    if (TheInGameUI)
+      TheInGameUI->refreshNetworkLatencyResources();
   }
 
   //-------------------------------------------------------------------------------------------------
@@ -1525,7 +1528,8 @@ static void saveOptions(void) {
     AsciiString prefString;
     prefString.format("%d", val);
     (*pref)["RenderFpsFontSize"] = prefString;
-    TheInGameUI->refreshRenderFpsResources();
+    if (TheInGameUI)
+      TheInGameUI->refreshRenderFpsResources();
   }
 
   //-------------------------------------------------------------------------------------------------
@@ -1536,7 +1540,8 @@ static void saveOptions(void) {
     AsciiString prefString;
     prefString.format("%d", val);
     (*pref)["SystemTimeFontSize"] = prefString;
-    TheInGameUI->refreshSystemTimeResources();
+    if (TheInGameUI)
+      TheInGameUI->refreshSystemTimeResources();
   }
 
   //-------------------------------------------------------------------------------------------------
@@ -1547,7 +1552,8 @@ static void saveOptions(void) {
     AsciiString prefString;
     prefString.format("%d", val);
     (*pref)["GameTimeFontSize"] = prefString;
-    TheInGameUI->refreshGameTimeResources();
+    if (TheInGameUI)
+      TheInGameUI->refreshGameTimeResources();
   }
 
   //-------------------------------------------------------------------------------------------------
@@ -1557,7 +1563,8 @@ static void saveOptions(void) {
     AsciiString prefString;
     prefString.format("%d", val);
     (*pref)["PlayerInfoListFontSize"] = prefString;
-    TheInGameUI->refreshPlayerInfoListResources();
+    if (TheInGameUI)
+      TheInGameUI->refreshPlayerInfoListResources();
   }
 
   //-------------------------------------------------------------------------------------------------
@@ -1626,8 +1633,10 @@ static void saveOptions(void) {
 
         TheShell->recreateWindowLayouts();
 
-        TheInGameUI->recreateControlBar();
-        TheInGameUI->refreshCustomUiResources();
+        if (TheInGameUI) {
+          TheInGameUI->recreateControlBar();
+          TheInGameUI->refreshCustomUiResources();
+        }
       }
     }
   }
@@ -1758,10 +1767,10 @@ void OptionsMenuInit(WindowLayout *layout, void *userData) {
   //	// Speakers and 3-D Audio
   //	checkAudioSurroundID   = TheNameKeyGenerator->nameToKey(
   //"OptionsMenu.wnd:CheckAudioSurround" ); 	checkAudioSurround     =
-  //TheWindowManager->winGetWindowFromId( nullptr, checkAudioSurroundID );
+  // TheWindowManager->winGetWindowFromId( nullptr, checkAudioSurroundID );
   //	checkAudioHardwareID   = TheNameKeyGenerator->nameToKey(
   //"OptionsMenu.wnd:CheckAudioHardware" ); 	checkAudioHardware     =
-  //TheWindowManager->winGetWindowFromId( nullptr, checkAudioHardwareID );
+  // TheWindowManager->winGetWindowFromId( nullptr, checkAudioHardwareID );
   //
   // Volume Controls
   sliderMusicVolumeID =
@@ -1781,7 +1790,8 @@ void OptionsMenuInit(WindowLayout *layout, void *userData) {
 
   //	checkBoxLowTextureDetailID = TheNameKeyGenerator->nameToKey(
   //"OptionsMenu.wnd:CheckLowTextureDetail" ); 	checkBoxLowTextureDetail      =
-  //TheWindowManager->winGetWindowFromId( nullptr, checkBoxLowTextureDetailID );
+  // TheWindowManager->winGetWindowFromId( nullptr, checkBoxLowTextureDetailID
+  // );
 
   WinAdvancedDisplayID = TheNameKeyGenerator->nameToKey(
       "OptionsMenu.wnd:WinAdvancedDisplayOptions");
@@ -1862,7 +1872,8 @@ void OptionsMenuInit(WindowLayout *layout, void *userData) {
   sliderParticleCap =
       TheWindowManager->winGetWindowFromId(nullptr, sliderParticleCapID);
 
-  WinAdvancedDisplay->winHide(TRUE);
+  if (WinAdvancedDisplay)
+    WinAdvancedDisplay->winHide(TRUE);
 
   Color color = GameMakeColor(255, 255, 255, 255);
 
@@ -2110,30 +2121,34 @@ void OptionsMenuInit(WindowLayout *layout, void *userData) {
   // set scroll options
   AsciiString test = (*pref)["DrawScrollAnchor"];
   DEBUG_LOG(("DrawScrollAnchor == [%s]", test.str()));
-  if (test == "yes" ||
-      (test.isEmpty() && TheInGameUI->getDrawRMBScrollAnchor())) {
+  if (test == "yes" || (test.isEmpty() && TheInGameUI &&
+                        TheInGameUI->getDrawRMBScrollAnchor())) {
     GadgetCheckBoxSetChecked(checkDrawAnchor, true);
-    TheInGameUI->setDrawRMBScrollAnchor(true);
+    if (TheInGameUI)
+      TheInGameUI->setDrawRMBScrollAnchor(true);
   } else {
     GadgetCheckBoxSetChecked(checkDrawAnchor, false);
-    TheInGameUI->setDrawRMBScrollAnchor(false);
+    if (TheInGameUI)
+      TheInGameUI->setDrawRMBScrollAnchor(false);
   }
   test = (*pref)["MoveScrollAnchor"];
   DEBUG_LOG(("MoveScrollAnchor == [%s]", test.str()));
-  if (test == "yes" ||
-      (test.isEmpty() && TheInGameUI->getMoveRMBScrollAnchor())) {
+  if (test == "yes" || (test.isEmpty() && TheInGameUI &&
+                        TheInGameUI->getMoveRMBScrollAnchor())) {
     GadgetCheckBoxSetChecked(checkMoveAnchor, true);
-    TheInGameUI->setMoveRMBScrollAnchor(true);
+    if (TheInGameUI)
+      TheInGameUI->setMoveRMBScrollAnchor(true);
   } else {
     GadgetCheckBoxSetChecked(checkMoveAnchor, false);
-    TheInGameUI->setMoveRMBScrollAnchor(false);
+    if (TheInGameUI)
+      TheInGameUI->setMoveRMBScrollAnchor(false);
   }
 
   //	// Audio Init shiznat
   //	GadgetCheckBoxSetChecked(checkAudioHardware,
-  //TheAudio->getHardwareAccelerated());
+  // TheAudio->getHardwareAccelerated());
   //	GadgetCheckBoxSetChecked(checkAudioSurround,
-  //TheAudio->getSpeakerSurround());
+  // TheAudio->getSpeakerSurround());
 
   // set the mouse mode
   GadgetCheckBoxSetChecked(checkAlternateMouse,
@@ -2184,7 +2199,8 @@ void OptionsMenuInit(WindowLayout *layout, void *userData) {
   GameWindow *parent = TheWindowManager->winGetWindowFromId(nullptr, parentID);
   TheWindowManager->winSetFocus(parent);
 
-  if ((TheGameLogic->isInGame() && TheGameLogic->getGameMode() != GAME_SHELL) ||
+  if ((TheGameLogic && TheGameLogic->isInGame() &&
+       TheGameLogic->getGameMode() != GAME_SHELL) ||
       TheGameSpyInfo) {
     // disable controls that you can't change the options for in game
     comboBoxLANIP->winEnable(FALSE);
@@ -2388,7 +2404,8 @@ WindowMsgHandledType OptionsMenuSystem(GameWindow *window, UnsignedInt msg,
       comboBoxLANIP = nullptr;
       comboBoxOnlineIP = nullptr;
 
-      if (!TheGameLogic->isInGame() || TheGameLogic->isInShellGame())
+      if (!TheGameLogic || !TheGameLogic->isInGame() ||
+          TheGameLogic->isInShellGame())
         destroyQuitMenu(); // if we're in a game, the change res then enter the
                            // same kind of game, we nee the quit menu to be
                            // gone.
@@ -2413,18 +2430,22 @@ WindowMsgHandledType OptionsMenuSystem(GameWindow *window, UnsignedInt msg,
       TheShell->push("Menus/KeyboardOptionsMenu.wnd");
     } else if (controlID == checkDrawAnchorID) {
       if (GadgetCheckBoxIsChecked(control)) {
-        TheInGameUI->setDrawRMBScrollAnchor(true);
+        if (TheInGameUI)
+          TheInGameUI->setDrawRMBScrollAnchor(true);
         (*pref)["DrawScrollAnchor"] = "yes";
       } else {
-        TheInGameUI->setDrawRMBScrollAnchor(false);
+        if (TheInGameUI)
+          TheInGameUI->setDrawRMBScrollAnchor(false);
         (*pref)["DrawScrollAnchor"] = "no";
       }
     } else if (controlID == checkMoveAnchorID) {
       if (GadgetCheckBoxIsChecked(control)) {
-        TheInGameUI->setMoveRMBScrollAnchor(true);
+        if (TheInGameUI)
+          TheInGameUI->setMoveRMBScrollAnchor(true);
         (*pref)["MoveScrollAnchor"] = "yes";
       } else {
-        TheInGameUI->setMoveRMBScrollAnchor(false);
+        if (TheInGameUI)
+          TheInGameUI->setMoveRMBScrollAnchor(false);
         (*pref)["MoveScrollAnchor"] = "no";
       }
     } else if (controlID == checkSaveCameraID) {

@@ -143,12 +143,15 @@ Display *MacOSGameClient::createGameDisplay(void) {
 
 InGameUI *MacOSGameClient::createInGameUI(void) { return new W3DInGameUI(); }
 
+#include "W3DDevice/GameClient/W3DSnow.h"
+#include "W3DDevice/GameClient/W3DTerrainVisual.h"
+
 SnowManager *MacOSGameClient::createSnowManager(void) {
-  return new MacOSSnowManager();
+  return new W3DSnowManager();
 }
 
 TerrainVisual *MacOSGameClient::createTerrainVisual(void) {
-  return new MacOSTerrainVisual();
+  return new W3DTerrainVisual();
 }
 
 VideoPlayerInterface *MacOSGameClient::createVideoPlayer(void) {

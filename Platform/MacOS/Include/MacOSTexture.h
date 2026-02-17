@@ -15,6 +15,7 @@ public:
                 unsigned int flags = 0) override;
   bool UnlockRect(unsigned int level) override;
   bool GetLevelDesc(unsigned int level, LevelInfo *outInfo) override;
+  void Release() override { delete this; }
 
   id<MTLTexture> GetMTLTexture();
 

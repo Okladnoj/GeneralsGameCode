@@ -31,6 +31,8 @@ SOURCES=(
   "Core/GameEngineDevice/Source/W3DDevice/GameClient/BaseHeightMap.cpp"
   "Core/GameEngineDevice/Source/W3DDevice/GameClient/HeightMap.cpp"
   "Core/GameEngineDevice/Source/W3DDevice/GameClient/FlatHeightMap.cpp"
+  "Core/GameEngineDevice/Source/W3DDevice/GameClient/W3DTerrainVisual.cpp"
+
   "Core/Libraries/Source/WWVegas/WWLib/wwstring.cpp"
   "Core/Libraries/Source/WWVegas/WWLib/mutex.cpp"
   "GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2/shader.cpp"
@@ -589,6 +591,7 @@ SOURCES=(
   "Platform/MacOS/Source/Main/MacOSGadgetDraw.mm"
   "Platform/MacOS/Source/Main/MacOSMain.mm"
   "Platform/MacOS/Source/Audio/MacOSAudioManager.mm"
+  "Platform/MacOS/Source/Debug/MacOSScreenshot.mm"
   "Platform/MacOS/Source/Main/D3DXStubs.cpp"
   "Platform/MacOS/Source/Stubs/GameSpyStubs.cpp"
   "Platform/MacOS/Source/Stubs/LZHLStubs.cpp"

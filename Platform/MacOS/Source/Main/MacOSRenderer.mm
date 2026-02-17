@@ -14,6 +14,7 @@
 #import "IRenderDevice.h"
 #import "MacOSBuffers.h"
 #import "MacOSRenderDevice_Internal.h"
+#include "MacOSScreenshot.h"
 #import "MacOSTexture.h"
 #include "TARGA.h"
 #include "ddsfile.h"
@@ -30,16 +31,13 @@ static NSString *const shaderSource =
      "\n"
      "struct VertexIn {\n"
      "    float3 position [[attribute(0)]];\n"
-     "    float3 normal [[attribute(1)]];\n"
      "    float4 diffuse [[attribute(2)]];\n"
      "    float2 texCoord [[attribute(3)]];\n"
-     "    float2 texCoord2 [[attribute(4)]];\n"
      "};\n"
      "\n"
      "struct VertexOut {\n"
      "    float4 position [[position]];\n"
      "    float4 color;\n"
-     "    float3 worldNormal;\n"
      "    float2 texCoord;\n"
      "};\n"
      "\n"
@@ -61,12 +59,10 @@ static NSString *const shaderSource =
      "    } else {\n"
      "        out.position.x = (in.position.x / u.screenSize.x) * 2.0 - 1.0;\n"
      "        out.position.y = 1.0 - (in.position.y / u.screenSize.y) * 2.0;\n"
-     "        out.position.z = in.position.z;\n" // Depth is already correct for
-                                                 // 3D
+     "        out.position.z = in.position.z;\n"
      "        out.position.w = 1.0;\n"
      "    }\n"
      "    out.color = in.diffuse;\n"
-     "    out.worldNormal = (u.world * float4(in.normal, 0.0)).xyz;\n"
      "    out.texCoord = in.texCoord;\n"
      "    return out;\n"
      "}\n"
@@ -75,26 +71,10 @@ static NSString *const shaderSource =
      "                              texture2d<float> tex [[texture(0)]]) {\n"
      "    constexpr sampler s(address::clamp_to_edge, filter::linear);\n"
      "    float4 c = tex.sample(s, in.texCoord);\n"
-     "    if (c.a < 0.1) discard_fragment();\n"
-     "    return c * in.color.bgra;\n"
+     "    return c * in.color;\n"
      "}\n";
 
-#pragma pack(push, 1)
-struct TGAHeaderPacked {
-  unsigned char idlength;
-  unsigned char colourmaptype;
-  unsigned char datatypecode;
-  unsigned short colourmaporigin;
-  unsigned short colourmaplength;
-  unsigned char colourmapdepth;
-  unsigned short x_origin;
-  unsigned short y_origin;
-  unsigned short width;
-  unsigned short height;
-  unsigned char bitsperpixel;
-  unsigned char imagedescriptor;
-};
-#pragma pack(pop)
+// TGAHeader structure removed to avoid clash with TARGA.h
 
 id<MTLDevice> MacOSRenderDevice::m_StaticDevice = nil;
 id<MTLDevice> MacOSRenderDevice::GetMTLDevice() { return m_StaticDevice; }
@@ -110,6 +90,8 @@ MacOSRenderDevice::MacOSRenderDevice()
     m_Textures[i] = nullptr;
 }
 
+MacOSRenderDevice::~MacOSRenderDevice() { Shutdown(); }
+
 bool MacOSRenderDevice::Initialize(void *hwnd) {
   m_TextureCache.clear();
   m_Device = MTLCreateSystemDefaultDevice();
@@ -121,6 +103,9 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
   m_MetalLayer = [CAMetalLayer layer];
   m_MetalLayer.device = m_Device;
   m_MetalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+#if ENABLE_SCREENSHOTS
+  m_MetalLayer.framebufferOnly = NO; // Allow getBytes: for screenshots
+#endif
   if (window) {
     window.contentView.layer = m_MetalLayer;
     window.contentView.wantsLayer = YES;
@@ -153,6 +138,9 @@ bool MacOSRenderDevice::Initialize(void *hwnd) {
            m_MetalLayer.drawableSize.height, (float)window.backingScaleFactor);
     fflush(stdout);
   }
+#if ENABLE_SCREENSHOTS
+  MacOS_InitScreenshots();
+#endif
 
   NSError *err = nil;
   id<MTLLibrary> lib = [m_Device newLibraryWithSource:shaderSource
@@ -253,11 +241,21 @@ void MacOSRenderDevice::Shutdown() {
   m_CommandQueue = nil;
   m_MetalLayer = nil;
 }
-void MacOSRenderDevice::Clear(unsigned int color) { m_CurrentColor = color; }
+void MacOSRenderDevice::Clear(unsigned int color) {
+  printf("DEBUG: MacOSRenderDevice::Clear(0x%08X)\n", color);
+  fflush(stdout);
+  m_CurrentColor = color;
+}
 void MacOSRenderDevice::Present() {
   if (m_CurrentCommandBuffer) {
-    if (m_CurrentDrawable)
+    if (m_CurrentDrawable) {
+#if ENABLE_SCREENSHOTS
+      // Capture screenshot every 300 frames (~5s at 60fps)
+      MacOS_SaveScreenshot((__bridge void *)m_CurrentDrawable.texture, 300,
+                           false);
+#endif
       [m_CurrentCommandBuffer presentDrawable:m_CurrentDrawable];
+    }
     [m_CurrentCommandBuffer commit];
     m_CurrentCommandBuffer = nil;
     m_CurrentDrawable = nil;
@@ -265,6 +263,8 @@ void MacOSRenderDevice::Present() {
 }
 
 void MacOSRenderDevice::BeginScene() {
+  printf("DEBUG: MacOSRenderDevice::BeginScene()\n");
+  fflush(stdout);
   if (m_CurrentCommandBuffer)
     return;
   m_CurrentCommandBuffer = [m_CommandQueue commandBuffer];
@@ -293,6 +293,13 @@ void MacOSRenderDevice::BeginScene() {
   m_CurrentEncoder =
       [m_CurrentCommandBuffer renderCommandEncoderWithDescriptor:pass];
   [m_CurrentEncoder setDepthStencilState:m_DepthStencilState];
+
+  // Dynamic screen size update
+  m_ScreenSize[0] = m_MetalLayer.drawableSize.width /
+                    [NSScreen mainScreen].backingScaleFactor;
+  m_ScreenSize[1] = m_MetalLayer.drawableSize.height /
+                    [NSScreen mainScreen].backingScaleFactor;
+
   [m_CurrentEncoder
       setViewport:{0, 0, (double)m_MetalLayer.drawableSize.width,
                    (double)m_MetalLayer.drawableSize.height, 0, 1}];
@@ -306,7 +313,11 @@ void MacOSRenderDevice::EndScene() {
   Present();
 }
 void MacOSRenderDevice::SetViewport(const Viewport *vp) {
+  printf("DEBUG: MacOSRenderDevice::SetViewport(%p)\n", vp);
+  fflush(stdout);
   if (vp) {
+    printf("DEBUG:   x=%d, y=%d, w=%d, h=%d\n", vp->x, vp->y, vp->w, vp->h);
+    fflush(stdout);
     [m_CurrentEncoder
         setViewport:{(double)vp->x, (double)vp->y, (double)vp->w, (double)vp->h,
                      (double)vp->min_depth, (double)vp->max_depth}];
@@ -370,7 +381,8 @@ void MacOSRenderDevice::DrawIndexed(PrimitiveType type, int vc, int ic,
     [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
   }
 
-  m_Uniforms.useProjection = 0; // NDC for UI
+  m_Uniforms.useProjection =
+      0; // Inline shader: else branch does 2D screen-space conversion
   m_Uniforms.screenSize[0] = m_ScreenSize[0];
   m_Uniforms.screenSize[1] = m_ScreenSize[1];
   [m_CurrentEncoder setVertexBytes:vd length:24 * vc atIndex:0];
@@ -416,16 +428,20 @@ void MacOSRenderDevice::DrawIndexed(PrimitiveType t, int ic,
   MacOSVertexBufferClass *mvb = (MacOSVertexBufferClass *)vb;
   MacOSIndexBufferClass *mib = (MacOSIndexBufferClass *)ib;
 
-  [m_CurrentEncoder setVertexBuffer:mvb->Get_Metal_Buffer() offset:0 atIndex:0];
+  [m_CurrentEncoder
+      setVertexBuffer:(__bridge id<MTLBuffer>)mvb->Get_Metal_Buffer()
+               offset:0
+              atIndex:0];
 
   MTLIndexType indexType =
       mib->Is_32Bit() ? MTLIndexTypeUInt32 : MTLIndexTypeUInt16;
 
-  [m_CurrentEncoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-                               indexCount:ic
-                                indexType:indexType
-                              indexBuffer:mib->Get_Metal_Buffer()
-                        indexBufferOffset:0];
+  [m_CurrentEncoder
+      drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                 indexCount:ic
+                  indexType:indexType
+                indexBuffer:(__bridge id<MTLBuffer>)mib->Get_Metal_Buffer()
+          indexBufferOffset:0];
 }
 void MacOSRenderDevice::DrawDebugText(const char *t, float x, float y,
                                       unsigned int c) {}
@@ -617,9 +633,9 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
   if (!found)
     return nullptr;
 
-  TGAHeaderPacked *h = (TGAHeaderPacked *)data.data();
-  int w = h->width, height = h->height, bpp = h->bitsperpixel,
-      type = h->datatypecode;
+  TGAHeader *h = (TGAHeader *)data.data();
+  int w = h->Width, height = h->Height, bpp = h->PixelDepth,
+      type = h->ImageType;
 
   if (data.size() >= 4 && data[0] == 'D' && data[1] == 'D' && data[2] == 'S' &&
       data[3] == ' ') {
@@ -654,7 +670,7 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
 
   printf("DEBUG: CreateTextureFromFile: %s w=%d h=%d bpp=%d type=%d "
          "(palette=%d)\n",
-         filename, w, height, bpp, type, h->colourmaptype);
+         filename, w, height, bpp, type, h->ColorMapType);
   fflush(stdout);
 
   if (w <= 0 || height <= 0 || (bpp != 8 && bpp != 24 && bpp != 32)) {
@@ -664,16 +680,16 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
     return nullptr;
   }
 
-  unsigned char *src_ptr = (unsigned char *)(h + 1) + h->idlength;
+  unsigned char *src_ptr = (unsigned char *)(h + 1) + h->IDLength;
 
   // Support 8-bit palettized TGA (used in some UI parts like logos/icons)
   struct RGBCol {
     uint8_t b, g, r, a;
   };
   std::vector<RGBCol> palette(256);
-  if (h->colourmaptype == 1) {
-    int len = h->colourmaplength;
-    int depth = h->colourmapdepth; // 24 or 32
+  if (h->ColorMapType == 1) {
+    int len = h->CMapLength;
+    int depth = h->CMapDepth; // 24 or 32
     int db = depth / 8;
     unsigned char *p_ptr = src_ptr;
     src_ptr += len * db;
@@ -715,13 +731,13 @@ ITexture *MacOSRenderDevice::CreateTextureFromFile(const char *filename) {
   }
 
   std::vector<unsigned char> rgba(w * height * 4);
-  bool flipY = !(h->imagedescriptor & 0x20);
+  bool flipY = !(h->ImageDescriptor & 0x20);
   for (int y = 0; y < height; y++) {
     int sy = flipY ? (height - 1 - y) : y;
     const unsigned char *sline = src_ptr + (sy * w * bv);
     unsigned char *dline = rgba.data() + (y * w * 4);
     for (int x = 0; x < w; x++) {
-      if (bv == 1 && h->colourmaptype == 1) { // 8-bit palettized
+      if (bv == 1 && h->ColorMapType == 1) { // 8-bit palettized
         uint8_t idx = sline[x];
         dline[x * 4 + 0] = palette[idx].b;
         dline[x * 4 + 1] = palette[idx].g;
@@ -788,7 +804,7 @@ void MacOSRenderDevice::DrawTexturedRect(float x, float y, float w, float h,
                   {x, y + h, 0, c, u1, v2},
                   {x + w, y + h, 0, c, u2, v2}};
   static unsigned short ids[6] = {0, 1, 2, 1, 3, 2};
-  [m_CurrentEncoder setRenderPipelineState:m_AlphaPS];
+  [m_CurrentEncoder setRenderPipelineState:m_UIPS];
   if (m_Textures[0]) {
     printf("DEBUG: DrawTexturedRect with texture %p\n", m_Textures[0]);
     [m_CurrentEncoder
@@ -798,7 +814,8 @@ void MacOSRenderDevice::DrawTexturedRect(float x, float y, float w, float h,
     printf("DEBUG: DrawTexturedRect with WHITE texture\n");
     [m_CurrentEncoder setFragmentTexture:m_WhiteTexture atIndex:0];
   }
-  m_Uniforms.useProjection = 0;
+  m_Uniforms.useProjection =
+      0; // Inline shader: else branch does 2D screen-space conversion
   m_Uniforms.screenSize[0] = m_ScreenSize[0];
   m_Uniforms.screenSize[1] = m_ScreenSize[1];
   [m_CurrentEncoder setVertexBytes:vs length:sizeof(Vertex) * 4 atIndex:0];

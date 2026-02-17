@@ -404,6 +404,9 @@ LookAtTranslator::translateGameMessage(const GameMessage *msg) {
 
   //-----------------------------------------------------------------------------
   case GameMessage::MSG_FRAME_TICK: {
+    if (!TheInGameUI || !TheGameLogic || !TheTacticalView) {
+      return disp;
+    }
     Coord2D offset = {0, 0};
 
     // If we've been forced to stop scrolling (script action?) then stop

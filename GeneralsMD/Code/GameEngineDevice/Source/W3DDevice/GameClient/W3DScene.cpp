@@ -1010,7 +1010,9 @@ void RTS3DScene::updatePlayerColorPasses(void) {
 #define ZBias 0.0001f
 
 // DECLARE_PERF_TIMER(NonTerrainRender)
-void RTS3DScene::Render(RenderInfoClass &rinfo) { printf("DEBUG: RTS3DScene::Render ENTER\n"); fflush(stdout);
+void RTS3DScene::Render(RenderInfoClass &rinfo) {
+  printf("DEBUG: RTS3DScene::Render ENTER\n");
+  fflush(stdout);
   // USE_PERF_TIMER(NonTerrainRender)
   DX8Wrapper::Set_Fog(FogEnabled, FogColor, FogStart, FogEnd);
 
@@ -1023,10 +1025,17 @@ void RTS3DScene::Render(RenderInfoClass &rinfo) { printf("DEBUG: RTS3DScene::Ren
   if (Get_Extra_Pass_Polygon_Mode() == EXTRA_PASS_DISABLE) {
     if (m_customPassMode == SCENE_PASS_DEFAULT) {
       // Regular rendering pass with no effects
-      printf("DEBUG: RTS3DScene::Render calling updatePlayerColorPasses()\n"); fflush(stdout); updatePlayerColorPasses(); ///@todo: this probably doesn't need to be done
+      printf("DEBUG: RTS3DScene::Render calling updatePlayerColorPasses()\n");
+      fflush(stdout);
+      updatePlayerColorPasses(); ///@todo: this probably doesn't need to be done
                                  /// each frame.
-      printf("DEBUG: RTS3DScene::Render calling updateFixedLightEnvironments()\n"); fflush(stdout); updateFixedLightEnvironments(rinfo);
-      printf("DEBUG: RTS3DScene::Render calling Customized_Render()\n"); fflush(stdout); Customized_Render(rinfo);
+      printf(
+          "DEBUG: RTS3DScene::Render calling updateFixedLightEnvironments()\n");
+      fflush(stdout);
+      updateFixedLightEnvironments(rinfo);
+      printf("DEBUG: RTS3DScene::Render calling Customized_Render()\n");
+      fflush(stdout);
+      Customized_Render(rinfo);
       Flush(rinfo);
     } else if (m_customPassMode == SCENE_PASS_ALPHA_MASK) {
       // a projected alpha texture which will later be used to determine where

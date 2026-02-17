@@ -178,6 +178,9 @@ Player *ControlBar::getCurrentlyViewedPlayer() {
   if (isObserverControlBarOn())
     return getObserverLookAtPlayer();
 
+  if (ThePlayerList == nullptr) {
+    return nullptr;
+  }
   return ThePlayerList->getLocalPlayer();
 }
 
@@ -487,7 +490,7 @@ void ControlBar::updateContextPurchaseScience(void) {
   }
 
   //	win = TheWindowManager->winGetWindowFromId( m_contextParent[
-  //CP_PURCHASE_SCIENCE ], TheNameKeyGenerator->nameToKey(
+  // CP_PURCHASE_SCIENCE ], TheNameKeyGenerator->nameToKey(
   //"ControlBar.wnd:TextEntryGeneralName" ) ); 	if(win)
   //	{
   //		UnicodeString temp = GadgetTextEntryGetText(win);
@@ -1138,14 +1141,15 @@ void ControlBar::init(void) {
       // removed from multiplayer branch
       //			windowName.format(
       //"ControlBar.wnd:CommandMarker%02d", i + 1 ); 			id =
-      //TheNameKeyGenerator->nameToKey( windowName.str() ); 			m_commandMarkers[ i
-      //] = 				TheWindowManager->winGetWindowFromId( m_contextParent[ CP_COMMAND ],
-      //id );
+      // TheNameKeyGenerator->nameToKey( windowName.str() );
+      // m_commandMarkers[ i ] =
+      //TheWindowManager->winGetWindowFromId( m_contextParent[ CP_COMMAND ], id
+      // );
       //			// set the size and position to make sure their
-      //in the same place as the buttons.
+      // in the same place as the buttons.
       //			m_commandMarkers[i]->winSetPosition(commandPos.x
-      //-2, commandPos.y - 2); 			m_commandMarkers[i]->winSetSize(commandSize.x +
-      //2, commandSize.y + 2);
+      //-2, commandPos.y - 2);
+      //m_commandMarkers[i]->winSetSize(commandSize.x + 2, commandSize.y + 2);
     }
 
     for (i = 0; i < MAX_PURCHASE_SCIENCE_RANK_1; i++) {
@@ -2411,13 +2415,14 @@ void ControlBar::setControlCommand(GameWindow *button,
   //{
   //	GadgetButtonSetDisabledImage( button, commandButton->getDisabledImage()
   //); 	GadgetButtonSetDisabledSelectedImage( button,
-  //commandButton->getDisabledImage() ); }  //end if if(
+  // commandButton->getDisabledImage() ); }  //end if if(
   // commandButton->getHiliteImage() ) 	GadgetButtonSetHiliteImage( button,
-  //commandButton->getHiliteImage() ); if( commandButton->getPushedImage() )
+  // commandButton->getHiliteImage() ); if( commandButton->getPushedImage() )
   //{
   //	GadgetButtonSetHiliteSelectedImage( button,
-  //commandButton->getPushedImage() ); 	GadgetButtonSetEnabledSelectedImage(
-  //button, commandButton->getPushedImage() ); }  // end if
+  // commandButton->getPushedImage() );
+  // GadgetButtonSetEnabledSelectedImage( button,
+  // commandButton->getPushedImage() ); }  // end if
 
   // set the text
   if (commandButton->getTextLabel().isEmpty() == FALSE ||
@@ -2831,7 +2836,8 @@ void ControlBar::updatePurchaseScience(void) {
   //		Bool wasFinished = m_generalsScreenAnimate->isFinished();
   //		m_generalsScreenAnimate->update();
   //		if (m_generalsScreenAnimate->isFinished() && !wasFinished &&
-  //m_generalsScreenAnimate->isReversed()) 			m_contextParent[ CP_PURCHASE_SCIENCE
+  // m_generalsScreenAnimate->isReversed()) 			m_contextParent[
+  // CP_PURCHASE_SCIENCE
   //]->winHide(TRUE);
   //	}
 }
@@ -2864,7 +2870,7 @@ void ControlBar::hidePurchaseScience(void) {
   //			if( m_contextParent[ CP_PURCHASE_SCIENCE ] )
   //			{
   //				m_contextParent[ CP_PURCHASE_SCIENCE ]->winHide(
-  //TRUE );
+  // TRUE );
   //			}
   //		}
   //		else
@@ -2918,7 +2924,7 @@ void ControlBar::setDefaultControlBarConfig(void) {
   //	{
   //		m_controlBarResizer->sizeWindowsDefault();
   //		m_controlBarSchemeManager->setControlBarSchemeByPlayerTemplate(ThePlayerList->getLocalPlayer()->getPlayerTemplate(),
-  //FALSE);
+  // FALSE);
   //	}
   m_currentControlBarStage = CONTROL_BAR_STAGE_DEFAULT;
   setScaledViewportHeight();
@@ -2948,7 +2954,7 @@ void ControlBar::setLowControlBarConfig(void) {
   //	{
   //		m_controlBarResizer->sizeWindowsDefault();
   //		m_controlBarSchemeManager->setControlBarSchemeByPlayerTemplate(ThePlayerList->getLocalPlayer()->getPlayerTemplate(),
-  //FALSE);
+  // FALSE);
   //	}
 
   m_currentControlBarStage = CONTROL_BAR_STAGE_LOW;

@@ -177,7 +177,7 @@ WindowTranslator::translateGameMessage(const GameMessage *msg) {
     // controlbar. Without this code, the left click goes through the interface
     // ignoring buttons and blockage and ends up issuing orders right through
     // the controlbar!
-    if (TheInGameUI->isScrolling()) {
+    if (TheInGameUI && TheInGameUI->isScrolling()) {
       if (msg->getType() != GameMessage::MSG_RAW_MOUSE_LEFT_BUTTON_UP &&
           msg->getType() != GameMessage::MSG_RAW_MOUSE_LEFT_BUTTON_DOWN) {
         // We're scrolling, but unless we're clicking the left button, get out.

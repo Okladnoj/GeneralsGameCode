@@ -17,60 +17,57 @@
 */
 
 /***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
+ ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S
+ ****
  ***********************************************************************************************
  *                                                                                             *
- *                 Project Name : WWMath                                                       *
+ *                 Project Name : WWMath *
  *                                                                                             *
- *                     $Archive:: /Commando/Code/wwmath/frustum.h                             $*
+ *                     $Archive:: /Commando/Code/wwmath/frustum.h $*
  *                                                                                             *
- *                       Author:: Greg Hjelstrom                                               *
+ *                       Author:: Greg Hjelstrom *
  *                                                                                             *
- *                     $Modtime:: 3/29/00 10:20a                                              $*
+ *                     $Modtime:: 3/29/00 10:20a $*
  *                                                                                             *
- *                    $Revision:: 3                                                           $*
+ *                    $Revision:: 3 $*
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ * Functions: *
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *- - - - - - - */
 
 #pragma once
 
-#include "vector3.h"
 #include "plane.h"
+#include "vector2.h"
+#include "vector3.h"
 
-
-class FrustumClass
-{
+class FrustumClass {
 public:
-	void Init(			const Matrix3D & camera,
-							const Vector2 & viewport_min,
-							const Vector2 & viewport_max,
-							float znear,
-							float zfar );
+  void Init(const Matrix3D &camera, const Vector2 &viewport_min,
+            const Vector2 &viewport_max, float znear, float zfar);
 
-	const Vector3 &	Get_Bound_Min(void) const		{ return BoundMin; }
-	const Vector3 &	Get_Bound_Max(void) const		{ return BoundMax; }
+  const Vector3 &Get_Bound_Min(void) const { return BoundMin; }
+  const Vector3 &Get_Bound_Max(void) const { return BoundMax; }
 
 public:
-
-	Matrix3D				CameraTransform;
-	// Plane 0: NEAR
-	// Plane 1: bottom
-	// Plane 2: right
-	// Plane 3: top
-	// Plane 4: left
-	// Plane 5: FAR
-	PlaneClass			Planes[6];
-	// Corner 0: NEAR upper left
-	// Corner 1: NEAR upper right
-	// Corner 2: NEAR lower left
-	// Corner 3: NEAR lower right
-	// Corner 4: FAR upper left
-	// Corner 5: FAR upper right
-	// Corner 6: FAR lower left
-	// Corner 7: FAR lower right
-	Vector3				Corners[8];
-	Vector3				BoundMin;
-	Vector3				BoundMax;
+  Matrix3D CameraTransform;
+  // Plane 0: NEAR
+  // Plane 1: bottom
+  // Plane 2: right
+  // Plane 3: top
+  // Plane 4: left
+  // Plane 5: FAR
+  PlaneClass Planes[6];
+  // Corner 0: NEAR upper left
+  // Corner 1: NEAR upper right
+  // Corner 2: NEAR lower left
+  // Corner 3: NEAR lower right
+  // Corner 4: FAR upper left
+  // Corner 5: FAR upper right
+  // Corner 6: FAR lower left
+  // Corner 7: FAR lower right
+  Vector3 Corners[8];
+  Vector3 BoundMin;
+  Vector3 BoundMax;
 };

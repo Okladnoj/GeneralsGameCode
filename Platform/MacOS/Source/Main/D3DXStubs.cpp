@@ -123,7 +123,9 @@ public:
     return 0;
   }
 
-  STDMETHOD(CheckDeviceFormat)(UINT Adapter, DWORD DeviceType, D3DFORMAT AdapterFormat, DWORD Usage, DWORD RType, D3DFORMAT CheckFormat) override {
+  STDMETHOD(CheckDeviceFormat)(UINT Adapter, DWORD DeviceType,
+                               D3DFORMAT AdapterFormat, DWORD Usage,
+                               DWORD RType, D3DFORMAT CheckFormat) override {
 
     return 0;
   }
@@ -435,7 +437,10 @@ HRESULT WINAPI D3DXAssembleShader(const void *pSrcData, UINT SrcDataLen,
 }
 }
 
+#include "MacOSBuffers.h"
+
 class MacOSD3DDevice8 : public MacOSD3DMockBase, public IDirect3DDevice8 {
+
 public:
   STDMETHOD(QueryInterface)(REFIID riid, void **ppvObj) override {
     return MacOSD3DMockBase::QueryInterface(riid, ppvObj);
@@ -524,13 +529,26 @@ public:
                                IDirect3DCubeTexture8 **t) override {
     return E_NOTIMPL;
   }
-  STDMETHOD(CreateVertexBuffer)(UINT l, DWORD u, DWORD f, D3DPOOL p,
-                                IDirect3DVertexBuffer8 **v) override {
-    return E_NOTIMPL;
+#include "MacOSBuffers.h"
+
+  STDMETHOD(CreateVertexBuffer)(
+      UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool,
+      IDirect3DVertexBuffer8 **ppVertexBuffer) override {
+    UINT vertex_size = D3DXGetFVFVertexSize(FVF);
+    if (vertex_size == 0)
+      vertex_size = 32; // Fallback
+    UINT count = Length / vertex_size;
+    *ppVertexBuffer =
+        new MacOSVertexBufferClass(FVF, (unsigned short)count, vertex_size);
+    return D3D_OK;
   }
-  STDMETHOD(CreateIndexBuffer)(UINT l, DWORD u, D3DFORMAT f, D3DPOOL p,
-                               IDirect3DIndexBuffer8 **i) override {
-    return E_NOTIMPL;
+  STDMETHOD(CreateIndexBuffer)(UINT Length, DWORD Usage, D3DFORMAT Format,
+                               D3DPOOL Pool,
+                               IDirect3DIndexBuffer8 **ppIndexBuffer) override {
+    bool is32bit = (Format == D3DFMT_INDEX32);
+    UINT count = Length / (is32bit ? 4 : 2);
+    *ppIndexBuffer = new MacOSIndexBufferClass(count, is32bit);
+    return D3D_OK;
   }
 
   STDMETHOD(GetRenderTarget)(IDirect3DSurface8 **s) override {

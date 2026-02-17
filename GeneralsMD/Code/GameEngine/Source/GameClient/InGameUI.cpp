@@ -1840,6 +1840,9 @@ void InGameUI::preDraw(void) {
 //-------------------------------------------------------------------------------------------------
 // DECLARE_PERF_TIMER(InGameUI_update)
 void InGameUI::update(void) {
+  if (TheGameLogic == nullptr) {
+    return;
+  }
   // USE_PERF_TIMER(InGameUI_update)
   Int i;
 
@@ -1907,7 +1910,7 @@ void InGameUI::update(void) {
   if (m_militarySubtitle) // if we have a subtitle, work on it
   {
     // if the timeis frozen by a script, then we still want the text to display
-    if (TheScriptEngine->isTimeFrozenScript()) {
+    if (TheScriptEngine && TheScriptEngine->isTimeFrozenScript()) {
       m_militarySubtitle->lifetime--;
       m_militarySubtitle->blockBeginFrame--;
       m_militarySubtitle->incrementOnFrame--;
@@ -5895,6 +5898,11 @@ void InGameUI::disableTooltipsUntil(UnsignedInt frameNum) {
 void InGameUI::clearTooltipsDisabled() { m_tooltipsDisabledUntil = 0; }
 
 Bool InGameUI::areTooltipsDisabled() const {
+  // TheSuperHackers @bugfix Guard against null TheGameLogic during shell/menu
+  // phase
+  if (TheGameLogic == nullptr) {
+    return FALSE;
+  }
   return (TheGameLogic->getFrame() < m_tooltipsDisabledUntil);
 }
 

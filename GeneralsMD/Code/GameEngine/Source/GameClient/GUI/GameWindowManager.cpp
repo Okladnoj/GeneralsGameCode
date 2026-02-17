@@ -1166,26 +1166,14 @@ void GameWindowManager::winRepaint(void) {
 
   static int repaintCount = 0;
   repaintCount++;
-  /*
-    if (repaintCount % 100 == 0) {
-      int winCount = 0;
-      for (window = m_windowList; window; window = window->winGetNext()) {
-        winCount++;
-        fprintf(stderr,
-                "  Window %d: addr=%p, drawFunc=%p, status=%08X, label=%s, "
-                "hidden=%d, x=%d, y=%d, w=%d, h=%d\n",
-                winCount, (void *)window, (void *)window->m_draw,
-                window->m_status, window->m_instData.m_textLabelString.str(),
-                BitIsSet(window->m_status, WIN_STATUS_HIDDEN),
-                window->m_region.lo.x, window->m_region.lo.y, window->m_size.x,
-                window->m_size.y);
-      }
-      fprintf(stderr,
-              "GameWindowManager::winRepaint: processing %d windows, loop %d\n",
-              winCount, repaintCount);
-      fflush(stderr);
-    }
-  */
+  if (repaintCount % 60 == 0 || repaintCount < 10) {
+    int winCount = 0;
+    for (window = m_windowList; window; window = window->winGetNext())
+      winCount++;
+    printf("DEBUG: winRepaint #%d: processing %d windows\n", repaintCount,
+           winCount);
+    fflush(stdout);
+  }
 
   // draw below windows
   for (window = m_windowTail; window; window = next) {

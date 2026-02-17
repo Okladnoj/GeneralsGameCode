@@ -99,6 +99,18 @@ int MacOS_Main(int argc, char *argv[]) {
   }
 }
 
+void MacOS_GetScreenSize(int &w, int &h) {
+  NSScreen *screen = [NSScreen mainScreen];
+  if (screen) {
+    NSRect frame = [screen visibleFrame];
+    w = (int)frame.size.width;
+    h = (int)frame.size.height;
+  } else {
+    w = 0;
+    h = 0;
+  }
+}
+
 void *MacOS_CreateWindow(int width, int height, const char *title) {
   [NSApplication sharedApplication];
   [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -244,9 +256,10 @@ void MacOS_PumpEvents() {
           NSPoint loc = [event locationInWindow];
           NSWindow *win = [event window];
           if (win) {
-            NSRect content = [win contentRectForFrameRect:[win frame]];
+            NSView *cv = [win contentView];
+            float h = [cv bounds].size.height;
             int x = (int)loc.x;
-            int y = (int)(content.size.height - loc.y);
+            int y = (int)(h - loc.y);
             ((StdMouse *)TheMouse)
                 ->addEvent(MACOS_MOUSE_RBUTTON_DOWN, x, y, 0, 0, timestamp);
           }
@@ -257,9 +270,10 @@ void MacOS_PumpEvents() {
           NSPoint loc = [event locationInWindow];
           NSWindow *win = [event window];
           if (win) {
-            NSRect content = [win contentRectForFrameRect:[win frame]];
+            NSView *cv = [win contentView];
+            float h = [cv bounds].size.height;
             int x = (int)loc.x;
-            int y = (int)(content.size.height - loc.y);
+            int y = (int)(h - loc.y);
             ((StdMouse *)TheMouse)
                 ->addEvent(MACOS_MOUSE_RBUTTON_UP, x, y, 0, 0, timestamp);
           }

@@ -82,7 +82,7 @@ public:
       if (m_Texture->GetLevelDesc(0, &info)) {
         if (info.Width != (unsigned int)m_Width ||
             info.Height != (unsigned int)m_Height) {
-          delete m_Texture;
+          m_Texture->Release();
           m_Texture = nullptr;
         }
       }
@@ -195,7 +195,12 @@ private:
 MacOSDisplayString::MacOSDisplayString()
     : m_Texture(nullptr), m_Width(0), m_Height(0), m_Stale(true) {}
 
-MacOSDisplayString::~MacOSDisplayString() {}
+MacOSDisplayString::~MacOSDisplayString() {
+  if (m_Texture) {
+    m_Texture->Release();
+    m_Texture = nullptr;
+  }
+}
 
 class MacOSDisplayStringManager : public DisplayStringManager {
 public:

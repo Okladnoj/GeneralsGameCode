@@ -91,6 +91,9 @@ const char *g_strFile = "Data/Generals.str";
 // void *TheGameSpyInfo = nullptr; // Duplicate
 void *TheGameSpyChat = nullptr;
 extern "C" void *ApplicationHInstance = nullptr;
+extern "C" void GetMacOSHardwareName(char *buffer, size_t size) {
+  strncpy(buffer, "Apple Metal Graphics Support", size);
+}
 extern "C" void *ApplicationHWnd = nullptr;
 
 // D3DX stubs moved to D3DXStubs.cpp

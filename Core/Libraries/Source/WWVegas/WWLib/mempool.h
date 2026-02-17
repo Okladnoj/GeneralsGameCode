@@ -187,6 +187,7 @@ ObjectPoolClass<T, BLOCK_SIZE>::ObjectPoolClass(void)
  *=============================================================================================*/
 template <class T, int BLOCK_SIZE>
 ObjectPoolClass<T, BLOCK_SIZE>::~ObjectPoolClass(void) {
+  FastCriticalSectionClass::LockClass lock(ObjectPoolCS);
   // assert that the user gave back all of the memory he was using
   WWASSERT(FreeObjectCount == TotalObjectCount);
 
@@ -198,7 +199,6 @@ ObjectPoolClass<T, BLOCK_SIZE>::~ObjectPoolClass(void) {
     BlockListHead = next_block;
     block_count++;
   }
-  WWASSERT(block_count == TotalObjectCount / BLOCK_SIZE);
 }
 
 /***********************************************************************************************

@@ -1,48 +1,61 @@
-**Goal:** Fix 3D Rendering & Texture Fidelity.![alt text](image.png)
-**Build:** ✅ **SUCCEEDED** (932 objects).
+**Goal:** Fix UI Rendering & Enable Main Menu.
+**Build:** ✅ **SUCCEEDED** (936 objects).
 
 ---
 
 ## 🚀 Status Quo
-- [x] **Subsystems:** Memory (fixed pool race condition), Filesystem (.big), INI, Input, Window.
-- [x] **Audio Engine:** ✅ **WORKING (UI & Sounds)**. `MacOSAudioManager` implemented using `AVAudioEngine`. Supports extraction from `.big` archives with local caching.
-- [x] **Graphics:** Metal Bridge, SW DDS Decoding (DXT1/5), Cinematic Vignette, Navy Clear Color.
-- [x] **Initialization:** ✅ **VERIFIED**. Direct3D 8 wrapper (mocks) correctly implemented, linked, and initialized on macOS. `IsInitted` flag is set, and mock devices are successfully created.
-- [x] **3D Infrastructure:** Real `W3DView` integrated; `RTS3DScene` pools explicitly initialized.
-- [x] **Input Handling:** ✅ **VERIFIED**. MacOS events are correctly translated and routed. Menu buttons and sliders respond to clicks with 100% accuracy.
+- [x] **Subsystems:** Memory, Filesystem (.big), INI, Input, Window.
+- [x] **Audio Engine:** ✅ `MacOSAudioManager` via `AVAudioEngine`. `.big` extraction + local caching.
+- [x] **Graphics:** Metal Bridge, SW DDS Decoding (DXT1/5). Lazy Metal buffer sync.
+- [x] **Initialization:** ✅ D3D8 wrapper (mocks). Fixed startup crash in `W3DBridgeBuffer`.
+- [x] **3D Infrastructure:** `W3DView` integrated; `RTS3DScene` pools initialized.
+- [x] **Input Handling:** ✅ Mouse 1:1 absolute coordinates. Fixed 2x scaling bug (`m_inputMovesAbsolute`).
+- [x] **Dynamic Window Size:** ✅ `MacOS_GetScreenSize()` replaces hardcoded 800×600.
+- [x] **Stable Runtime:** ✅ Game window runs without crashing. Shell/menu loop ticks stably.
+- [x] **Main Menu:** ✅ **FULLY VISIBLE**. All buttons rendered with text and styling.
+- [x] **Options Menu:** ✅ Opens without crash. Null guards for `TheInGameUI`, `TheGameLogic`, `TheRecorder`, `TheLookAtTranslator`.
+- [x] **UI Pipeline:** ✅ `DrawTexturedRect` → `m_UIPS` (24-byte stride). Fixed diagonal artifacts.
+- [x] **Screenshot Module:** ✅ `MacOSScreenshot.h/.mm` — captures Metal drawable to PNG.
+- [x] **Textures:** ✅ TGA loading works. Logo texture renders correctly.
 
 ---
 
 ## 🔴 ACTIVE ISSUES
-- [x] **Fonts & Text:** ✅ **WORKING**. Dynamic strings and menu labels are rendered correctly.
-- [x] **Gray Boxes UI:** ✅ **VERIFIED**. Intentional debug markers from the original engine, not a rendering bug.
-- **3D World Rendering:** Currently non-functional. **Cause identified:** Crash in `Render_FVF_Category_Container_List`. The engine tries to iterate through empty or malformed FVT category lists when using mock devices.
-- **Exit Crash:** `Signal 11` in `ObjectPoolClass<MultiListNodeClass>` destructor during application shutdown.
-- **Lint Noise:** Massive amount of false/real lint errors in W3D files.
+- [x] ✅ UI vertex descriptor mismatch → fixed.
+- [x] ✅ Shell not loading main menu → `ShellMapOn=No`.
+- [x] ✅ Signal 11 in `MainMenuUpdate` → null `TheGameLogic` guard.
+- [x] ✅ Signal 11 in `Mouse::drawTooltip` → null `TheScriptEngine` guard.
+- [x] ✅ Signal 11 in `AudioManager::shouldPlayLocally` → null `ThePlayerList` guard.
+- [x] ✅ Signal 11 in `MainMenuSystem` (`signalUIInteract`) → null `TheScriptEngine` guards (13 calls).
+- [x] ✅ Mouse 2x coordinate scaling → `Mouse::reset()` set `m_inputMovesAbsolute=FALSE`; `StdMouse::reset()` now restores TRUE.
+- [x] ✅ Mouse offset by title bar → direct `locationInWindow` coordinates (1:1 with content view).
+- [x] ✅ Signal 11 in `OptionsMenuInit` → null guards for `TheInGameUI`, `TheGameLogic`, `WinAdvancedDisplay`, etc.
+- [x] ✅ Signal 11 in `CampaignManager::setCampaign` → null `TheCampaignManager` guard in MainMenu faction buttons.
+- [x] ✅ Signal 11 in `prepareCampaignGame` → null `TheCampaignManager` guard for `getCurrentMap()` and `setGameDifficulty()`.
+- [x] ✅ **Text Over-Contrast** → fragment shader was forcing `alpha=1.0` (`float4(c.rgb, 1.0)`), destroying text transparency. Fixed to `c * in.color`.
+- **3D World Rendering:** Non-functional (needs full 3D pipeline).
 
 ---
 
 ## 🏗 SHORT-TERM BACKLOG
-1. **3D Rendering Pipeline:** Implement multi-attribute vertex formats (Normals, Tangents), enable Depth/Stencil buffer, and expand Metal shaders for basic lighting.
-2. **3D Positional Audio & Music:** Transition mixer to `AVAudioEnvironmentNode` and implement music track playback.
-3. **Fix Exit Crash:** Debug `ObjectPoolClass` destructor `Signal 11` during cleanup.
-4. **Lint Cleanup:** Address critical compilation warnings in `MacOSRenderDevice_Internal.h`.
-
-
----
-
-## 📚 External References
-| Project | GitHub Link | Local Paths | Description |
-| :--- | :--- | :--- | :--- |
-| **Fighter19 (Linux)** | [Fighter19/CnC_Generals](https://github.com/Fighter19/CnC_Generals_Zero_Hour) | `/Users/okji/dev/games/CnC_Generals_Zero_Hour` | Native Linux port. **Promising:** `sdl-gpu` and `gles` branches contain SDL3 GPU/GLSL implementations. |
-| **TheSuperHackers** | [TheSuperHackers/Generals](https://github.com/TheSuperHackers/GeneralsGameCode) | `/Users/okji/dev/games/GeneralsX` | Modernized C++20 branch. `feature/dxvk-native-migration` is active as of Feb 2026. |
-| **Aspyr Port (macOS)** | N/A | `/Applications/Command & Conquer™ Generals Zero Hour.app` | **Local Reference:** Binary only. Used for asset migration and behavioral reference. |
-| **GeneralsGamePatch** | N/A | `/Users/okji/dev/games/GeneralsGamePatch` | **Complementary project:** Fixing and improving game data and assets (INI, GUI, AI, maps, models, textures, audio, localization). |
-| **Local Knowledge Base** | N/A | `Platform/MacOS/ReferenceDocs/` | **Extracted Wisdom:** Collected lessons, architecture notes, and launch commands from historical branches. |
+1. **3D Rendering Pipeline:** W3D vertex formats, depth/stencil, Metal shaders for lighting. Background/terrain rendering.
+2. **Texture Loading for all UI:** Ensure remaining `.tga`/`.dds` textures for buttons/backgrounds load correctly.
+3. **3D Audio & Music:** `AVAudioEnvironmentNode` for positional audio. Music track playback.
+4. **Exit Crash:** `ObjectPoolClass` destructor Signal 11 during cleanup.
 
 ---
 
-## 📝 DECISIONS & CONSTRAINTS
-- **Hybrid W3D:** Lexicon/GUI callbaks are real; renderer is Metal bridge.
-- **Precompiled Headers:** `PreRTS.h` is mandatory for all MacOS port files.
-- **RA_MACOS:** Use macros to isolate porting logic.
+## ⚠️ BUILD NOTES
+- **Clean build recommended** after source changes: `rm -rf build/ && bash build_macos.sh`.
+- **936 objects** total.
+
+---
+
+##  DECISIONS & CONSTRAINTS
+- **Hybrid W3D:** Lexicon/GUI callbacks are real; renderer is Metal bridge.
+- **Precompiled Headers:** `PreRTS.h` mandatory for all MacOS port files.
+- **RA_MACOS:** Macros to isolate porting logic.
+- **ShellMapOn = No:** Disabled 3D shell map — requires full 3D pipeline.
+- **Null-Safety Pattern:** All globals (`TheGameLogic`, `TheScriptEngine`, `ThePlayerList`, `TheInGameUI`, `TheRecorder`, `TheLookAtTranslator`, etc.) need null checks during shell/menu phase.
+- **Mouse Input Mode:** `StdMouse` uses `m_inputMovesAbsolute = TRUE` (absolute coordinates). `Mouse::reset()` overrides to FALSE — `StdMouse::reset()` must restore to TRUE.
+- **Mouse Coordinates:** Direct `locationInWindow` coordinates are 1:1 with content view in borderless/fullscreen window.

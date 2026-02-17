@@ -47,10 +47,16 @@ static void changePlayerCommon(Player *player) {
 } // namespace detail
 
 bool localPlayerHasRadar() {
+  if (ThePlayerList == nullptr || TheRadar == nullptr) {
+    return false;
+  }
   // Using "local" instead of "observed or local" player because as an observer
   // we prefer the radar to be turned on when observing a player that has no
   // radar.
   const Player *player = ThePlayerList->getLocalPlayer();
+  if (player == nullptr) {
+    return false;
+  }
   const PlayerIndex index = player->getPlayerIndex();
 
   if (TheRadar->isRadarForced(index))

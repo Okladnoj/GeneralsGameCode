@@ -270,6 +270,10 @@ void MoveRectIntoOtherRect(const RECT &inner, const RECT &outer, int *x,
   *y += dy;
 }
 
+#ifdef __APPLE__
+extern "C" void GetMacOSHardwareName(char *buffer, size_t size);
+#endif
+
 bool DX8Wrapper::Init(void *hwnd, bool lite) {
   WWASSERT(!IsInitted);
 
@@ -323,15 +327,25 @@ bool DX8Wrapper::Init(void *hwnd, bool lite) {
   // Initialize capabilities for macOS/Metal
   D3DCAPS8 caps;
   memset(&caps, 0, sizeof(caps));
-  caps.VertexShaderVersion = 0x0101; // D3DVS_VERSION(1, 1)
-  caps.PixelShaderVersion = 0x0101;  // D3DPS_VERSION(1, 1)
+  caps.DeviceType = D3DDEVTYPE_HAL;
+  caps.DevCaps = 0x00010000 | 0x00000080; // HWTRANSFORMANDLIGHT | PUREDEVICE
   caps.MaxSimultaneousTextures = 8;
   caps.MaxTextureBlendStages = 8;
-  caps.DevCaps = 0x00010000; // D3DDEVCAPS_HWTRANSFORMANDLIGHT
+  caps.VertexShaderVersion = 0x0101;
+  caps.PixelShaderVersion = 0x0101;
+  caps.MaxPrimitiveCount = 0xFFFFFF;
+  caps.MaxVertexIndex = 0xFFFFFF;
+  caps.MaxStreams = 8;
+  caps.TextureCaps = 0x00000001 | 0x00000002 | 0x00000004 |
+                     0x00000010; // PERSPECTIVE | POW2 | ALPHA | SQUAREONLY
+  caps.RasterCaps =
+      0x00000100 | 0x00000200 | 0x00000400; // FOGVERTEX | FOGTABLE | FOGRANGE
 
   D3DADAPTER_IDENTIFIER8 adapterId;
   memset(&adapterId, 0, sizeof(adapterId));
-  strncpy(adapterId.Description, "Apple Metal Renderer", 511);
+  GetMacOSHardwareName(adapterId.Description, sizeof(adapterId.Description));
+  adapterId.VendorId = 0x106B;
+  adapterId.DeviceId = 0x0001;
 
   fprintf(stderr, "DEBUG: DX8Wrapper::Init: Creating mocks\n");
   fflush(stderr);
@@ -340,6 +354,8 @@ bool DX8Wrapper::Init(void *hwnd, bool lite) {
   fprintf(stderr,
           "DEBUG: DX8Wrapper::Init: mocks created: Interface=%p, Device=%p\n",
           D3DInterface, D3DDevice);
+  fprintf(stderr, "DEBUG: DX8Wrapper::Init: Hardware: %s\n",
+          adapterId.Description);
   fflush(stderr);
   CurrentCaps =
       new DX8Caps(D3DInterface, caps, WW3D_FORMAT_A8R8G8B8, adapterId);

@@ -295,35 +295,84 @@ void GameClient::init(void) {
     fflush(stdout);
     m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") WindowTranslator, 10);
-    fprintf(stderr, "Registered WindowTranslator: %p, vtable: %p\n",
-            (void *)TheMessageStream->findTranslator(
-                m_translators[m_numTranslators - 1]),
-            *(void ***)TheMessageStream->findTranslator(
-                m_translators[m_numTranslators - 1]));
+    {
+      GameMessageTranslator *t =
+          TheMessageStream->findTranslator(m_translators[m_numTranslators - 1]);
+      fprintf(stderr,
+              "Registered WindowTranslator: %p, priority 10, vtable: %p\n",
+              (void *)t, *(void ***)t);
+    }
 
     m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") MetaEventTranslator, 20);
+    {
+      GameMessageTranslator *t =
+          TheMessageStream->findTranslator(m_translators[m_numTranslators - 1]);
+      fprintf(stderr,
+              "Registered MetaEventTranslator: %p, priority 20, vtable: %p\n",
+              (void *)t, *(void ***)t);
+    }
+
     m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") HotKeyTranslator, 25);
+    {
+      GameMessageTranslator *t =
+          TheMessageStream->findTranslator(m_translators[m_numTranslators - 1]);
+      fprintf(stderr,
+              "Registered HotKeyTranslator: %p, priority 25, vtable: %p\n",
+              (void *)t, *(void ***)t);
+    }
+
     m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") PlaceEventTranslator, 30);
+    {
+      GameMessageTranslator *t =
+          TheMessageStream->findTranslator(m_translators[m_numTranslators - 1]);
+      fprintf(stderr,
+              "Registered PlaceEventTranslator: %p, priority 30, vtable: %p\n",
+              (void *)t, *(void ***)t);
+    }
 
     m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") SelectionTranslator, 50);
-    fprintf(stderr, "Registered SelectionTranslator: %p, vtable: %p\n",
-            (void *)TheMessageStream->findTranslator(
-                m_translators[m_numTranslators - 1]),
-            *(void ***)TheMessageStream->findTranslator(
-                m_translators[m_numTranslators - 1]));
+    {
+      GameMessageTranslator *t =
+          TheMessageStream->findTranslator(m_translators[m_numTranslators - 1]);
+      fprintf(stderr,
+              "Registered SelectionTranslator: %p, priority 50, vtable: %p\n",
+              (void *)t, *(void ***)t);
+    }
 
     m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") LookAtTranslator, 60);
+    {
+      GameMessageTranslator *t =
+          TheMessageStream->findTranslator(m_translators[m_numTranslators - 1]);
+      fprintf(stderr,
+              "Registered LookAtTranslator: %p, priority 60, vtable: %p\n",
+              (void *)t, *(void ***)t);
+    }
+
     m_translators[m_numTranslators] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") CommandTranslator, 70);
     m_commandTranslator = (CommandTranslator *)TheMessageStream->findTranslator(
         m_translators[m_numTranslators++]);
+    {
+      GameMessageTranslator *t = m_commandTranslator;
+      fprintf(stderr,
+              "Registered CommandTranslator: %p, priority 70, vtable: %p\n",
+              (void *)t, *(void ***)t);
+    }
+
     m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") HintSpyTranslator, 100);
+    {
+      GameMessageTranslator *t =
+          TheMessageStream->findTranslator(m_translators[m_numTranslators - 1]);
+      fprintf(stderr,
+              "Registered HintSpyTranslator: %p, priority 100, vtable: %p\n",
+              (void *)t, *(void ***)t);
+    }
     fflush(stderr);
 
     //
@@ -334,6 +383,12 @@ void GameClient::init(void) {
     //
     m_translators[m_numTranslators++] = TheMessageStream->attachTranslator(
         MSGNEW("GameClientSubsystem") GameClientMessageDispatcher, 999999999);
+    {
+      GameMessageTranslator *t =
+          TheMessageStream->findTranslator(m_translators[m_numTranslators - 1]);
+      fprintf(stderr, "Registered Dispatcher: %p, priority max, vtable: %p\n",
+              (void *)t, *(void ***)t);
+    }
   }
 
   // create the font library
@@ -643,7 +698,7 @@ void GameClient::update(void) {
   }
   fprintf(stderr, "DEBUG: GameClient::update - Steps before keyboard\n");
   fflush(stderr);
-  TheWritableGlobalData->m_afterIntro = FALSE;
+  // TheWritableGlobalData->m_afterIntro = FALSE; // DO NOT FORCE RESET
 
   // Update snow particles.
   if (TheSnowManager)
@@ -656,12 +711,11 @@ void GameClient::update(void) {
 
   // update the keyboard
   if (TheKeyboard) {
-    fprintf(stderr,
-            "DEBUG: GameClient::update - Calling TheKeyboard->UPDATE()\n");
-    fflush(stderr);
     TheKeyboard->UPDATE();
     TheKeyboard->createStreamMessages();
   }
+  fprintf(stderr, "DEBUG: GameClient::update - Steps AFTER keyboard\n");
+  fflush(stderr);
 
   // Update the Eva stuff
   if (TheEva) {
@@ -672,6 +726,8 @@ void GameClient::update(void) {
     TheMouse->update();
     TheMouse->createStreamMessages();
   }
+  fprintf(stderr, "DEBUG: GameClient::update - Steps AFTER mouse\n");
+  fflush(stderr);
 
   if (TheInGameUI && TheInGameUI->isCameraTrackingDrawable()) {
     Drawable *draw = TheInGameUI->getFirstSelectedDrawable();
@@ -683,6 +739,8 @@ void GameClient::update(void) {
   }
 
   if (TheGlobalData->m_playIntro || TheGlobalData->m_afterIntro) {
+    fprintf(stderr, "DEBUG: GameClient::update - INTRO MODE DRAW\n");
+    fflush(stderr);
     // redraw all views, update the GUI
     TheDisplay->UPDATE();
     TheDisplay->DRAW();
@@ -691,8 +749,12 @@ void GameClient::update(void) {
 
   // update the window system itself
   if (TheWindowManager) {
+    fprintf(stderr, "DEBUG: GameClient::update - WM UPDATE\n");
+    fflush(stderr);
     TheWindowManager->UPDATE();
   }
+  fprintf(stderr, "DEBUG: GameClient::update - Steps AFTER WM\n");
+  fflush(stderr);
 
   // update the video player
   if (TheVideoPlayer) {
@@ -799,17 +861,22 @@ void GameClient::update(void) {
     TheDisplay->UPDATE();
   }
 
+  fprintf(stderr,
+          "DEBUG: GameClient::update - REACHED LINE 800, TheDisplay=%p\n",
+          (void *)TheDisplay);
+  fflush(stderr);
+
   {
     USE_PERF_TIMER(GameClient_draw)
     if (TheDisplay) {
       static int drawTriggeredCount = 0;
-      if (drawTriggeredCount++ % 100 == 0) {
-        fprintf(stderr,
-                "GameClient::update: TRIGGERING DRAW() on %p, count %d\n",
-                (void *)TheDisplay, drawTriggeredCount);
-        fflush(stderr);
-      }
+      fprintf(stderr, "DEBUG: GameClient::update - Triggering DRAW count %d\n",
+              drawTriggeredCount++);
+      fflush(stderr);
       TheDisplay->DRAW();
+    } else {
+      fprintf(stderr, "DEBUG: GameClient::update - TheDisplay is NULL!\n");
+      fflush(stderr);
     }
   }
 

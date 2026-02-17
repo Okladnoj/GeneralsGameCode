@@ -104,8 +104,11 @@ void Display::attachView(View *view) {
  */
 void Display::drawViews(void) {
 
-  for (View *v = m_viewList; v; v = v->getNextView())
+  for (View *v = m_viewList; v; v = v->getNextView()) {
+    fprintf(stderr, "Display::drawViews: calling %p->drawView()\n", (void *)v);
+    fflush(stderr);
     v->drawView();
+  }
 }
 
 /**

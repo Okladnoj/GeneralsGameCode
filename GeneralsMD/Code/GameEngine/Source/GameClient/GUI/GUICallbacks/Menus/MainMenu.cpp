@@ -237,8 +237,9 @@ static void showSelectiveButtons(Int show) {
 
 static void quitCallback(void) {
   buttonPushed = TRUE;
-  TheScriptEngine->signalUIInteract(
-      TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_EXIT_SELECTED]);
+  if (TheScriptEngine)
+    TheScriptEngine->signalUIInteract(
+        TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_EXIT_SELECTED]);
   TheShell->pop();
   TheGameEngine->setQuitting(TRUE);
 
@@ -261,7 +262,8 @@ static void quitCallback(void) {
 }
 
 void setupGameStart(AsciiString mapName, GameDifficulty diff) {
-  TheCampaignManager->setGameDifficulty(diff);
+  if (TheCampaignManager)
+    TheCampaignManager->setGameDifficulty(diff);
 
   if (launchChallengeMenu) {
     if (TheChallengeGenerals)
@@ -283,11 +285,14 @@ void prepareCampaignGame(GameDifficulty diff) {
   OptionPreferences pref;
   pref.setCampaignDifficulty(diff);
   pref.write();
-  TheScriptEngine->setGlobalDifficulty(diff);
+  if (TheScriptEngine)
+    TheScriptEngine->setGlobalDifficulty(diff);
 
   buttonPushed = FALSE;
   TheTransitionHandler->reverse("MainMenuDifficultyMenuBack");
-  setupGameStart(TheCampaignManager->getCurrentMap(), diff);
+  setupGameStart(TheCampaignManager ? TheCampaignManager->getCurrentMap()
+                                    : AsciiString::TheEmptyString,
+                 diff);
 }
 
 static void doGameStart(void) {
@@ -862,7 +867,10 @@ void MainMenuUpdate(WindowLayout *layout, void *userData) {
   }
   updateCount++;
 
-  if (TheGameLogic->isInGame() && !TheGameLogic->isInShellGame()) {
+  // TheSuperHackers @bugfix Guard against null TheGameLogic during shell/menu
+  // phase
+  if (TheGameLogic && TheGameLogic->isInGame() &&
+      !TheGameLogic->isInShellGame()) {
     return;
   }
   if (DontShowMainMenu && justEntered)
@@ -1096,17 +1104,21 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
     GameWindow *control = (GameWindow *)mData1;
     Int controlID = control->winGetWindowId();
     if (controlID == onlineID) {
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_ONLINE_HIGHLIGHTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_ONLINE_HIGHLIGHTED]);
     } else if (controlID == networkID) {
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_NETWORK_HIGHLIGHTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_NETWORK_HIGHLIGHTED]);
     } else if (controlID == optionsID) {
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_OPTIONS_HIGHLIGHTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_OPTIONS_HIGHLIGHTED]);
     } else if (controlID == exitID) {
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_EXIT_HIGHLIGHTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_EXIT_HIGHLIGHTED]);
     } else if (controlID == buttonChallengeID) {
       if (dontAllowTransitions && !campaignSelected) {
         showLogo = TRUE;
@@ -1200,17 +1212,24 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
     Int controlID = control->winGetWindowId();
 
     if (controlID == onlineID) {
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_ONLINE_UNHIGHLIGHTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames
+                [SHELL_SCRIPT_HOOK_MAIN_MENU_ONLINE_UNHIGHLIGHTED]);
     } else if (controlID == networkID) {
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_NETWORK_UNHIGHLIGHTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames
+                [SHELL_SCRIPT_HOOK_MAIN_MENU_NETWORK_UNHIGHLIGHTED]);
     } else if (controlID == optionsID) {
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_OPTIONS_UNHIGHLIGHTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames
+                [SHELL_SCRIPT_HOOK_MAIN_MENU_OPTIONS_UNHIGHLIGHTED]);
     } else if (controlID == exitID) {
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_EXIT_UNHIGHLIGHTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_EXIT_UNHIGHLIGHTED]);
     } else if (controlID == buttonChallengeID) {
       if (dontAllowTransitions && !campaignSelected && showLogo) {
         showLogo = FALSE;
@@ -1426,8 +1445,9 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
       break;
 #endif
       TheShell->push("Menus/SkirmishGameOptionsMenu.wnd");
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_SKIRMISH_SELECTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_SKIRMISH_SELECTED]);
     } else if (controlID == onlineID) {
       if (dontAllowTransitions)
         break;
@@ -1449,15 +1469,17 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
       TheTransitionHandler->reverse("MainMenuMultiPlayerMenuTransitionToNext");
       TheShell->push("Menus/LanLobbyMenu.wnd");
 
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_NETWORK_SELECTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_NETWORK_SELECTED]);
     } else if (controlID == optionsID) {
       if (dontAllowTransitions)
         break;
       dontAllowTransitions = TRUE;
       // buttonPushed = TRUE;
-      TheScriptEngine->signalUIInteract(
-          TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_OPTIONS_SELECTED]);
+      if (TheScriptEngine)
+        TheScriptEngine->signalUIInteract(
+            TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_OPTIONS_SELECTED]);
 
       // load the options menu
       WindowLayout *optLayout = TheShell->getOptionsLayout(TRUE);
@@ -1536,7 +1558,7 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
                             }
     */
     else if (controlID == buttonUSAID) {
-      if (campaignSelected || dontAllowTransitions)
+      if (campaignSelected || dontAllowTransitions || !TheCampaignManager)
         break;
       TheCampaignManager->setCampaign("USA");
 #ifdef _CAMPEA_DEMO
@@ -1565,7 +1587,7 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
 
       //				setupGameStart(TheCampaignManager->getCurrentMap());
     } else if (controlID == buttonGLAID) {
-      if (campaignSelected || dontAllowTransitions)
+      if (campaignSelected || dontAllowTransitions || !TheCampaignManager)
         break;
       TheCampaignManager->setCampaign("GLA");
 #ifdef _CAMPEA_DEMO
@@ -1594,7 +1616,7 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
 
       //				setupGameStart(TheCampaignManager->getCurrentMap());
     } else if (controlID == buttonChinaID) {
-      if (campaignSelected || dontAllowTransitions)
+      if (campaignSelected || dontAllowTransitions || !TheCampaignManager)
         break;
       TheCampaignManager->setCampaign("China");
 #ifdef _CAMPEA_DEMO
@@ -1641,7 +1663,8 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
       if (dontAllowTransitions)
         break;
       dontAllowTransitions = TRUE;
-      TheCampaignManager->setCampaign(AsciiString::TheEmptyString);
+      if (TheCampaignManager)
+        TheCampaignManager->setCampaign(AsciiString::TheEmptyString);
       diffReverseSide();
       campaignSelected = FALSE;
     }

@@ -17,181 +17,172 @@
 */
 
 /***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
+ ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S
+ ****
  ***********************************************************************************************
  *                                                                                             *
- *                 Project Name : WWMath                                                       *
+ *                 Project Name : WWMath *
  *                                                                                             *
- *                     $Archive:: /Commando/Code/wwmath/colmathplane.cpp                      $*
+ *                     $Archive:: /Commando/Code/wwmath/colmathplane.cpp $*
  *                                                                                             *
- *                    Org Author:: Greg Hjelstrom                                               *
+ *                    Org Author:: Greg Hjelstrom *
  *                                                                                             *
- *                       Author : Kenny Mitchell                                               *
+ *                       Author : Kenny Mitchell *
  *                                                                                             *
- *                     $Modtime:: 06/26/02 4:04p                                             $*
+ *                     $Modtime:: 06/26/02 4:04p $*
  *                                                                                             *
- *                    $Revision:: 10                                                           $*
+ *                    $Revision:: 10 $*
  *                                                                                             *
- * 06/26/02 KM Matrix name change to avoid MAX conflicts                                       *
+ * 06/26/02 KM Matrix name change to avoid MAX conflicts *
  *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ * Functions: *
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *- - - - - - - */
 
-
-#include "colmath.h"
 #include "colmathplane.h"
-#include "aaplane.h"
-#include "plane.h"
-#include "lineseg.h"
-#include "tri.h"
-#include "sphere.h"
 #include "aabox.h"
+#include "aaplane.h"
+#include "colmath.h"
+#include "lineseg.h"
 #include "obbox.h"
+#include "plane.h"
+#include "sphere.h"
+#include "tri.h"
 #include "wwdebug.h"
 
-
-
 CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const AAPlaneClass & plane,const Vector3 & point)
-{
-	float delta = point[plane.Normal] - plane.Dist;
-	if (delta > COINCIDENCE_EPSILON) {
-		return POS;
-	}
-	if (delta < -COINCIDENCE_EPSILON) {
-		return NEG;
-	}
-	return ON;
+CollisionMath::Overlap_Test(const AAPlaneClass &plane, const Vector3 &point) {
+  float delta = point[plane.Normal] - plane.Dist;
+  if (delta > COINCIDENCE_EPSILON) {
+    return POS;
+  }
+  if (delta < -COINCIDENCE_EPSILON) {
+    return NEG;
+  }
+  return ON;
 }
 
 CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const AAPlaneClass & plane,const LineSegClass & line)
-{
-	int mask = 0;
-	mask |= CollisionMath::Overlap_Test(plane,line.Get_P0());
-	mask |= CollisionMath::Overlap_Test(plane,line.Get_P1());
-	return eval_overlap_mask(mask);
+CollisionMath::Overlap_Test(const AAPlaneClass &plane,
+                            const LineSegClass &line) {
+  int mask = 0;
+  mask |= CollisionMath::Overlap_Test(plane, line.Get_P0());
+  mask |= CollisionMath::Overlap_Test(plane, line.Get_P1());
+  return eval_overlap_mask(mask);
 }
 
 CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const AAPlaneClass & plane,const TriClass & tri)
-{
-	int mask = 0;
-	mask |= CollisionMath::Overlap_Test(plane,*tri.V[0]);
-	mask |= CollisionMath::Overlap_Test(plane,*tri.V[1]);
-	mask |= CollisionMath::Overlap_Test(plane,*tri.V[2]);
-	return eval_overlap_mask(mask);
+CollisionMath::Overlap_Test(const AAPlaneClass &plane, const TriClass &tri) {
+  int mask = 0;
+  mask |= CollisionMath::Overlap_Test(plane, *tri.V[0]);
+  mask |= CollisionMath::Overlap_Test(plane, *tri.V[1]);
+  mask |= CollisionMath::Overlap_Test(plane, *tri.V[2]);
+  return eval_overlap_mask(mask);
 }
 
 CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const AAPlaneClass & plane,const SphereClass & sphere)
-{
-	float delta = sphere.Center[plane.Normal] - plane.Dist;
-	if (delta > sphere.Radius) {
-		return POS;
-	}
-	if (delta < sphere.Radius) {
-		return NEG;
-	}
-	return BOTH;
+CollisionMath::Overlap_Test(const AAPlaneClass &plane,
+                            const SphereClass &sphere) {
+  float delta = sphere.Center[plane.Normal] - plane.Dist;
+  if (delta > sphere.Radius) {
+    return POS;
+  }
+  if (delta < -sphere.Radius) {
+    return NEG;
+  }
+  return BOTH;
 }
 
 CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const AAPlaneClass & plane,const AABoxClass & box)
-{
-	float delta;
-	int mask = 0;
+CollisionMath::Overlap_Test(const AAPlaneClass &plane, const AABoxClass &box) {
+  float delta;
+  int mask = 0;
 
-	// check the 'min' side of the box
-	delta = (box.Center[plane.Normal] - box.Extent[plane.Normal]) - plane.Dist;
-	if (delta > WWMATH_EPSILON) {
-		mask |= POS;
-	} else if (delta < -WWMATH_EPSILON) {
-		mask |= NEG;
-	} else {
-		mask |= ON;
-	}
+  // check the 'min' side of the box
+  delta = (box.Center[plane.Normal] - box.Extent[plane.Normal]) - plane.Dist;
+  if (delta > WWMATH_EPSILON) {
+    mask |= POS;
+  } else if (delta < -WWMATH_EPSILON) {
+    mask |= NEG;
+  } else {
+    mask |= ON;
+  }
 
-	// check the 'max' side of the box
-	delta = (box.Center[plane.Normal] + box.Extent[plane.Normal]) - plane.Dist;
-	if (delta > WWMATH_EPSILON) {
-		mask |= POS;
-	} else if (delta < -WWMATH_EPSILON) {
-		mask |= NEG;
-	} else {
-		mask |= ON;
-	}
+  // check the 'max' side of the box
+  delta = (box.Center[plane.Normal] + box.Extent[plane.Normal]) - plane.Dist;
+  if (delta > WWMATH_EPSILON) {
+    mask |= POS;
+  } else if (delta < -WWMATH_EPSILON) {
+    mask |= NEG;
+  } else {
+    mask |= ON;
+  }
 
-	return eval_overlap_mask(mask);
+  return eval_overlap_mask(mask);
 }
-
 
 CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const AAPlaneClass & /*plane*/,const OBBoxClass & /*box*/)
-{
-// TODO
-	WWASSERT(0);
-	return POS;
+CollisionMath::Overlap_Test(const AAPlaneClass & /*plane*/,
+                            const OBBoxClass & /*box*/) {
+  // TODO
+  WWASSERT(0);
+  return POS;
 }
-
 
 // Plane functions.  Where is operand B with respect to the plane
 
 CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const PlaneClass & plane,const LineSegClass & line)
-{
-	int mask = 0;
-	mask |= CollisionMath::Overlap_Test(plane,line.Get_P0());
-	mask |= CollisionMath::Overlap_Test(plane,line.Get_P1());
-	return eval_overlap_mask(mask);
+CollisionMath::Overlap_Test(const PlaneClass &plane, const LineSegClass &line) {
+  int mask = 0;
+  mask |= CollisionMath::Overlap_Test(plane, line.Get_P0());
+  mask |= CollisionMath::Overlap_Test(plane, line.Get_P1());
+  return eval_overlap_mask(mask);
+}
+
+CollisionMath::OverlapType CollisionMath::Overlap_Test(const PlaneClass &plane,
+                                                       const TriClass &tri) {
+  int mask = 0;
+  mask |= CollisionMath::Overlap_Test(plane, *tri.V[0]);
+  mask |= CollisionMath::Overlap_Test(plane, *tri.V[1]);
+  mask |= CollisionMath::Overlap_Test(plane, *tri.V[2]);
+  return eval_overlap_mask(mask);
 }
 
 CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const PlaneClass & plane,const TriClass & tri)
-{
-	int mask = 0;
-	mask |= CollisionMath::Overlap_Test(plane,*tri.V[0]);
-	mask |= CollisionMath::Overlap_Test(plane,*tri.V[1]);
-	mask |= CollisionMath::Overlap_Test(plane,*tri.V[2]);
-	return eval_overlap_mask(mask);
+CollisionMath::Overlap_Test(const PlaneClass &plane,
+                            const SphereClass &sphere) {
+  float dist = Vector3::Dot_Product(sphere.Center, plane.N) - plane.D;
+  if (dist > sphere.Radius) {
+    return POS;
+  }
+  if (dist < -sphere.Radius) {
+    return NEG;
+  }
+  return BOTH;
 }
 
-CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const PlaneClass & plane,const SphereClass & sphere)
-{
-	float dist = Vector3::Dot_Product(sphere.Center,plane.N) - plane.D;
-	if (dist > sphere.Radius) {
-		return POS;
-	}
-	if (dist < -sphere.Radius) {
-		return NEG;
-	}
-	return BOTH;
-}
+CollisionMath::OverlapType CollisionMath::Overlap_Test(const PlaneClass &plane,
+                                                       const OBBoxClass &box) {
+  // rotate the plane normal into box coordinates
+  Vector3 local_normal;
+  Vector3 posfarpt;
+  Vector3 negfarpt;
+  Matrix3x3::Transpose_Rotate_Vector(box.Basis, plane.N, &local_normal);
 
-CollisionMath::OverlapType
-CollisionMath::Overlap_Test(const PlaneClass & plane,const OBBoxClass & box)
-{
-	// rotate the plane normal into box coordinates
-	Vector3 local_normal;
-	Vector3 posfarpt;
-	Vector3 negfarpt;
-	Matrix3x3::Transpose_Rotate_Vector(box.Basis,plane.N,&local_normal);
+  get_far_extent(local_normal, box.Extent, &posfarpt);
 
-	get_far_extent(local_normal,box.Extent,&posfarpt);
+  // transform the two extreme box coordinates into world space
+  Matrix3x3::Rotate_Vector(box.Basis, posfarpt, &posfarpt);
+  negfarpt = -posfarpt;
+  posfarpt += box.Center;
+  negfarpt += box.Center;
 
-	// transform the two extreme box coordinates into world space
-	Matrix3x3::Rotate_Vector(box.Basis,posfarpt,&posfarpt);
-	negfarpt = -posfarpt;
-	posfarpt += box.Center;
-	negfarpt += box.Center;
-
-	// overlap test
-	if (Overlap_Test(plane,negfarpt) == POS) {
-		return POS;
-	}
-	if (Overlap_Test(plane,posfarpt) == NEG) {
-		return NEG;
-	}
-	return BOTH;
+  // overlap test
+  if (Overlap_Test(plane, negfarpt) == POS) {
+    return POS;
+  }
+  if (Overlap_Test(plane, posfarpt) == NEG) {
+    return NEG;
+  }
+  return BOTH;
 }

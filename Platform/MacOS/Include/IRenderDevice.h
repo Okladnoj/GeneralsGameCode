@@ -32,37 +32,38 @@ enum ResourceLocation {
 };
 
 enum TransformType {
-  TRANSFORM_TYPE_WORLD = 1,
-  TRANSFORM_TYPE_VIEW = 2,
-  TRANSFORM_TYPE_PROJECTION = 3
+  TRANSFORM_TYPE_WORLD = 0,
+  TRANSFORM_TYPE_VIEW = 1,
+  TRANSFORM_TYPE_PROJECTION = 2
 };
 
 enum PrimitiveType {
-  PRIMITIVE_TYPE_TRIANGLELIST = 4,
-  PRIMITIVE_TYPE_TRIANGLESTRIP = 5,
-  PRIMITIVE_TYPE_TRIANGLEFAN = 6,
-  PRIMITIVE_TYPE_LINELIST = 2
+  PRIMITIVE_TYPE_TRIANGLELIST = 0,
+  PRIMITIVE_TYPE_TRIANGLESTRIP = 1,
+  PRIMITIVE_TYPE_TRIANGLEFAN = 2,
+  PRIMITIVE_TYPE_LINELIST = 3
 };
 
+// ... (RenderState remains similar but let's ensure it's clean)
 enum RenderState {
-  RENDER_STATE_ZENABLE = 7,
-  RENDER_STATE_FILLMODE = 8,
-  RENDER_STATE_SHADEMODE = 9,
-  RENDER_STATE_ZWRITEENABLE = 10,
-  RENDER_STATE_ALPHATESTENABLE = 15,
-  RENDER_STATE_SRCBLEND = 19,
-  RENDER_STATE_DESTBLEND = 20,
-  RENDER_STATE_CULLMODE = 22,
-  RENDER_STATE_ZFUNC = 23,
-  RENDER_STATE_ALPHAREF = 24,
-  RENDER_STATE_ALPHAFUNC = 25,
-  RENDER_STATE_ALPHABLENDENABLE = 27,
-  RENDER_STATE_FOGENABLE = 28,
-  RENDER_STATE_FOGCOLOR = 34,
-  RENDER_STATE_FOGTABLEMODE = 35,
-  RENDER_STATE_FOGSTART = 36,
-  RENDER_STATE_FOGEND = 37,
-  RENDER_STATE_FOGDENSITY = 38
+  RENDER_STATE_ZENABLE = 0,
+  RENDER_STATE_FILLMODE = 1,
+  RENDER_STATE_SHADEMODE = 2,
+  RENDER_STATE_ZWRITEENABLE = 3,
+  RENDER_STATE_ALPHATESTENABLE = 4,
+  RENDER_STATE_SRCBLEND = 5,
+  RENDER_STATE_DESTBLEND = 6,
+  RENDER_STATE_CULLMODE = 7,
+  RENDER_STATE_ZFUNC = 8,
+  RENDER_STATE_ALPHAREF = 9,
+  RENDER_STATE_ALPHAFUNC = 10,
+  RENDER_STATE_ALPHABLENDENABLE = 11,
+  RENDER_STATE_FOGENABLE = 12,
+  RENDER_STATE_FOGCOLOR = 13,
+  RENDER_STATE_FOGTABLEMODE = 14,
+  RENDER_STATE_FOGSTART = 15,
+  RENDER_STATE_FOGEND = 16,
+  RENDER_STATE_FOGDENSITY = 17
 };
 
 struct Viewport {
@@ -80,12 +81,14 @@ struct Vertex {
 
 class ITexture {
 public:
-  virtual ~ITexture() {}
   virtual bool LockRect(unsigned int level, LockedRect *pLockedRect,
                         const RectClass *pRect = nullptr,
                         unsigned int flags = 0) = 0;
   virtual bool UnlockRect(unsigned int level) = 0;
   virtual bool GetLevelDesc(unsigned int level, LevelInfo *outInfo) = 0;
+  virtual void Release() = 0; // Better than virtual destructor
+protected:
+  virtual ~ITexture() {}
 };
 
 class IRenderDevice {
