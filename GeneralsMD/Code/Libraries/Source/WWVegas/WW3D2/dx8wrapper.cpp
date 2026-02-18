@@ -324,22 +324,17 @@ bool DX8Wrapper::Init(void *hwnd, bool lite) {
 #ifdef __APPLE__
   fprintf(stderr, "DEBUG: DX8Wrapper::Init: Starting macOS initialization\n");
   fflush(stderr);
-  // Initialize capabilities for macOS/Metal
+
+  // 1. Create the D3D interface (MetalInterface8)
+  D3DInterface = CreateMacOSD3D8();
+  if (!D3DInterface) {
+    fprintf(stderr, "ERROR: CreateMacOSD3D8 failed\n");
+    return false;
+  }
+
+  // 2. Query caps from the adapter (same caps used by GetDeviceCaps)
   D3DCAPS8 caps;
-  memset(&caps, 0, sizeof(caps));
-  caps.DeviceType = D3DDEVTYPE_HAL;
-  caps.DevCaps = 0x00010000 | 0x00000080; // HWTRANSFORMANDLIGHT | PUREDEVICE
-  caps.MaxSimultaneousTextures = 8;
-  caps.MaxTextureBlendStages = 8;
-  caps.VertexShaderVersion = 0x0101;
-  caps.PixelShaderVersion = 0x0101;
-  caps.MaxPrimitiveCount = 0xFFFFFF;
-  caps.MaxVertexIndex = 0xFFFFFF;
-  caps.MaxStreams = 8;
-  caps.TextureCaps = 0x00000001 | 0x00000002 | 0x00000004 |
-                     0x00000010; // PERSPECTIVE | POW2 | ALPHA | SQUAREONLY
-  caps.RasterCaps =
-      0x00000100 | 0x00000200 | 0x00000400; // FOGVERTEX | FOGTABLE | FOGRANGE
+  D3DInterface->GetDeviceCaps(0, D3DDEVTYPE_HAL, &caps);
 
   D3DADAPTER_IDENTIFIER8 adapterId;
   memset(&adapterId, 0, sizeof(adapterId));
@@ -347,31 +342,76 @@ bool DX8Wrapper::Init(void *hwnd, bool lite) {
   adapterId.VendorId = 0x106B;
   adapterId.DeviceId = 0x0001;
 
-  fprintf(stderr, "DEBUG: DX8Wrapper::Init: Creating mocks\n");
-  fflush(stderr);
-  D3DInterface = CreateMacOSD3D8();
-  D3DDevice = CreateMacOSD3DDevice8();
-  fprintf(stderr,
-          "DEBUG: DX8Wrapper::Init: mocks created: Interface=%p, Device=%p\n",
-          D3DInterface, D3DDevice);
-  fprintf(stderr, "DEBUG: DX8Wrapper::Init: Hardware: %s\n",
+  fprintf(stderr, "DEBUG: DX8Wrapper::Init: Adapter: %s\n",
           adapterId.Description);
   fflush(stderr);
-  CurrentCaps =
-      new DX8Caps(D3DInterface, caps, WW3D_FORMAT_A8R8G8B8, adapterId);
+
+  // 3. Create MetalDevice8 via D3DInterface->CreateDevice (initializes Metal!)
+  D3DPRESENT_PARAMETERS pp;
+  memset(&pp, 0, sizeof(pp));
+  pp.BackBufferWidth = 800;
+  pp.BackBufferHeight = 600;
+  pp.BackBufferFormat = D3DFMT_A8R8G8B8;
+  pp.BackBufferCount = 1;
+  pp.SwapEffect = (D3DSWAPEFFECT)1; // D3DSWAPEFFECT_DISCARD
+  pp.hDeviceWindow = _Hwnd;
+  pp.Windowed = TRUE;
+  pp.EnableAutoDepthStencil = TRUE;
+  pp.AutoDepthStencilFormat = D3DFMT_D24S8;
+
+  HRESULT hr = D3DInterface->CreateDevice(0, D3DDEVTYPE_HAL, _Hwnd,
+                                          D3DCREATE_HARDWARE_VERTEXPROCESSING,
+                                          &pp, &D3DDevice);
+  if (FAILED(hr) || !D3DDevice) {
+    fprintf(stderr, "ERROR: D3DInterface->CreateDevice failed (0x%08X)\n",
+            (unsigned)hr);
+    return false;
+  }
+  fprintf(stderr,
+          "DEBUG: DX8Wrapper::Init: Device created: Interface=%p, Device=%p\n",
+          D3DInterface, D3DDevice);
+  fflush(stderr);
+
+  // 4. Initialize DX8Caps from adapter (use placement new to avoid memory pool
+  // assertions)
+  {
+    void *capsMemory = malloc(sizeof(DX8Caps));
+    CurrentCaps = new (capsMemory)
+        DX8Caps(D3DInterface, caps, WW3D_FORMAT_A8R8G8B8, adapterId);
+  }
 
   ResolutionWidth = 800;
   ResolutionHeight = 600;
   BitDepth = 32;
   IsWindowed = true;
 
-  // Minimal state setup
-  fprintf(stderr, "DEBUG: DX8Wrapper::Init: Setting basic render state\n");
-  fflush(stderr);
+  // 5. Set initial render states
   Set_DX8_Render_State(D3DRS_ZENABLE, D3DZB_TRUE);
-  fprintf(stderr, "DEBUG: DX8Wrapper::Init: basic render state set\n");
-  fflush(stderr);
   IsInitted = true;
+
+  // 6. Initialize device-dependent subsystems (VertexMaterialClass, textures,
+  // etc.)
+  DisplayFormat = D3DFMT_A8R8G8B8;
+  try {
+    Do_Onetime_Device_Dependent_Inits();
+    fprintf(stderr, "DEBUG: DX8Wrapper::Init: "
+                    "Do_Onetime_Device_Dependent_Inits succeeded\n");
+  } catch (int ex) {
+    fprintf(stderr,
+            "WARNING: DX8Wrapper::Init: Do_Onetime_Device_Dependent_Inits "
+            "threw exception 0x%X, continuing\n",
+            (unsigned)ex);
+  } catch (...) {
+    fprintf(stderr,
+            "WARNING: DX8Wrapper::Init: Do_Onetime_Device_Dependent_Inits "
+            "threw unknown exception, continuing\n");
+  }
+  fflush(stderr);
+
+  fprintf(stderr,
+          "DEBUG: DX8Wrapper::Init: macOS init complete, IsInitted=%d\n",
+          (int)IsInitted);
+  fflush(stderr);
 #endif
 
   WWDEBUG_SAY(("Reset DX8Wrapper statistics"));
@@ -464,6 +504,15 @@ void DX8Wrapper::Shutdown(void) {
 }
 
 void DX8Wrapper::Do_Onetime_Device_Dependent_Inits(void) {
+  // TheSuperHackers @fix Guard against double initialization. On macOS the
+  // engine may call this multiple times (from Init and Set_Render_Device).
+  static bool oneTimeInitDone = false;
+  if (oneTimeInitDone) {
+    WWDEBUG_SAY(("Do_Onetime_Device_Dependent_Inits: already done, skipping"));
+    return;
+  }
+  oneTimeInitDone = true;
+
   /*
   ** Set Global render states (some of which depend on caps)
   */
@@ -1127,7 +1176,16 @@ bool DX8Wrapper::Set_Render_Device(int dev, int width, int height, int bits,
     Resize_And_Position_Window();
   }
 #endif
-  // must be either resetting existing device or creating a new one.
+  // TheSuperHackers @fix If device already exists and this isn't a reset,
+  // skip device re-creation. On macOS the device is created early during
+  // engine init, then W3DDisplay::init calls Set_Render_Device again.
+  // Still call Do_Onetime_Device_Dependent_Inits() since it may have failed
+  // during the first Init() call (the exception was caught and ignored).
+  if (!reset_device && D3DDevice != nullptr) {
+    WWDEBUG_SAY(("Set_Render_Device: device already exists, re-running init"));
+    Do_Onetime_Device_Dependent_Inits();
+    return true;
+  }
   WWASSERT(reset_device || D3DDevice == nullptr);
 
   /*
@@ -1990,14 +2048,20 @@ void DX8Wrapper::Clear(bool clear_color, bool clear_z_stencil,
   DX8_THREAD_ASSERT();
 
 #ifdef __APPLE__
-  printf("DEBUG: DX8Wrapper::Clear calling dev->Clear()\n");
-  fflush(stdout);
-  IRenderDevice *dev = GetRenderDevice();
-  if (dev) {
-    dev->Clear(Convert_Color(color, dest_alpha));
+  // Use the DX8 device (MetalDevice8) directly — not the legacy IRenderDevice.
+  // MetalDevice8::Clear creates the render pass + encoder.
+  bool has_stencil = true; // Metal always has Depth32Float_Stencil8
+  DWORD flags = 0;
+  if (clear_color)
+    flags |= D3DCLEAR_TARGET;
+  if (clear_z_stencil)
+    flags |= D3DCLEAR_ZBUFFER;
+  if (clear_z_stencil && has_stencil)
+    flags |= D3DCLEAR_STENCIL;
+  if (flags) {
+    DX8CALL(
+        Clear(0, nullptr, flags, Convert_Color(color, dest_alpha), z, stencil));
   }
-  printf("DEBUG: DX8Wrapper::Clear EXIT\n");
-  fflush(stdout);
 #else
   // If we try to clear a stencil buffer which is not there, the entire call
   // will fail KJM fixed this to get format from back buffer (incase render to
@@ -2038,17 +2102,7 @@ void DX8Wrapper::Clear(bool clear_color, bool clear_z_stencil,
 void DX8Wrapper::Set_Viewport(CONST D3DVIEWPORT8 *pViewport) {
   DX8_THREAD_ASSERT();
 #ifdef __APPLE__
-  IRenderDevice *dev = GetRenderDevice();
-  if (dev) {
-    Viewport vp;
-    vp.x = pViewport->X;
-    vp.y = pViewport->Y;
-    vp.w = pViewport->Width;
-    vp.h = pViewport->Height;
-    vp.min_depth = pViewport->MinZ;
-    vp.max_depth = pViewport->MaxZ;
-    dev->SetViewport(&vp);
-  }
+  DX8CALL(SetViewport(pViewport));
 #else
   DX8CALL(SetViewport(pViewport));
 #endif
@@ -2261,6 +2315,19 @@ void DX8Wrapper::Draw(unsigned primitive_type, unsigned short start_index,
                       unsigned short polygon_count,
                       unsigned short min_vertex_index,
                       unsigned short vertex_count) {
+#ifdef RA_MACOS
+  static int drawCount = 0;
+  drawCount++;
+  if (drawCount <= 20) {
+    fprintf(stderr,
+            "DEBUG Draw[%d]: pt=%u si=%u pc=%u vt=%u vc=%u lowBound=%u "
+            "triDraw=%d vbType=%u ibType=%u\n",
+            drawCount, primitive_type, start_index, polygon_count,
+            min_vertex_index, vertex_count, DrawPolygonLowBoundLimit,
+            _Is_Triangle_Draw_Enabled(), render_state.vertex_buffer_types[0],
+            render_state.index_buffer_type);
+  }
+#endif
   if (DrawPolygonLowBoundLimit && DrawPolygonLowBoundLimit >= polygon_count)
     return;
 
@@ -2358,38 +2425,17 @@ void DX8Wrapper::Draw(unsigned primitive_type, unsigned short start_index,
       DX8_RECORD_RENDER(polygon_count, vertex_count, render_state.shader);
       DX8_RECORD_DRAW_CALLS();
 #ifdef __APPLE__
-      static int appleDrawCount = 0;
-      if (appleDrawCount++ % 1000 == 0) {
-        printf("DEBUG: WW3D -> Metal Draw call %d\n", appleDrawCount);
-        fflush(stdout);
+      {
+        static int dipCallCount = 0;
+        if (++dipCallCount <= 5)
+          fprintf(stderr, "DEBUG DX8W: about to DX8CALL(DIP) #%d dev=%p\n",
+                  dipCallCount, (void *)DX8Wrapper::_Get_D3D_Device8());
       }
-      IRenderDevice *dev = GetRenderDevice();
-      dev->SetTransform(TRANSFORM_TYPE_WORLD,
-                        (const float *)&render_state.world);
-      dev->SetTransform(TRANSFORM_TYPE_VIEW, (const float *)&render_state.view);
-      dev->SetTransform(TRANSFORM_TYPE_PROJECTION,
-                        (const float *)&ProjectionMatrix);
-      dev->SetMeshShader(render_state.shader.Get_Bits());
-
-      // Set textures
-      for (int i = 0; i < MAX_TEXTURE_STAGES; ++i) {
-        if (render_state.Textures[i]) {
-          // Texture wrapping/casting will be handled inside MacOSRenderer
-          // For now, we rely on the fact that SetTexture already called earlier
-          // or we do it here
-        }
-      }
-
-      PrimitiveType mtlPrimitive = PRIMITIVE_TYPE_TRIANGLELIST;
-      if (primitive_type == D3DPT_TRIANGLESTRIP)
-        mtlPrimitive = PRIMITIVE_TYPE_TRIANGLESTRIP;
-      else if (primitive_type == D3DPT_LINELIST)
-        mtlPrimitive = PRIMITIVE_TYPE_LINELIST;
-
-      dev->DrawIndexed(
-          mtlPrimitive,
-          polygon_count * (primitive_type == D3DPT_TRIANGLELIST ? 3 : 1),
-          render_state.index_buffer, render_state.vertex_buffers[0]);
+      // Use MetalDevice8 (DX8 device) directly, same as Windows path.
+      // Transforms are already set via SetTransform calls that go through DX8.
+      DX8CALL(DrawIndexedPrimitive(
+          (D3DPRIMITIVETYPE)primitive_type, min_vertex_index, vertex_count,
+          start_index + render_state.iba_offset, polygon_count));
 #else
       DX8CALL(DrawIndexedPrimitive(
           (D3DPRIMITIVETYPE)primitive_type, min_vertex_index, vertex_count,
@@ -2488,13 +2534,29 @@ void DX8Wrapper::Apply_Render_State_Changes() {
 
   if (!render_state_changed)
     return;
+#ifdef RA_MACOS
+  static int arsc_count = 0;
+  if (arsc_count < 5) {
+    fprintf(stderr, "DEBUG ARSC[%d]: changed=0x%x\n", arsc_count,
+            render_state_changed);
+  }
+#endif
   if (render_state_changed & SHADER_CHANGED) {
     SNAPSHOT_SAY(("DX8 - apply shader"));
+#ifdef RA_MACOS
+    if (arsc_count < 5)
+      fprintf(stderr, "DEBUG ARSC: shader apply\n");
+#endif
     render_state.shader.Apply();
   }
 
   unsigned mask = TEXTURE0_CHANGED;
   int i = 0;
+#ifdef RA_MACOS
+  if (arsc_count < 5)
+    fprintf(stderr, "DEBUG ARSC: textures (max=%d)\n",
+            CurrentCaps ? CurrentCaps->Get_Max_Textures_Per_Pass() : -1);
+#endif
   for (; i < CurrentCaps->Get_Max_Textures_Per_Pass(); ++i, mask <<= 1) {
     if (render_state_changed & mask) {
       SNAPSHOT_SAY(("DX8 - apply texture %d (%s)", i,
@@ -2503,6 +2565,11 @@ void DX8Wrapper::Apply_Render_State_Changes() {
                         : "null"));
 
       if (render_state.Textures[i]) {
+#ifdef RA_MACOS
+        if (arsc_count < 5)
+          fprintf(stderr, "DEBUG ARSC: tex[%d] Apply path=%s\n", i,
+                  render_state.Textures[i]->Get_Full_Path().str());
+#endif
         render_state.Textures[i]->Apply(i);
       } else {
         TextureBaseClass::Apply_Null(i);
@@ -2512,6 +2579,11 @@ void DX8Wrapper::Apply_Render_State_Changes() {
 
   if (render_state_changed & MATERIAL_CHANGED) {
     SNAPSHOT_SAY(("DX8 - apply material"));
+#ifdef RA_MACOS
+    if (arsc_count < 5)
+      fprintf(stderr, "DEBUG ARSC: material=%p\n",
+              (void *)render_state.material);
+#endif
     VertexMaterialClass *material =
         const_cast<VertexMaterialClass *>(render_state.material);
     if (material) {
@@ -2565,26 +2637,68 @@ void DX8Wrapper::Apply_Render_State_Changes() {
   }
   if (render_state_changed & VERTEX_BUFFER_CHANGED) {
     SNAPSHOT_SAY(("DX8 - apply vb change"));
+#ifdef RA_MACOS
+    if (arsc_count < 5)
+      fprintf(stderr, "DEBUG ARSC: VB change\n");
+#endif
     for (i = 0; i < MAX_VERTEX_STREAMS; ++i) {
       if (render_state.vertex_buffers[i]) {
+#ifdef RA_MACOS
+        if (arsc_count < 5)
+          fprintf(stderr, "DEBUG ARSC: VB[%d] type=%d\n", i,
+                  render_state.vertex_buffer_types[i]);
+#endif
         switch (render_state.vertex_buffer_types[i]) { //->Type()) {
         case BUFFER_TYPE_DX8:
-        case BUFFER_TYPE_DYNAMIC_DX8:
+        case BUFFER_TYPE_DYNAMIC_DX8: {
+#ifdef RA_MACOS
+          if (arsc_count < 5) {
+            auto *dx8vb = static_cast<DX8VertexBufferClass *>(
+                render_state.vertex_buffers[i]);
+            fprintf(stderr, "DEBUG ARSC: VB[%d] dx8vb=%p\n", i, (void *)dx8vb);
+            if (dx8vb) {
+              fprintf(stderr,
+                      "DEBUG ARSC: VB[%d] about to Get_DX8_Vertex_Buffer\n", i);
+              auto *d3dvb = dx8vb->Get_DX8_Vertex_Buffer();
+              fprintf(stderr, "DEBUG ARSC: VB[%d] d3dvb=%p\n", i,
+                      (void *)d3dvb);
+              fprintf(stderr, "DEBUG ARSC: VB[%d] about to FVF_Info\n", i);
+              unsigned fvf2 = dx8vb->FVF_Info().Get_FVF();
+              int fvfSize2 = dx8vb->FVF_Info().Get_FVF_Size();
+              fprintf(stderr, "DEBUG ARSC: VB[%d] fvf=0x%x fvfSize=%d\n", i,
+                      fvf2, fvfSize2);
+            }
+          }
+#endif
           DX8CALL(SetStreamSource(
               i,
               static_cast<DX8VertexBufferClass *>(
                   render_state.vertex_buffers[i])
                   ->Get_DX8_Vertex_Buffer(),
               render_state.vertex_buffers[i]->FVF_Info().Get_FVF_Size()));
+#ifdef RA_MACOS
+          if (arsc_count < 5)
+            fprintf(stderr, "DEBUG ARSC: VB[%d] SetStreamSource done\n", i);
+#endif
           DX8_RECORD_VERTEX_BUFFER_CHANGE();
           {
             // If the VB format is FVF, set the FVF as a vertex shader
             unsigned fvf = render_state.vertex_buffers[i]->FVF_Info().Get_FVF();
             if (fvf != 0) {
+#ifdef RA_MACOS
+              if (arsc_count < 5)
+                fprintf(stderr, "DEBUG ARSC: VB[%d] Set_Vertex_Shader(0x%x)\n",
+                        i, fvf);
+#endif
               Set_Vertex_Shader(fvf);
             }
           }
+#ifdef RA_MACOS
+          if (arsc_count < 5)
+            fprintf(stderr, "DEBUG ARSC: VB[%d] case done\n", i);
+#endif
           break;
+        }
         case BUFFER_TYPE_SORTING:
         case BUFFER_TYPE_DYNAMIC_SORTING:
           break;
@@ -2599,6 +2713,11 @@ void DX8Wrapper::Apply_Render_State_Changes() {
   }
   if (render_state_changed & INDEX_BUFFER_CHANGED) {
     SNAPSHOT_SAY(("DX8 - apply ib change"));
+#ifdef RA_MACOS
+    if (arsc_count < 5)
+      fprintf(stderr, "DEBUG ARSC: IB change ib=%p\n",
+              (void *)render_state.index_buffer);
+#endif
     if (render_state.index_buffer) {
       switch (render_state.index_buffer_type) { //->Type()) {
       case BUFFER_TYPE_DX8:
@@ -2623,6 +2742,11 @@ void DX8Wrapper::Apply_Render_State_Changes() {
 
   render_state_changed &= ((unsigned)WORLD_IDENTITY | (unsigned)VIEW_IDENTITY);
 
+#ifdef RA_MACOS
+  if (arsc_count < 5)
+    fprintf(stderr, "DEBUG ARSC: done\n");
+  arsc_count++;
+#endif
   SNAPSHOT_SAY(("DX8Wrapper::Apply_Render_State_Changes() - finished"));
 }
 

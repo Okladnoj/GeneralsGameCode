@@ -30,6 +30,10 @@
 typedef void *id;
 #endif
 
+#include <map>
+
+class MetalSurface8;
+
 class MetalDevice8 : public IDirect3DDevice8 {
 public:
   MetalDevice8();
@@ -180,6 +184,9 @@ public:
   HRESULT GetIndices(IDirect3DIndexBuffer8 **ppIndexData,
                      UINT *pBaseVertexIndex);
 
+  // Metal Accessor
+  void *GetMTLDevice() const { return m_Device; }
+
 private:
   ULONG m_RefCount;
 
@@ -220,6 +227,38 @@ private:
   void *m_HWND;
   float m_ScreenWidth;
   float m_ScreenHeight;
+
+  // --- Helper ---
+  void *GetPSO(DWORD fvf);         // builds 64-bit key from fvf + blend state
+  uint64_t BuildPSOKey(DWORD fvf); // computes PSO cache key
+  void *GetDepthStencilState();
+  void CreateDepthTexture(UINT width, UINT height);
+  void ApplyPerDrawState();           // cull mode, depth/stencil
+  void *GetSamplerState(DWORD stage); // Stage 7: sampler cache
+
+  // --- Metal Render Pipeline State ---
+  void *m_Library;                       // id<MTLLibrary>
+  void *m_FunctionVertex;                // id<MTLFunction>
+  void *m_FunctionFragment;              // id<MTLFunction>
+  std::map<uint64_t, void *> m_PsoCache; // psoKey -> id<MTLRenderPipelineState>
+
+  // --- Depth/Stencil ---
+  void *m_DepthTexture;      // id<MTLTexture> (Depth32Float)
+  void *m_DepthStencilState; // id<MTLDepthStencilState> (cached, current)
+  bool m_DepthStateDirty;    // re-create DSS when render states change
+  std::map<uint32_t, void *>
+      m_DepthStencilStateCache; // key -> id<MTLDepthStencilState>
+
+  // --- Sampler State Cache (Stage 7) ---
+  std::map<uint32_t, void *> m_SamplerStateCache; // key -> id<MTLSamplerState>
+
+  // --- Default Zero Buffer for missing vertex attributes ---
+  void *m_ZeroBuffer; // id<MTLBuffer>, 16 bytes of zeros, bound at index 30
+
+  // --- Default Render Target / Depth Surfaces ---
+  MetalSurface8
+      *m_DefaultRTSurface; // returned by GetRenderTarget / GetBackBuffer
+  MetalSurface8 *m_DefaultDepthSurface; // returned by GetDepthStencilSurface
 };
 
 #endif // __APPLE__

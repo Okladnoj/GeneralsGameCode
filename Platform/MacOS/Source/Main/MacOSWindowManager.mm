@@ -78,8 +78,12 @@ int MacOS_Main(int argc, char *argv[]) {
       w = TheGlobalData->m_xResolution;
       h = TheGlobalData->m_yResolution;
     }
+    extern void *ApplicationHWnd;
     void *window =
         MacOS_CreateWindow(w, h, "Command & Conquer Generals (macOS)");
+    ApplicationHWnd = window; // Must set before GameMain → WW3D::Init
+    fprintf(stderr, "DEBUG: ApplicationHWnd SET to %p (window=%p)\n",
+            ApplicationHWnd, window);
 
     // Pump events for a bit to ensure window shows up
     for (int i = 0; i < 30; ++i) {

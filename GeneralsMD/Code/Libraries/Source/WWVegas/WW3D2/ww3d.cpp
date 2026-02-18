@@ -259,7 +259,15 @@ void WW3D::Set_NPatches_Level(unsigned level) {
  * HISTORY: * 3/24/98    GTH : Created. *
  *=============================================================================================*/
 WW3DErrorType WW3D::Init(void *hwnd, char *defaultpal, bool lite) {
-  assert(IsInitted == false);
+  // TheSuperHackers @fix Allow re-entrant init for macOS. The engine startup
+  // initializes DX8Wrapper/Metal early, then W3DDisplay::init() calls Init()
+  // again. Return OK if already initialized to prevent assertion cascade.
+  if (IsInitted) {
+    WWDEBUG_SAY(("WW3D::Init already initialized, skipping (hwnd=%p)", hwnd));
+    if (hwnd)
+      _Hwnd = (HWND)hwnd; // Update window handle if provided
+    return WW3D_ERROR_OK;
+  }
   WWDEBUG_SAY(("WW3D::Init hwnd = %p", hwnd));
   _Hwnd = (HWND)hwnd;
   Lite = lite;

@@ -714,6 +714,22 @@ public:
 
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
+// TheSuperHackers @fix macOS: Clang's overload resolution in certain C++
+// inheritance hierarchies (multiple bases + W3DMPO_GLUE) can select bare
+// operator new(size_t) instead of operator new(size_t,const char*,int).
+// On macOS we silently fall through to the pool allocator so that the
+// class still works. On Windows this macro is empty and the original
+// crash+throw behavior is preserved.
+#ifdef RA_MACOS
+#define MACOS_POOL_FALLBACK_NEW(ARGCLASS)                                      \
+  fprintf(stderr, "MACOS_POOL_FALLBACK: %s new(size_t) called\n", #ARGCLASS);  \
+  fflush(stderr);                                                              \
+  return ARGCLASS::getClassMemoryPool()->allocateBlockImplementation(          \
+      "MACOS_POOL_FALLBACK");
+#else
+#define MACOS_POOL_FALLBACK_NEW(ARGCLASS) /* no-op on Windows */
+#endif
+
 #define MEMORY_POOL_GLUE_WITHOUT_GCMP_NO_DTOR(ARGCLASS)                        \
 public:                                                                        \
   enum ARGCLASS##MagicEnum{ARGCLASS##_GLUE_NOT_IMPLEMENTED = 0};               \
@@ -742,6 +758,10 @@ public:                                                                        \
                                                                                \
 public:                                                                        \
   inline void *operator new(size_t s) {                                        \
+    fprintf(stderr, "POOL_GLUE operator new(size_t=%zu) for %s\n", s,          \
+            #ARGCLASS);                                                        \
+    fflush(stderr);                                                            \
+    MACOS_POOL_FALLBACK_NEW(ARGCLASS)                                          \
     DEBUG_CRASH(("This operator new should normally never be called... "       \
                  "please use new(char*) instead."));                           \
     DEBUG_ASSERTCRASH(                                                         \

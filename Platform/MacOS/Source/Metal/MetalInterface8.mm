@@ -110,9 +110,36 @@ STDMETHODIMP MetalInterface8::GetDeviceCaps(UINT Adapter, DWORD DeviceType,
   if (!pCaps)
     return E_POINTER;
 
-  // Delegate to MetalDevice8's static caps filling
-  MetalDevice8 tempDev;
-  return tempDev.GetDeviceCaps(pCaps);
+  // Fill caps directly — no need to create a temporary MetalDevice8.
+  // These are static capabilities and don't depend on device state.
+  memset(pCaps, 0, sizeof(*pCaps));
+  pCaps->DeviceType = D3DDEVTYPE_HAL;
+  pCaps->DevCaps = D3DDEVCAPS_HWTRANSFORMANDLIGHT;
+  pCaps->MaxSimultaneousTextures = 8;
+  pCaps->MaxTextureBlendStages = 8;
+  pCaps->VertexShaderVersion = 0x0101;
+  pCaps->PixelShaderVersion = 0x0101;
+  pCaps->MaxPrimitiveCount = 0xFFFFFF;
+  pCaps->MaxVertexIndex = 0xFFFFFF;
+  pCaps->MaxStreams = 8;
+  pCaps->MaxActiveLights = 4;
+  pCaps->MaxTextureWidth = 4096;
+  pCaps->MaxTextureHeight = 4096;
+  pCaps->RasterCaps =
+      D3DPRASTERCAPS_FOGRANGE | 0x00000100 | 0x00000200 | D3DPRASTERCAPS_ZBIAS;
+  pCaps->TextureCaps = 0x00000001 | 0x00000002 | 0x00000004;
+  pCaps->TextureOpCaps =
+      D3DTEXOPCAPS_DISABLE | D3DTEXOPCAPS_SELECTARG1 | D3DTEXOPCAPS_SELECTARG2 |
+      D3DTEXOPCAPS_MODULATE | D3DTEXOPCAPS_MODULATE2X | D3DTEXOPCAPS_ADD |
+      D3DTEXOPCAPS_BLENDDIFFUSEALPHA | D3DTEXOPCAPS_BLENDTEXTUREALPHA;
+  pCaps->PrimitiveMiscCaps = D3DPMISCCAPS_COLORWRITEENABLE;
+  pCaps->Caps2 = D3DCAPS2_FULLSCREENGAMMA;
+  pCaps->SrcBlendCaps = 0x1FFF;
+  pCaps->DestBlendCaps = 0x1FFF;
+  pCaps->ZCmpCaps = 0xFF;
+  pCaps->AlphaCmpCaps = 0xFF;
+  pCaps->StencilCaps = 0xFF;
+  return D3D_OK;
 }
 
 STDMETHODIMP_(HMONITOR) MetalInterface8::GetAdapterMonitor(UINT Adapter) {

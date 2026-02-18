@@ -109,6 +109,8 @@ done
 wait
 echo "✅ Compilation finished."
 
+
+
 # 3. Link executable
 echo "� Linking executable..."
 echo "Linking with ${#OBJECTS[@]} objects..."

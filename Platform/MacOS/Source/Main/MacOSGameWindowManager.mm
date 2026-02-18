@@ -103,29 +103,10 @@ void MacOSGameWindowManager::winDrawImage(const Image *image, Int startX,
                                           Color color) {
   if (!image)
     return;
-  AsciiString filename = image->getFilename();
-  printf("WM::winDrawImage: %s at %d,%d\n", filename.str(), (int)startX,
-         (int)startY);
-  fflush(stdout);
-  ITexture *tex = GetRenderDevice()->CreateTextureFromFile(filename.str());
-  if (!tex) {
-    static std::set<std::string> missing;
-    if (missing.find(filename.str()) == missing.end()) {
-      printf("WM MISSING TEXTURE: %s\n", filename.str());
-      fflush(stdout);
-      missing.insert(filename.str());
-    }
-    return;
-  }
-  GetRenderDevice()->SetTexture(0, tex);
-  const Region2D *uv = image->getUV();
-  printf("WM::winDrawImage: UV lo=(%.3f, %.3f) hi=(%.3f, %.3f)\n", uv->lo.x,
-         uv->lo.y, uv->hi.x, uv->hi.y);
-  fflush(stdout);
-  GetRenderDevice()->DrawTexturedRect(startX, startY, endX - startX,
-                                      endY - startY, uv->lo.x, uv->lo.y,
-                                      uv->hi.x, uv->hi.y, color);
-  GetRenderDevice()->SetTexture(0, nullptr);
+  // Route through TheDisplay->drawImage which uses the DX8/Metal pipeline
+  // (Render2DClass -> DX8Wrapper -> MetalDevice8) instead of the separate
+  // MacOSRenderDevice, ensuring all rendering uses the same encoder.
+  TheDisplay->drawImage(image, startX, startY, endX, endY, color);
 }
 
 void MacOSGameWindowManager::winFillRect(Color color, Real width, Int startX,
@@ -149,10 +130,6 @@ void MacOSGameWindowManager::winFormatText(GameFont *font, UnicodeString text,
                                            Int height) {
   AsciiString ascii;
   ascii.translate(text);
-  printf("AGGRESSIVE: WM::winFormatText: '%s' (len %d) at %d,%d, manager=%p\n",
-         ascii.str(), text.getLength(), (int)x, (int)y,
-         (void *)TheDisplayStringManager);
-  fflush(stdout);
 
   DisplayString *ds = TheDisplayStringManager->newDisplayString();
   if (ds) {
@@ -160,10 +137,6 @@ void MacOSGameWindowManager::winFormatText(GameFont *font, UnicodeString text,
     ds->setFont(font);
     ds->draw(x, y, color, 0);
     TheDisplayStringManager->freeDisplayString(ds);
-  } else {
-    printf("WM::winFormatText ERROR: manager->newDisplayString() returned "
-           "NULL!\n");
-    fflush(stdout);
   }
 }
 

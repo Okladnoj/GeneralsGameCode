@@ -1,12 +1,9 @@
 #include "GameClient/Display.h"
+#include "GameClient/GameWindowManager.h"
 #include "GameClient/Image.h"
+#include "GameClient/InGameUI.h"
 #include "GameClient/Mouse.h"
-#include "IRenderDevice.h"
 #include "Lib/BaseType.h"
-#import "MacOSBuffers.h"
-#import "MacOSGameWindowManager.h"
-#import "MacOSRenderDevice_Internal.h"
-#import "MacOSTexture.h"
 #include "PreRTS.h"
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
@@ -15,14 +12,22 @@
 #include "W3DDevice/GameClient/W3DDisplay.h"
 #include "W3DDevice/GameClient/W3DScene.h"
 #include "W3DDevice/GameClient/W3DShaderManager.h"
+#include "WW3D2/render2d.h"
 #include "WW3D2/ww3d.h"
 
-class MacOSDisplay : public Display {
+// MacOSDisplay inherits from W3DDisplay to get all draw methods (drawImage,
+// drawLine, drawFillRect, etc.) through Render2DClass → DX8Wrapper → Metal.
+//
+// Now that WW3D::Init() and DX8Wrapper::Set_Render_Device() are idempotent,
+// W3DDisplay::init() can be called safely even when the device already exists.
+//
+// We override draw() because W3DDisplay::draw() requires many game subsystems
+// (TheScriptEngine, TheTacticalView, etc.) that aren't available during shell.
+class MacOSDisplay : public W3DDisplay {
 public:
   MacOSDisplay() {
     TheDisplay = this;
-    printf("DEBUG: MacOSDisplay created and assigned to TheDisplay at %p\n",
-           this);
+    printf("DEBUG: MacOSDisplay created (W3DDisplay subclass) at %p\n", this);
     fflush(stdout);
   }
   virtual ~MacOSDisplay() {
@@ -31,180 +36,95 @@ public:
   }
 
   virtual void init(void) override {
-    printf("DEBUG: MacOSDisplay::init called\n");
+    printf("DEBUG: MacOSDisplay::init calling W3DDisplay::init...\n");
     fflush(stdout);
 
-    WW3D::Init(nullptr);
+    W3DDisplay::init();
 
-    if (W3DDisplay::m_3DScene == nullptr) {
-      printf("DEBUG: MacOSDisplay::init: Creating RTS3DScene...\n");
-      fflush(stdout);
-      W3DDisplay::m_3DScene = new RTS3DScene();
-      printf("DEBUG: MacOSDisplay::init: Created RTS3DScene=%p\n",
-             (void *)W3DDisplay::m_3DScene);
-      fflush(stdout);
-    }
-    if (W3DDisplay::m_2DScene == nullptr) {
-      printf("DEBUG: MacOSDisplay::init: Creating RTS2DScene...\n");
-      fflush(stdout);
-      W3DDisplay::m_2DScene = new RTS2DScene();
-      printf("DEBUG: MacOSDisplay::init: Created RTS2DScene=%p\n",
-             (void *)W3DDisplay::m_2DScene);
-      fflush(stdout);
-    }
-    if (W3DDisplay::m_3DInterfaceScene == nullptr) {
-      printf("DEBUG: MacOSDisplay::init: Creating RTS3DInterfaceScene...\n");
-      fflush(stdout);
-      W3DDisplay::m_3DInterfaceScene = new RTS3DInterfaceScene();
-      printf("DEBUG: MacOSDisplay::init: Created RTS3DInterfaceScene=%p\n",
-             (void *)W3DDisplay::m_3DInterfaceScene);
-      fflush(stdout);
-    }
-    if (W3DDisplay::m_assetManager == nullptr) {
-      printf("DEBUG: MacOSDisplay::init: Creating W3DAssetManager...\n");
-      fflush(stdout);
-      W3DDisplay::m_assetManager = new W3DAssetManager();
-      printf("DEBUG: MacOSDisplay::init: Created W3DAssetManager=%p\n",
-             (void *)W3DDisplay::m_assetManager);
-      fflush(stdout);
-    }
-
-    printf("DEBUG: MacOSDisplay::init: Calling W3DShaderManager::init()...\n");
+    printf("DEBUG: MacOSDisplay::init finished, width=%d height=%d, "
+           "m_2DRender=%p\n",
+           (int)getWidth(), (int)getHeight(), (void *)m_2DRender);
     fflush(stdout);
-    W3DShaderManager::init();
-    printf("DEBUG: MacOSDisplay::init finished\n");
-    fflush(stdout);
-
-    int w = 800, h = 600;
-    GetRenderDevice()->GetDisplaySize(w, h);
-    setWidth(w);
-    setHeight(h);
   }
 
-  virtual void reset(void) override { Display::reset(); }
+  virtual void reset(void) override { W3DDisplay::reset(); }
 
-  virtual void drawFillRect(Int x, Int y, Int w, Int h,
-                            UnsignedInt color) override {
-    GetRenderDevice()->SetTexture(0, nullptr);
-    GetRenderDevice()->DrawFillRect((float)x, (float)y, (float)w, (float)h,
-                                    color);
-  }
-
-  virtual void drawLine(Int x1, Int y1, Int x2, Int y2, Real width,
-                        UnsignedInt color) override {
-    GetRenderDevice()->SetTexture(0, nullptr);
-    GetRenderDevice()->DrawLine((float)x1, (float)y1, (float)x2, (float)y2,
-                                (float)width, color);
-  }
-
-  virtual void drawLine(Int x1, Int y1, Int x2, Int y2, Real width,
-                        UnsignedInt color1, UnsignedInt color2) override {}
-  virtual void drawOpenRect(Int x, Int y, Int w, Int h, Real width,
-                            UnsignedInt color) override {}
-  virtual void drawRectClock(Int x, Int y, Int w, Int h, Int percent,
-                             UnsignedInt color) override {}
-  virtual void drawRemainingRectClock(Int x, Int y, Int w, Int h, Int percent,
-                                      UnsignedInt color) override {}
-
-  virtual void drawImage(const Image *image, Int sx, Int sy, Int ex, Int ey,
-                         Color color, DrawImageMode mode) override {
-    if (!image)
-      return;
-    const char *filename = image->getFilename().str();
-
-    static int imgCount = 0;
-    if (imgCount++ % 100 == 0) {
-      printf("DEBUG: MacOSDisplay::drawImage '%s' at (%d,%d)\n", filename,
-             (int)sx, (int)sy);
-      fflush(stdout);
-    }
-
-    ITexture *tex = GetRenderDevice()->CreateTextureFromFile(filename);
-    if (tex) {
-      GetRenderDevice()->SetTexture(0, tex);
-      auto uv = image->getUV();
-      if (uv) {
-        GetRenderDevice()->DrawTexturedRect(
-            (float)sx, (float)sy, (float)(ex - sx), (float)(ey - sy), uv->lo.x,
-            uv->lo.y, uv->hi.x, uv->hi.y, color);
-      }
-      GetRenderDevice()->SetTexture(0, nullptr);
-    }
-  }
-
+  // Override draw() — W3DDisplay::draw() requires TheScriptEngine,
+  // TheFramePacer, TheTacticalView, TheParticleSystemManager, etc.
+  // which are null during the shell/menu phase. Use simplified loop.
   virtual void draw(void) override {
-    if (++m_FrameCount % 1000 == 1) {
-      printf("DEBUG: MacOSDisplay::draw heartbeat frame %d\n", m_FrameCount);
+    static int frameCount = 0;
+    frameCount++;
+    if (frameCount <= 5 || frameCount % 200 == 0) {
+      printf("DEBUG: MacOSDisplay::draw heartbeat frame %d\n", frameCount);
       fflush(stdout);
     }
 
-    WW3D::Begin_Render(true, true, Vector3(0.02f, 0.05f, 0.1f));
+    // Simplified render loop — safe with any combination of subsystems
+    WW3DErrorType result =
+        WW3D::Begin_Render(true, true, Vector3(0.02f, 0.05f, 0.1f));
+    if (result != WW3D_ERROR_OK) {
+      if (frameCount <= 10 || frameCount % 200 == 0) {
+        fprintf(
+            stderr,
+            "DEBUG: MacOSDisplay::draw frame %d - Begin_Render FAILED (%d)\n",
+            frameCount, (int)result);
+      }
+      return;
+    }
+    if (frameCount <= 5)
+      fprintf(stderr, "DEBUG: MacOSDisplay::draw frame %d - Begin_Render OK\n",
+              frameCount);
 
-    // Call base class draw to render views (tactical map, etc)
+    // Draw all views of the world (may be empty during shell)
     Display::draw();
 
-    // Repaint windows (GUI)
-    if (TheWindowManager) {
-      TheWindowManager->winRepaint();
+    // Draw the in-game UI
+    if (TheInGameUI) {
+      TheInGameUI->draw();
     }
 
+    // Repaint windows (GUI / menus)
+    if (TheWindowManager) {
+      if (frameCount <= 5)
+        fprintf(stderr,
+                "DEBUG: MacOSDisplay::draw frame %d - winRepaint BEGIN\n",
+                frameCount);
+      TheWindowManager->winRepaint();
+      if (frameCount <= 5)
+        fprintf(stderr, "DEBUG: MacOSDisplay::draw frame %d - winRepaint END\n",
+                frameCount);
+    }
+
+    // Draw the mouse cursor
     if (TheMouse) {
       TheMouse->draw();
     }
 
     WW3D::End_Render();
+    if (frameCount <= 5)
+      fprintf(stderr, "DEBUG: MacOSDisplay::draw frame %d - End_Render done\n",
+              frameCount);
   }
 
-  static int m_FrameCount;
+  // Inherited from W3DDisplay:
+  // drawImage, drawLine, drawFillRect, drawOpenRect, drawRectClock,
+  // drawRemainingRectClock, drawScaledVideoBuffer, drawVideoBuffer,
+  // setClipRegion, isClippingEnabled, enableClipping, etc.
+  // All go through m_2DRender (Render2DClass) → DX8Wrapper → Metal.
 
-  // Stubs for required virtuals from Display.h
-  virtual void drawScaledVideoBuffer(VideoBuffer *buffer,
-                                     VideoStreamInterface *stream) override {}
-  virtual void drawVideoBuffer(VideoBuffer *buffer, Int sx, Int sy, Int ex,
-                               Int ey) override {}
-  virtual void setClipRegion(IRegion2D *region) override {
-    if (region) {
-      GetRenderDevice()->SetScissorRect((int)region->lo.x, (int)region->lo.y,
-                                        (int)(region->hi.x - region->lo.x),
-                                        (int)(region->hi.y - region->lo.y));
-      GetRenderDevice()->EnableScissor(true);
-    }
-  }
-  virtual Bool isClippingEnabled(void) override { return TRUE; }
-  virtual void enableClipping(Bool onoff) override {
-    GetRenderDevice()->EnableScissor(onoff ? true : false);
-  }
-  virtual void setTimeOfDay(TimeOfDay tod) override {}
-  virtual void createLightPulse(const Coord3D *pos, const RGBColor *color,
-                                Real innerRadius, Real attenuationWidth,
-                                UnsignedInt increaseFrameTime,
-                                UnsignedInt decayFrameTime) override {}
-  virtual void setShroudLevel(Int x, Int y, CellShroudStatus setting) override {
-  }
-  virtual void clearShroud() override {}
-  virtual void setBorderShroudLevel(UnsignedByte level) override {}
-  virtual void preloadModelAssets(AsciiString model) override {}
-  virtual void preloadTextureAssets(AsciiString texture) override {}
   virtual void takeScreenShot(void) override {}
   virtual void toggleMovieCapture(void) override {}
-  virtual void toggleLetterBox(void) override {}
-  virtual void enableLetterBox(Bool enable) override {}
-  virtual Real getAverageFPS(void) override { return 60.0f; }
-  virtual Real getCurrentFPS(void) override { return 60.0f; }
-  virtual Int getLastFrameDrawCalls(void) override { return 0; }
-  virtual void doSmartAssetPurgeAndPreload(const char *usageFileName) override {
-  }
-  virtual VideoBuffer *createVideoBuffer(void) override { return nullptr; }
+#if defined(RTS_DEBUG)
   virtual void dumpAssetUsage(const char *mapname) override {}
   virtual void dumpModelAssets(const char *path) override {}
+#endif
   virtual void update(void) override {}
 };
 
 extern "C" Display *MacOS_CreateDisplay(void) {
   Display *d = new MacOSDisplay();
-  printf("DEBUG: MacOS_CreateDisplay CALL returning %p\n", d);
+  printf("DEBUG: MacOS_CreateDisplay returning W3DDisplay-based %p\n", d);
   fflush(stdout);
   return d;
 }
-
-int MacOSDisplay::m_FrameCount = 0;

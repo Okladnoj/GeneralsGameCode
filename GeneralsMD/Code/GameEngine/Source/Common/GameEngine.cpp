@@ -655,10 +655,8 @@ void GameEngine::init() {
     // take place, please make sure that pressing cancel on the audio load music
     // dialog will still cause the game to quit. m_quitting = FALSE;
 
-    /*
     TheMapCache = MSGNEW("GameEngineSubsystem") MapCache;
     TheMapCache->updateCache();
-    */
 
 #ifdef RA_MACOS
     MacOS_LogSubsystemInitTime("TheMapCache->updateCache");

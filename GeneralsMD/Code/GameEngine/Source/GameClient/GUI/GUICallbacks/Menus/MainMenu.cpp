@@ -703,9 +703,21 @@ void MainMenuInit(WindowLayout *layout, void *userData) {
   campaignSelected = FALSE;
   //	dropDownWindows[DROPDOWN_MAIN]->winHide(FALSE);
   if (FirstTimeRunningTheGame) {
+#ifdef __APPLE__
+    // On macOS there is no intro video, so skip the FadeWholeScreen reverse
+    // (which waits for the video to end) and go directly to showing menu.
+    showFade = TRUE;
+    justEntered = TRUE;
+    initialGadgetDelay = 2;
+    GameWindow *rule = TheWindowManager->winGetWindowFromId(
+        parentMainMenu,
+        TheNameKeyGenerator->nameToKey("MainMenu.wnd:MainMenuRuler"));
+    if (rule)
+      rule->winHide(FALSE);
+#else
     TheMouse->setVisibility(FALSE);
-
     TheTransitionHandler->reverse("FadeWholeScreen");
+#endif
     FirstTimeRunningTheGame = FALSE;
   } else {
     showFade = TRUE;

@@ -90,11 +90,11 @@ const char *g_strFile = "Data/Generals.str";
 // void *TheGameSpyGame = nullptr; // Duplicate
 // void *TheGameSpyInfo = nullptr; // Duplicate
 void *TheGameSpyChat = nullptr;
-extern "C" void *ApplicationHInstance = nullptr;
+void *ApplicationHInstance = nullptr;
 extern "C" void GetMacOSHardwareName(char *buffer, size_t size) {
   strncpy(buffer, "Apple Metal Graphics Support", size);
 }
-extern "C" void *ApplicationHWnd = nullptr;
+void *ApplicationHWnd = nullptr;
 
 // D3DX stubs moved to D3DXStubs.cpp
 #include <Utility/atlbase.h>
@@ -281,20 +281,15 @@ void Win32GameEngine::init() {
 
 void Win32GameEngine::reset() { GameEngine::reset(); }
 void Win32GameEngine::update() {
-  // THE HEARTBEAT: Begin a new Metal frame
-  if (GetRenderDevice()) {
-    GetRenderDevice()->BeginScene();
-  }
+  // THE HEARTBEAT: W3D now owns the Metal frame lifecycle
+  // (BeginScene/Clear/Present happen inside WW3D::Begin_Render/End_Render)
+  // MacOSRenderDevice BeginScene/EndScene removed to avoid stealing the
+  // drawable.
 
   // The engine relies on TheMessageTime for GUI transitions and animations.
   TheMessageTime = timeGetTime();
 
   GameEngine::update();
-
-  // THE PRESENTATION: End the frame and show it on screen
-  if (GetRenderDevice()) {
-    GetRenderDevice()->EndScene();
-  }
 
   serviceWindowsOS();
 }

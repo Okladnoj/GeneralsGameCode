@@ -6,7 +6,7 @@
 #include <Utility/win_compat.h>
 
 #ifdef __APPLE__
-#include "MacOSBuffers.h"
+#include "MetalIndexBuffer8.h"
 #include <d3d8.h>
 #endif
 
@@ -37,9 +37,11 @@ void IndexBufferClass::Release_Engine_Ref() const {
   WWASSERT(engine_refs > 0);
   IndexBufferClass *_this = const_cast<IndexBufferClass *>(this);
   _this->engine_refs--;
+#ifndef RA_MACOS
   if (_this->engine_refs == 0) {
     delete _this;
   }
+#endif
 }
 
 // --- IndexBufferClass::Copy methods ---
@@ -174,7 +176,7 @@ DX8IndexBufferClass::DX8IndexBufferClass(unsigned short index_count,
 
 #ifdef __APPLE__
   index_buffer =
-      (IDirect3DIndexBuffer8 *)new MacOSIndexBufferClass(index_count, false);
+      (IDirect3DIndexBuffer8 *)new MetalIndexBuffer8(index_count, false);
 #else
   D3DPOOL pool =
       (dwUsage & D3DUSAGE_DYNAMIC) ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED;

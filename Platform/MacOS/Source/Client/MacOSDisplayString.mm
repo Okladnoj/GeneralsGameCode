@@ -9,8 +9,11 @@
 #include "GameClient/DisplayString.h"
 #include "GameClient/DisplayStringManager.h"
 #include "GameClient/GameFont.h"
-#include "IRenderDevice.h"
 #include "Lib/BaseType.h"
+
+// DX8 includes for rendering through the Metal pipeline
+#include "WW3D2/dx8wrapper.h"
+#include "d3d8.h"
 
 class MacOSDisplayString : public DisplayString {
 public:
@@ -45,7 +48,7 @@ public:
   virtual void notifyTextChanged(void) override { invalidate(); }
 
   void updateTexture() {
-    if (!m_Stale && m_Texture)
+    if (!m_Stale && m_D3DTexture)
       return;
     if (m_textString.getLength() == 0)
       return;
@@ -73,30 +76,34 @@ public:
     if (size.width <= 0 || size.height <= 0)
       return;
 
-    // Add margin to avoid edge cut-off
     m_Width = (int)ceil(size.width) + 4;
     m_Height = (int)ceil(size.height) + 4;
 
-    if (m_Texture) {
-      LevelInfo info;
-      if (m_Texture->GetLevelDesc(0, &info)) {
-        if (info.Width != (unsigned int)m_Width ||
-            info.Height != (unsigned int)m_Height) {
-          m_Texture->Release();
-          m_Texture = nullptr;
-        }
+    // Release old texture if size changed
+    if (m_D3DTexture) {
+      D3DSURFACE_DESC desc;
+      m_D3DTexture->GetLevelDesc(0, &desc);
+      if (desc.Width != (unsigned int)m_Width ||
+          desc.Height != (unsigned int)m_Height) {
+        m_D3DTexture->Release();
+        m_D3DTexture = nullptr;
       }
     }
 
-    if (!m_Texture) {
-      m_Texture = GetRenderDevice()->CreateTexture(m_Width, m_Height, 1, 0,
-                                                   WW3D_FORMAT_A8R8G8B8);
+    // Create new texture via DX8 pipeline (MetalDevice8)
+    if (!m_D3DTexture) {
+      IDirect3DDevice8 *dev = DX8Wrapper::_Get_D3D_Device8();
+      if (!dev)
+        return;
+      HRESULT hr = dev->CreateTexture(m_Width, m_Height, 1, 0, D3DFMT_A8R8G8B8,
+                                      D3DPOOL_MANAGED, &m_D3DTexture);
+      if (FAILED(hr) || !m_D3DTexture)
+        return;
     }
-    if (!m_Texture)
-      return;
 
-    LockedRect lr;
-    if (m_Texture->LockRect(0, &lr, nullptr, 0)) {
+    // Render text to bitmap and upload to texture
+    D3DLOCKED_RECT lr;
+    if (m_D3DTexture->LockRect(0, &lr, nullptr, 0) == D3D_OK) {
       NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
           initWithBitmapDataPlanes:NULL
                         pixelsWide:m_Width
@@ -111,14 +118,13 @@ public:
                       bitsPerPixel:32];
 
       unsigned char *src = [rep bitmapData];
-      memset(src, 0, m_Width * m_Height * 4); // Clear bits
+      memset(src, 0, m_Width * m_Height * 4);
 
       [NSGraphicsContext saveGraphicsState];
       NSGraphicsContext *context =
           [NSGraphicsContext graphicsContextWithBitmapImageRep:rep];
       [NSGraphicsContext setCurrentContext:context];
 
-      // Draw text in a rect for better alignment
       [nsText drawInRect:NSMakeRect(2, 0, m_Width - 4, m_Height)
           withAttributes:attrs];
       [NSGraphicsContext restoreGraphicsState];
@@ -130,7 +136,7 @@ public:
         unsigned char b = src[i * 4 + 2];
         unsigned char a = src[i * 4 + 3];
 
-        // Unpremultiply because Core Graphics draws premultiplied
+        // Unpremultiply and convert to BGRA
         if (a > 0 && a < 255) {
           dst[i * 4 + 0] = (unsigned char)((int)b * 255 / a);
           dst[i * 4 + 1] = (unsigned char)((int)g * 255 / a);
@@ -142,7 +148,7 @@ public:
         }
         dst[i * 4 + 3] = a;
       }
-      m_Texture->UnlockRect(0);
+      m_D3DTexture->UnlockRect(0);
     }
     m_Stale = false;
   }
@@ -153,16 +159,45 @@ public:
 
     updateTexture();
 
-    if (m_Texture) {
-      // Offset -2 because of our internal margin
+    if (m_D3DTexture) {
+      // Draw through the DX8/Metal pipeline using TheDisplay
+      // For now, use DX8Wrapper directly to set texture and draw a quad
       float fx = (float)x - 2.0f;
       float fy = (float)y;
 
-      GetRenderDevice()->SetTexture(0, m_Texture);
-      GetRenderDevice()->DrawTexturedRect(fx, fy, (float)m_Width,
-                                          (float)m_Height, 0.0f, 0.0f, 1.0f,
-                                          1.0f, color);
-      GetRenderDevice()->SetTexture(0, nullptr);
+      // Use the W3D pipeline: DX8Wrapper::Set_Texture + Render2DClass
+      DX8Wrapper::Set_Texture(0, nullptr);
+      IDirect3DDevice8 *dev = DX8Wrapper::_Get_D3D_Device8();
+      if (dev) {
+        dev->SetTexture(0, m_D3DTexture);
+      }
+
+      // Extract color components
+      float a = ((color >> 24) & 0xFF) / 255.0f;
+      float r = ((color >> 16) & 0xFF) / 255.0f;
+      float g = ((color >> 8) & 0xFF) / 255.0f;
+      float b = (color & 0xFF) / 255.0f;
+
+      // Draw a textured quad using DX8Wrapper
+      struct TexturedVertex {
+        float x, y, z, rhw;
+        DWORD diffuse;
+        float u, v;
+      };
+
+      DWORD d3dColor = color; // Already in D3DCOLOR format (ARGB)
+
+      TexturedVertex verts[4] = {
+          {fx, fy, 0.0f, 1.0f, d3dColor, 0.0f, 0.0f},
+          {fx + m_Width, fy, 0.0f, 1.0f, d3dColor, 1.0f, 0.0f},
+          {fx, fy + m_Height, 0.0f, 1.0f, d3dColor, 0.0f, 1.0f},
+          {fx + m_Width, fy + m_Height, 0.0f, 1.0f, d3dColor, 1.0f, 1.0f},
+      };
+
+      dev->SetVertexShader(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
+      dev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, verts,
+                           sizeof(TexturedVertex));
+      dev->SetTexture(0, nullptr);
     }
   }
 
@@ -187,31 +222,25 @@ public:
   virtual void setUseHotkey(Bool useHotkey, Color hotKeyColor) override {}
 
 private:
-  ITexture *m_Texture;
+  IDirect3DTexture8 *m_D3DTexture;
   int m_Width, m_Height;
   bool m_Stale;
 };
 
 MacOSDisplayString::MacOSDisplayString()
-    : m_Texture(nullptr), m_Width(0), m_Height(0), m_Stale(true) {}
+    : m_D3DTexture(nullptr), m_Width(0), m_Height(0), m_Stale(true) {}
 
 MacOSDisplayString::~MacOSDisplayString() {
-  if (m_Texture) {
-    m_Texture->Release();
-    m_Texture = nullptr;
+  if (m_D3DTexture) {
+    m_D3DTexture->Release();
+    m_D3DTexture = nullptr;
   }
 }
 
 class MacOSDisplayStringManager : public DisplayStringManager {
 public:
-  MacOSDisplayStringManager() {
-    TheDisplayStringManager = this;
-    printf("DEBUG: MacOSDisplayStringManager created at %p\n", this);
-    fflush(stdout);
-  }
+  MacOSDisplayStringManager() { TheDisplayStringManager = this; }
   virtual void init(void) override {
-    printf("DEBUG: MacOSDisplayStringManager::init called\n");
-    fflush(stdout);
     TheMemoryPoolFactory->createMemoryPool(
         "DisplayString", sizeof(MacOSDisplayString), 100, 100);
     DisplayStringManager::init();

@@ -675,4 +675,8 @@ static PoolSizeRec PoolSizes[] = {
     {"SmudgeSet", 32, 32},
     {"Smudge", 128, 32},
     {"MacOSGameWindow", 700, 256},
+    {"MetalSurface8", 128, 32},
+    {"MetalTexture8", 1200, 256},
+    {"MetalIndexBuffer8", 128, 32},
+    {"MetalVertexBuffer8", 128, 32},
     {0, 0, 0}};

@@ -6,7 +6,7 @@
 #include <Utility/win_compat.h>
 
 #ifdef __APPLE__
-#include "MacOSBuffers.h"
+#include "MetalVertexBuffer8.h"
 #include <d3d8.h>
 #endif
 
@@ -125,9 +125,11 @@ void VertexBufferClass::Release_Engine_Ref() const {
   WWASSERT(engine_refs > 0);
   VertexBufferClass *_this = const_cast<VertexBufferClass *>(this);
   _this->engine_refs--;
+#ifndef RA_MACOS
   if (_this->engine_refs == 0) {
     delete _this;
   }
+#endif
 }
 
 DX8VertexBufferClass::DX8VertexBufferClass(unsigned FVF,
@@ -146,7 +148,7 @@ void DX8VertexBufferClass::Create_Vertex_Buffer(UsageType usage) {
   }
 
 #ifdef __APPLE__
-  VertexBuffer = (IDirect3DVertexBuffer8 *)new MacOSVertexBufferClass(
+  VertexBuffer = (IDirect3DVertexBuffer8 *)new MetalVertexBuffer8(
       fvf_info->Get_FVF(), VertexCount, fvf_info->Get_FVF_Size());
 #else
   D3DPOOL pool = D3DPOOL_MANAGED;
