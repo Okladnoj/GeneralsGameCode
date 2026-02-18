@@ -107,3 +107,4 @@ __pycache__/
 /test_int64.cpp
 /\001*
 \\\StatisticsDump.txt
+.agent/
