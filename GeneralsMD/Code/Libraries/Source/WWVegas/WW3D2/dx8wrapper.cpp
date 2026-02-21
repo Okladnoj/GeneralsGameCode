@@ -2374,14 +2374,10 @@ void DX8Wrapper::Apply_Render_State_Changes() {
   unsigned mask = TEXTURE0_CHANGED;
   int i = 0;
   for (; i < CurrentCaps->Get_Max_Textures_Per_Pass(); ++i, mask <<= 1) {
-#ifdef __APPLE__
-    // Metal creates a new render command encoder for each draw call.
-    // Unlike DirectX, texture bindings do NOT persist between encoders.
-    // Always re-apply textures to the current encoder.
-    {
-#else
+    // On Apple: only reapply textures from render_state when explicitly changed
+    // via Set_Texture(). Direct device->SetTexture() calls (used by terrain
+    // shaders) must NOT be overwritten with stale render_state.Textures[].
     if (render_state_changed & mask) {
-#endif
       SNAPSHOT_SAY(("DX8 - apply texture %d (%s)", i,
                     render_state.Textures[i]
                         ? render_state.Textures[i]->Get_Full_Path().str()

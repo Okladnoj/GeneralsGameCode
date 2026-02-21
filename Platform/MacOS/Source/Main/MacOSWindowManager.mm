@@ -51,7 +51,6 @@ static BOOL g_ShouldQuit = NO;
 @implementation MacOSWindowDelegate
 - (void)windowWillClose:(NSNotification *)notification {
   g_ShouldQuit = YES;
-  [NSApp terminate:nil];
 }
 @end
 static id g_WindowDelegate = nil;
@@ -60,6 +59,9 @@ static id g_AppDelegate = nil;
 #import "Common/AsciiString.h"
 #import "Common/GlobalData.h"
 #import "Common/UnicodeString.h"
+
+#include "GameClient/GameWindow.h"
+#include "GameClient/GameWindowManager.h"
 #import "Common/version.h"
 
 extern int GameMain();
@@ -239,6 +241,26 @@ void MacOS_PumpEvents() {
           printf("INPUT: KeyDown %d IGNORED (TheKeyboard is null)\n",
                  [event keyCode]);
           fflush(stdout);
+        }
+
+        if (TheWindowManager) {
+          NSString *chars = [event characters];
+          if (chars && [chars length] > 0) {
+            GameWindow *focusWin = TheWindowManager->winGetFocus();
+            if (focusWin) {
+              for (NSUInteger i = 0; i < [chars length]; i++) {
+                unichar c = [chars characterAtIndex:i];
+                // Pass printable characters and Returns
+                if ((c >= 32 && c < 127) || c > 255 || c == '\r' || c == '\n') {
+                  // VK_RETURN is used for enter
+                  if (c == '\r' || c == '\n') {
+                    c = VK_RETURN;
+                  }
+                  TheWindowManager->winSendInputMsg(focusWin, GWM_IME_CHAR, (WindowMsgData)c, 0);
+                }
+              }
+            }
+          }
         }
         break;
       case NSEventTypeKeyUp:

@@ -574,5 +574,13 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     // Add specular after TSS processing (per DX8 spec: D3DRS_SPECULARENABLE)
     current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
     
+    // DIAG: use constexpr sampler inside shader to eliminate sampler binding issues
+    if (uniforms.useProjection == 1) {
+        constexpr sampler testSamp(coord::normalized, filter::nearest, address::clamp_to_edge);
+        float4 s = tex0.sample(testSamp, float2(0.0, 0.0));
+        // Output: R=s.r, G=s.g, B=s.b (if texture has data, should see colors)
+        // Force alpha=1 so we can see the output
+        return float4(s.rgb, 1.0);
+    }
     return current;
 }

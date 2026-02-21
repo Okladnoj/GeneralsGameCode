@@ -45,11 +45,14 @@ public:
   STDMETHOD(AddDirtyRect)(CONST RECT *pDirtyRect);
 
   // Metal Specific
-  id<MTLTexture> GetMTLTexture() const {
-    return (__bridge id<MTLTexture>)m_Texture;
-  }
-  void *GetMTLTextureVoid() const { return m_Texture; }
-  void *GetMetalTexture() const { return m_Texture; }
+  id<MTLTexture> GetMTLTexture();
+  void *GetMTLTextureVoid() { return m_Texture; }
+  void *GetMetalTexture() { return m_Texture; }
+
+  // Surface live-buffer tracking: games write to pBits AFTER UnlockRect
+  void RegisterLiveSurface(UINT level, void *dataPtr, UINT width, UINT height,
+                           UINT pitch, D3DFORMAT surfFmt);
+  void UnregisterLiveSurface(UINT level);
 
 private:
   ULONG m_RefCount;
@@ -72,8 +75,20 @@ private:
     void *ptr;
     UINT pitch;
     UINT bytesPerPixel;
+    bool hasRect;
+    RECT rect;
   };
   std::map<UINT, LockedLevel> m_LockedLevels;
+
+  // Live-surface tracking for persistent writes after UnlockRect
+  struct LiveSurface {
+    void *dataPtr;
+    UINT width;
+    UINT height;
+    UINT pitch;
+    D3DFORMAT format;
+  };
+  std::map<UINT, LiveSurface> m_LiveSurfaces;
 };
 
 // Internal Helper for Format Mapping

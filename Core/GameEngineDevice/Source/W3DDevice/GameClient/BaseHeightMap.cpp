@@ -605,6 +605,16 @@ void BaseHeightMapRenderObjClass::doTheLight(VERTEX_FORMAT *vb, Vector3*light, V
 	shadeG*=255.0f;
 	shadeB*=255.0f;
 	vb->diffuse = REAL_TO_INT(shadeB) | (REAL_TO_INT(shadeG) << 8) | (REAL_TO_INT(shadeR) << 16) | ((Int)alpha << 24);
+	// DIAG: log a few lighting values and force white
+	static int lightDiag = 0;
+	if (lightDiag < 5) {
+		printf("TERRAIN_LIGHT[%d]: R=%.3f G=%.3f B=%.3f alpha=%d diffuse=0x%08x\n",
+			lightDiag, shadeR, shadeG, shadeB, (int)alpha, vb->diffuse);
+		fflush(stdout);
+		lightDiag++;
+	}
+	// HACK: force white for testing
+	vb->diffuse = 0xFFFFFFFF;
 #endif
 }
 

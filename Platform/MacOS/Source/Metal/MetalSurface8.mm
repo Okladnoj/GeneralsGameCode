@@ -21,6 +21,10 @@ MetalSurface8::MetalSurface8(MetalDevice8 *device, MetalSurface8::SurfaceKind ki
 }
 
 MetalSurface8::~MetalSurface8() {
+  // Unregister from parent texture before freeing buffer
+  if (m_ParentTexture && m_LockedData) {
+    m_ParentTexture->UnregisterLiveSurface(m_MipLevel);
+  }
   if (m_LockedData) {
     free(m_LockedData);
     m_LockedData = nullptr;
@@ -200,17 +204,44 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       mtlBpp = 1;
     }
 
-    if (bpp == 2 && mtlBpp == 4 && m_Format == D3DFMT_A1R5G5B5) {
-      // Convert A1R5G5B5 → BGRA8
+    if (bpp == 2 && mtlBpp == 4 && (m_Format == D3DFMT_A1R5G5B5 || m_Format == D3DFMT_X1R5G5B5 || m_Format == D3DFMT_R5G6B5 || m_Format == D3DFMT_A4R4G4B4)) {
+      // Convert 16-bit formats → BGRA8
       UINT pixelCount = m_Width * m_Height;
       uint8_t *converted = (uint8_t *)malloc(pixelCount * 4);
       uint16_t *src = (uint16_t *)m_LockedData;
       for (UINT i = 0; i < pixelCount; i++) {
         uint16_t px = src[i];
-        uint8_t a = (px & 0x8000) ? 255 : 0;
-        uint8_t r = ((px >> 10) & 0x1F) * 255 / 31;
-        uint8_t g = ((px >> 5) & 0x1F) * 255 / 31;
-        uint8_t b = (px & 0x1F) * 255 / 31;
+        uint8_t a = 255, r = 0, g = 0, b = 0;
+        
+        switch (m_Format) {
+          case D3DFMT_A1R5G5B5:
+            a = (px & 0x8000) ? 255 : 0;
+            r = ((px >> 10) & 0x1F) * 255 / 31;
+            g = ((px >> 5) & 0x1F) * 255 / 31;
+            b = (px & 0x1F) * 255 / 31;
+            break;
+          case D3DFMT_X1R5G5B5:
+            a = 255;
+            r = ((px >> 10) & 0x1F) * 255 / 31;
+            g = ((px >> 5) & 0x1F) * 255 / 31;
+            b = (px & 0x1F) * 255 / 31;
+            break;
+          case D3DFMT_R5G6B5:
+            a = 255;
+            r = ((px >> 11) & 0x1F) * 255 / 31;
+            g = ((px >> 5) & 0x3F) * 255 / 63;
+            b = (px & 0x1F) * 255 / 31;
+            break;
+          case D3DFMT_A4R4G4B4:
+            a = ((px >> 12) & 0xF) * 255 / 15;
+            r = ((px >> 8) & 0xF) * 255 / 15;
+            g = ((px >> 4) & 0xF) * 255 / 15;
+            b = (px & 0xF) * 255 / 15;
+            break;
+          default:
+            break;
+        }
+
         converted[i * 4 + 0] = b; // B
         converted[i * 4 + 1] = g; // G
         converted[i * 4 + 2] = r; // R
@@ -228,6 +259,12 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       bool isCompressed = (mtlFmt == MTLPixelFormatBC1_RGBA ||
                            mtlFmt == MTLPixelFormatBC2_RGBA ||
                            mtlFmt == MTLPixelFormatBC3_RGBA);
+
+      static int s_surfLog = 0;
+      if (s_surfLog < 200) {
+        printf("SURF_UPLOAD[%d] fmt=%d m_Format=%d mtlFmt=%d %dx%d isComp=%d\n", s_surfLog++, m_Format, m_Format, (int)mtlFmt, m_Width, m_Height, isCompressed);
+        fflush(stdout);
+      }
 
       if (isCompressed) {
         // DXT1 is 8 bytes per block, DXT3/5 are 16 bytes per block.
@@ -259,10 +296,11 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       }
     }
 
-    // NOTE: Do NOT free m_LockedData here!
-    // DirectX 8 pattern: callers (W3DShroud, TerrainTex) store pBits from
-    // LockRect and continue writing to it after UnlockRect. The buffer
-    // must stay alive until the surface is destroyed (handled in ~MetalSurface8).
+    // Register live surface with parent for continuous re-upload.
+    // DX8 pattern: callers store pBits and keep writing after UnlockRect.
+    // We must re-upload this buffer to the MTLTexture before each draw.
+    m_ParentTexture->RegisterLiveSurface(m_MipLevel, m_LockedData,
+                                          m_Width, m_Height, m_LockedPitch, m_Format);
   }
 
   return D3D_OK;

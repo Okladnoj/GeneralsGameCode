@@ -85,6 +85,7 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
   desc.width = width;
   desc.height = height;
   desc.mipmapLevelCount = m_Levels;
+  desc.storageMode = MTLStorageModeShared; // Ensure CPU writes via replaceRegion are immediately GPU-visible
   desc.usage = MTLTextureUsageShaderRead;
   if (usage & D3DUSAGE_RENDERTARGET) {
     desc.usage |= MTLTextureUsageRenderTarget;
@@ -277,6 +278,8 @@ STDMETHODIMP MetalTexture8::LockRect(UINT Level, D3DLOCKED_RECT *pLockedRect,
 
   uint8_t *pBits = (uint8_t *)data;
   if (pRect) {
+    printf("TEX_LOCK_PRECT fmt=%d level=%u prect=%d,%d,%d,%d\n", m_Format, Level, pRect->left, pRect->top, pRect->right, pRect->bottom);
+    fflush(stdout);
     if (isCompressed) {
       pBits += (pRect->top / 4) * pitch + (pRect->left / 4) * bpp;
     } else {
@@ -291,6 +294,12 @@ STDMETHODIMP MetalTexture8::LockRect(UINT Level, D3DLOCKED_RECT *pLockedRect,
   lvl.ptr = data;
   lvl.pitch = pitch;
   lvl.bytesPerPixel = bpp;
+  if (pRect) {
+    lvl.hasRect = true;
+    lvl.rect = *pRect;
+  } else {
+    lvl.hasRect = false;
+  }
 
   m_LockedLevels[Level] = lvl;
 
@@ -318,12 +327,14 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
   // while the GPU might be reading from it causes tearing / flickering.
   // For single-level textures (which are typical for dynamic UI/video), we can simply
   // allocate a new texture, resolving the synchronization problem.
-  if (m_Levels == 1) {
+  // Only recreate if we are updating the entire texture (!lvl.hasRect).
+  if (m_Levels == 1 && !lvl.hasRect) {
     MTLTextureDescriptor *desc = [[MTLTextureDescriptor alloc] init];
     desc.pixelFormat = tex.pixelFormat;
     desc.width = tex.width;
     desc.height = tex.height;
     desc.mipmapLevelCount = 1;
+    desc.storageMode = MTLStorageModeShared;
     desc.usage = tex.usage;
     
     id<MTLTexture> newTex = [tex.device newTextureWithDescriptor:desc];
@@ -342,20 +353,39 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
   static int texUploadLogCount = 0;
 
   MTLRegion region = MTLRegionMake2D(0, 0, width, height);
+  uint8_t *uploadPtr = (uint8_t *)lvl.ptr;
+
+  if (lvl.hasRect) {
+    UINT rW = lvl.rect.right - lvl.rect.left;
+    UINT rH = lvl.rect.bottom - lvl.rect.top;
+    region = MTLRegionMake2D(lvl.rect.left, lvl.rect.top, rW, rH);
+    if (isCompressed) {
+      UINT pitch = std::max(1u, (width + 3) / 4) * lvl.bytesPerPixel;
+      uploadPtr += (lvl.rect.top / 4) * pitch + (lvl.rect.left / 4) * lvl.bytesPerPixel;
+    } else {
+      uploadPtr += lvl.rect.top * lvl.pitch + lvl.rect.left * lvl.bytesPerPixel;
+    }
+  }
 
   if (isCompressed) {
     // For BC compressed formats, bytesPerRow = blocksWide * bytesPerBlock
     UINT bytesPerBlock = lvl.bytesPerPixel; // 8 for DXT1, 16 for DXT3/5
     UINT blocksWide = std::max(1u, (width + 3) / 4);
-    UINT blocksHigh = std::max(1u, (height + 3) / 4);
     UINT bytesPerRow = blocksWide * bytesPerBlock;
-    UINT bytesPerImage = bytesPerRow * blocksHigh;
+    
+    // bytesPerImage is not strictly required for 2D textures, but good for validation
+    UINT heightInBlocks = std::max(1u, (height + 3) / 4);
+    if (lvl.hasRect) {
+       heightInBlocks = std::max(1u, ((UINT)(lvl.rect.bottom - lvl.rect.top) + 3) / 4);
+    }
+    UINT bytesPerImage = bytesPerRow * heightInBlocks;
 
     if (texUploadLogCount < 200) {
-      uint8_t *bytes = (uint8_t*)lvl.ptr;
-      printf("TEX_UPLOAD[%d] COMPRESSED fmt=%d level=%u %ux%u blocks=%ux%u bpr=%u bpi=%u first4bytes=[%02x %02x %02x %02x]\n",
-              texUploadLogCount++, (int)m_Format, Level, width, height,
-              blocksWide, blocksHigh, bytesPerRow, bytesPerImage,
+      uint8_t *bytes = uploadPtr;
+      printf("TEX_UPLOAD[%d] COMPRESSED fmt=%d level=%u r=%d,%d,%dx%d bpr=%u bpi=%u first4bytes=[%02x %02x %02x %02x]\n",
+              texUploadLogCount++, (int)m_Format, Level, 
+              (int)region.origin.x, (int)region.origin.y, (int)region.size.width, (int)region.size.height,
+              bytesPerRow, bytesPerImage,
               bytes[0], bytes[1], bytes[2], bytes[3]);
       fflush(stdout);
     }
@@ -363,7 +393,7 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
     [tex replaceRegion:region
            mipmapLevel:Level
                  slice:0
-             withBytes:lvl.ptr
+             withBytes:uploadPtr
            bytesPerRow:bytesPerRow
          bytesPerImage:bytesPerImage];
   } else {
@@ -376,10 +406,60 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
       fflush(stdout);
     }
 
-    [tex replaceRegion:region
-           mipmapLevel:Level
-             withBytes:lvl.ptr
-           bytesPerRow:lvl.pitch];
+    if (lvl.bytesPerPixel == 2 && (m_Format == D3DFMT_A1R5G5B5 || m_Format == D3DFMT_X1R5G5B5 || m_Format == D3DFMT_R5G6B5 || m_Format == D3DFMT_A4R4G4B4)) {
+      UINT pixelCount = width * height;
+      uint8_t *converted = (uint8_t *)malloc(pixelCount * 4);
+      uint16_t *src = (uint16_t *)lvl.ptr;
+      for (UINT i = 0; i < pixelCount; i++) {
+        uint16_t px = src[i];
+        uint8_t a = 255, r = 0, g = 0, b = 0;
+        
+        switch (m_Format) {
+          case D3DFMT_A1R5G5B5:
+            a = (px & 0x8000) ? 255 : 0;
+            r = ((px >> 10) & 0x1F) * 255 / 31;
+            g = ((px >> 5) & 0x1F) * 255 / 31;
+            b = (px & 0x1F) * 255 / 31;
+            break;
+          case D3DFMT_X1R5G5B5:
+            a = 255;
+            r = ((px >> 10) & 0x1F) * 255 / 31;
+            g = ((px >> 5) & 0x1F) * 255 / 31;
+            b = (px & 0x1F) * 255 / 31;
+            break;
+          case D3DFMT_R5G6B5:
+            a = 255;
+            r = ((px >> 11) & 0x1F) * 255 / 31;
+            g = ((px >> 5) & 0x3F) * 255 / 63;
+            b = (px & 0x1F) * 255 / 31;
+            break;
+          case D3DFMT_A4R4G4B4:
+            a = ((px >> 12) & 0xF) * 255 / 15;
+            r = ((px >> 8) & 0xF) * 255 / 15;
+            g = ((px >> 4) & 0xF) * 255 / 15;
+            b = (px & 0xF) * 255 / 15;
+            break;
+          default:
+            break;
+        }
+
+        converted[i * 4 + 0] = b; // B
+        converted[i * 4 + 1] = g; // G
+        converted[i * 4 + 2] = r; // R
+        converted[i * 4 + 3] = a; // A
+      }
+      
+      [tex replaceRegion:region
+             mipmapLevel:Level
+               withBytes:converted
+             bytesPerRow:width * 4];
+      free(converted);
+    } else {
+      [tex replaceRegion:region
+             mipmapLevel:Level
+               withBytes:lvl.ptr
+             bytesPerRow:lvl.pitch];
+    }
   }
 
   free(lvl.ptr);
@@ -391,4 +471,83 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
 
 STDMETHODIMP MetalTexture8::AddDirtyRect(CONST RECT *pDirtyRect) {
   return D3D_OK;
+}
+
+// ─────────────────────────────────────────────────────
+//  Live Surface Sync: re-upload surface data before GPU reads
+// ─────────────────────────────────────────────────────
+
+id<MTLTexture> MetalTexture8::GetMTLTexture() {
+  if (!m_Texture)
+    return nil;
+  
+  id<MTLTexture> tex = (__bridge id<MTLTexture>)m_Texture;
+  
+  // Re-upload from any live surface buffers (games write after UnlockRect)
+  for (auto &pair : m_LiveSurfaces) {
+    UINT level = pair.first;
+    LiveSurface &ls = pair.second;
+    if (!ls.dataPtr) continue;
+    
+    MTLPixelFormat mtlFmt = tex.pixelFormat;
+    bool needsConvert = (ls.format == D3DFMT_A1R5G5B5 || ls.format == D3DFMT_X1R5G5B5 ||
+                         ls.format == D3DFMT_R5G6B5 || ls.format == D3DFMT_A4R4G4B4);
+    
+    if (needsConvert) {
+      // 16-bit → BGRA8 conversion
+      UINT pixelCount = ls.width * ls.height;
+      uint8_t *converted = (uint8_t *)malloc(pixelCount * 4);
+      uint16_t *src = (uint16_t *)ls.dataPtr;
+      for (UINT i = 0; i < pixelCount; i++) {
+        uint16_t px = src[i];
+        uint8_t a = 255, r = 0, g = 0, b = 0;
+        switch (ls.format) {
+          case D3DFMT_A1R5G5B5:
+            a = (px & 0x8000) ? 255 : 0;
+            r = ((px >> 10) & 0x1F) * 255 / 31;
+            g = ((px >> 5) & 0x1F) * 255 / 31;
+            b = (px & 0x1F) * 255 / 31;
+            break;
+          case D3DFMT_R5G6B5:
+            a = 255;
+            r = ((px >> 11) & 0x1F) * 255 / 31;
+            g = ((px >> 5) & 0x3F) * 255 / 63;
+            b = (px & 0x1F) * 255 / 31;
+            break;
+          default:
+            a = 255; r = g = b = 128;
+            break;
+        }
+        converted[i * 4 + 0] = b;
+        converted[i * 4 + 1] = g;
+        converted[i * 4 + 2] = r;
+        converted[i * 4 + 3] = a;
+      }
+      MTLRegion region = MTLRegionMake2D(0, 0, ls.width, ls.height);
+      [tex replaceRegion:region mipmapLevel:level withBytes:converted bytesPerRow:ls.width * 4];
+      free(converted);
+    } else {
+      // Direct upload (BGRA8 → BGRA8)
+      UINT bpp = 4;
+      MTLRegion region = MTLRegionMake2D(0, 0, ls.width, ls.height);
+      [tex replaceRegion:region mipmapLevel:level withBytes:ls.dataPtr bytesPerRow:ls.width * bpp];
+    }
+  }
+  
+  return tex;
+}
+
+void MetalTexture8::RegisterLiveSurface(UINT level, void *dataPtr, UINT width,
+                                         UINT height, UINT pitch, D3DFORMAT surfFmt) {
+  LiveSurface ls;
+  ls.dataPtr = dataPtr;
+  ls.width = width;
+  ls.height = height;
+  ls.pitch = pitch;
+  ls.format = surfFmt;
+  m_LiveSurfaces[level] = ls;
+}
+
+void MetalTexture8::UnregisterLiveSurface(UINT level) {
+  m_LiveSurfaces.erase(level);
 }

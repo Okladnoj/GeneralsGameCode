@@ -167,7 +167,9 @@
 #define DIERR_UNSUPPORTED             E_NOTIMPL
 
 /* ── DirectInput version ────────────────────────────────────────────── */
+#ifndef DIRECTINPUT_VERSION
 #define DIRECTINPUT_VERSION 0x0800
+#endif
 
 /* ── Cooperative level flags ────────────────────────────────────────── */
 #define DISCL_EXCLUSIVE   0x00000001
