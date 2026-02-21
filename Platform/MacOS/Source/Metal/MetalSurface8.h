@@ -43,6 +43,13 @@ public:
 
   SurfaceKind GetKind() const { return m_Kind; }
 
+  // Metal Specific
+  void *GetMTLTexture() const { return m_Texture; }
+  id<MTLTexture> GetMetalTexture() const {
+    return (__bridge id<MTLTexture>)m_Texture;
+  }
+  void SetParent(MetalTexture8* parent, UINT level);
+
 private:
   ULONG m_RefCount;
   MetalDevice8 *m_Device;
@@ -50,8 +57,13 @@ private:
   UINT m_Width;
   UINT m_Height;
   D3DFORMAT m_Format;
+
+  void *m_Texture; // id<MTLTexture>
+  
+  MetalTexture8* m_ParentTexture = nullptr;
+  UINT m_ParentLevel = 0;
+
+  // Staging memory for Lock/Unlock
   void *m_LockedData = nullptr;
   UINT m_LockedPitch = 0;
-  MetalTexture8 *m_ParentTexture = nullptr; // if from GetSurfaceLevel
-  UINT m_MipLevel = 0;
 };

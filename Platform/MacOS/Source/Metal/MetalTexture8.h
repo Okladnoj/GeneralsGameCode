@@ -50,6 +50,9 @@ public:
   }
   void *GetMTLTextureVoid() const { return m_Texture; }
   void *GetMetalTexture() const { return m_Texture; }
+  
+  void GenerateMipmaps();
+  void UploadSurfaceData(UINT Level, void* data, UINT pitch);
 
 private:
   ULONG m_RefCount;

@@ -488,6 +488,18 @@ HRESULT WINAPI D3DXLoadSurfaceFromSurface(IDirect3DSurface8 *pDestSurface,
   return D3D_OK;
 }
 
+extern "C" {
+
+HRESULT WINAPI D3DXFilterTexture(IDirect3DBaseTexture8 *pTexture, const void *pPalette, DWORD SrcLevel, DWORD MipFilter) {
+  if (pTexture) {
+    auto *mtlTex = static_cast<MetalTexture8*>(pTexture);
+    mtlTex->GenerateMipmaps();
+  }
+  return D3D_OK;
+}
+
+} // extern "C"
+
 HRESULT WINAPI D3DXCreateCubeTexture(IDirect3DDevice8 *pDevice, UINT Size,
                                      UINT MipLevels, DWORD Usage,
                                      D3DFORMAT Format, D3DPOOL Pool,

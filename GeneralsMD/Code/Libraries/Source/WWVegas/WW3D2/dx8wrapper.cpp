@@ -2516,8 +2516,12 @@ DX8Wrapper::_Create_DX8_Texture(unsigned int width, unsigned int height,
                                 WW3DFormat format, MipCountType mip_level_count,
                                 D3DPOOL pool, bool rendertarget) {
   DX8_THREAD_ASSERT();
-  DX8_Assert();
   IDirect3DTexture8 *texture = nullptr;
+
+  if (width >= 256 || height >= 256) {
+    printf("DX8_CREATE_TEX: %ux%u format=%d rendertarget=%d\n", width, height, (int)format, (int)rendertarget);
+    fflush(stdout);
+  }
 
   // Paletted textures not supported!
   WWASSERT(format != D3DFMT_P8);

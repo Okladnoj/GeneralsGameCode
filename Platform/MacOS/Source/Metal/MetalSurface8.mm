@@ -13,7 +13,7 @@ MetalSurface8::MetalSurface8(MetalDevice8 *device, MetalSurface8::SurfaceKind ki
                              UINT h, D3DFORMAT fmt,
                              MetalTexture8 *parentTexture, UINT mipLevel)
     : m_RefCount(1), m_Device(device), m_Kind(kind), m_Width(w), m_Height(h),
-      m_Format(fmt), m_ParentTexture(parentTexture), m_MipLevel(mipLevel) {
+      m_Format(fmt), m_ParentTexture(parentTexture), m_ParentLevel(mipLevel) {
   if (m_Device)
     m_Device->AddRef();
   if (m_ParentTexture)
@@ -33,6 +33,17 @@ MetalSurface8::~MetalSurface8() {
     m_Device->Release();
     m_Device = nullptr;
   }
+}
+
+void MetalSurface8::SetParent(MetalTexture8* parent, UINT level) {
+    if (m_ParentTexture) {
+        m_ParentTexture->Release();
+    }
+    m_ParentTexture = parent;
+    if (m_ParentTexture) {
+        m_ParentTexture->AddRef();
+    }
+    m_ParentLevel = level;
 }
 
 // IUnknown
@@ -171,93 +182,7 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
 
   // If this surface came from GetSurfaceLevel, upload data to the parent texture
   if (m_ParentTexture && m_ParentTexture->GetMetalTexture()) {
-    id<MTLTexture> tex = (__bridge id<MTLTexture>)m_ParentTexture->GetMetalTexture();
-    
-    // Calculate bytes per pixel matching the surface format
-    UINT bpp = 4;
-    switch (m_Format) {
-    case D3DFMT_A1R5G5B5:
-    case D3DFMT_X1R5G5B5:
-    case D3DFMT_R5G6B5:
-    case D3DFMT_A4R4G4B4:
-      bpp = 2;
-      break;
-    case D3DFMT_A8:
-      bpp = 1;
-      break;
-    default:
-      bpp = 4;
-      break;
-    }
-
-    // The Metal texture may have a different pixel format than the D3D surface.
-    // If so, we need to convert. Common case: D3D A1R5G5B5 (16-bit) → Metal BGRA8 (32-bit)
-    MTLPixelFormat mtlFmt = tex.pixelFormat;
-    UINT mtlBpp = 4; // Metal side bytes per pixel
-    if (mtlFmt == MTLPixelFormatBGRA8Unorm || mtlFmt == MTLPixelFormatRGBA8Unorm) {
-      mtlBpp = 4;
-    } else if (mtlFmt == MTLPixelFormatR8Unorm) {
-      mtlBpp = 1;
-    }
-
-    if (bpp == 2 && mtlBpp == 4 && m_Format == D3DFMT_A1R5G5B5) {
-      // Convert A1R5G5B5 → BGRA8
-      UINT pixelCount = m_Width * m_Height;
-      uint8_t *converted = (uint8_t *)malloc(pixelCount * 4);
-      uint16_t *src = (uint16_t *)m_LockedData;
-      for (UINT i = 0; i < pixelCount; i++) {
-        uint16_t px = src[i];
-        uint8_t a = (px & 0x8000) ? 255 : 0;
-        uint8_t r = ((px >> 10) & 0x1F) * 255 / 31;
-        uint8_t g = ((px >> 5) & 0x1F) * 255 / 31;
-        uint8_t b = (px & 0x1F) * 255 / 31;
-        converted[i * 4 + 0] = b; // B
-        converted[i * 4 + 1] = g; // G
-        converted[i * 4 + 2] = r; // R
-        converted[i * 4 + 3] = a; // A
-      }
-      MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
-      [tex replaceRegion:region
-             mipmapLevel:m_MipLevel
-                   slice:0
-               withBytes:converted
-             bytesPerRow:m_Width * 4
-           bytesPerImage:m_Width * m_Height * 4];
-      free(converted);
-    } else {
-      bool isCompressed = (mtlFmt == MTLPixelFormatBC1_RGBA ||
-                           mtlFmt == MTLPixelFormatBC2_RGBA ||
-                           mtlFmt == MTLPixelFormatBC3_RGBA);
-
-      if (isCompressed) {
-        // DXT1 is 8 bytes per block, DXT3/5 are 16 bytes per block.
-        // The D3D format determines bytes per pixel value used for block bpp in LockRect.
-        // Wait, MetalFormatFromD3D gave us BC format. Let's infer block size.
-        UINT bytesPerBlock = (mtlFmt == MTLPixelFormatBC1_RGBA) ? 8 : 16;
-        UINT blocksWide = std::max(1u, (m_Width + 3) / 4);
-        UINT blocksHigh = std::max(1u, (m_Height + 3) / 4);
-        UINT bytesPerRow = blocksWide * bytesPerBlock;
-        UINT bytesPerImage = bytesPerRow * blocksHigh;
-
-        MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
-        [tex replaceRegion:region
-               mipmapLevel:m_MipLevel
-                     slice:0
-                 withBytes:m_LockedData
-               bytesPerRow:bytesPerRow
-             bytesPerImage:bytesPerImage];
-      } else {
-        // Direct upload (formats match or close enough, uncompressed)
-        UINT uploadBpr = m_Width * mtlBpp;
-        MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
-        [tex replaceRegion:region
-               mipmapLevel:m_MipLevel
-                     slice:0
-                 withBytes:m_LockedData
-               bytesPerRow:uploadBpr
-             bytesPerImage:uploadBpr * m_Height];
-      }
-    }
+    m_ParentTexture->UploadSurfaceData(m_ParentLevel, m_LockedData, m_LockedPitch);
 
     // NOTE: Do NOT free m_LockedData here!
     // DirectX 8 pattern: callers (W3DShroud, TerrainTex) store pBits from

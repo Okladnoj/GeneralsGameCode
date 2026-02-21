@@ -392,3 +392,82 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
 STDMETHODIMP MetalTexture8::AddDirtyRect(CONST RECT *pDirtyRect) {
   return D3D_OK;
 }
+
+void MetalTexture8::UploadSurfaceData(UINT Level, void* data, UINT pitch) {
+  if (!m_Texture || !data) return;
+
+  id<MTLTexture> tex = (__bridge id<MTLTexture>)m_Texture;
+  UINT width = std::max(1u, m_Width >> Level);
+  UINT height = std::max(1u, m_Height >> Level);
+  MTLRegion region = MTLRegionMake2D(0, 0, width, height);
+
+  bool isCompressed = (m_Format == D3DFMT_DXT1 || m_Format == D3DFMT_DXT2 ||
+                       m_Format == D3DFMT_DXT3 || m_Format == D3DFMT_DXT4 ||
+                       m_Format == D3DFMT_DXT5);
+
+  if (isCompressed) {
+    UINT bytesPerBlock = BytesPerPixelFromD3D(m_Format);
+    UINT blocksWide = std::max(1u, (width + 3) / 4);
+    UINT blocksHigh = std::max(1u, (height + 3) / 4);
+    UINT bytesPerRow = blocksWide * bytesPerBlock;
+    UINT bytesPerImage = bytesPerRow * blocksHigh;
+
+    [tex replaceRegion:region
+           mipmapLevel:Level
+                 slice:0
+             withBytes:data
+           bytesPerRow:bytesPerRow
+         bytesPerImage:bytesPerImage];
+  } else {
+    // Direct raw memory bytes upload! Metal matches D3D layout for packed textures on macOS!
+    [tex replaceRegion:region
+           mipmapLevel:Level
+             withBytes:data
+           bytesPerRow:pitch];
+  }
+  m_HasBeenWritten = true;
+}
+
+void MetalTexture8::GenerateMipmaps() {
+  if (m_Levels <= 1) return;
+
+  for (UINT level = 1; level < m_Levels; level++) {
+    D3DLOCKED_RECT srcRect, dstRect;
+    if (FAILED(LockRect(level - 1, &srcRect, nullptr, 0))) continue;
+    if (FAILED(LockRect(level, &dstRect, nullptr, D3DLOCK_DISCARD))) {
+      UnlockRect(level - 1);
+      continue;
+    }
+
+    UINT w = std::max(1u, m_Width >> level);
+    UINT h = std::max(1u, m_Height >> level);
+    UINT prev_w = std::max(1u, m_Width >> (level - 1));
+    UINT prev_h = std::max(1u, m_Height >> (level - 1));
+    UINT bpp = BytesPerPixelFromD3D(m_Format);
+
+    bool isCompressed = (m_Format == D3DFMT_DXT1 || m_Format == D3DFMT_DXT2 || m_Format == D3DFMT_DXT3 || m_Format == D3DFMT_DXT4 || m_Format == D3DFMT_DXT5);
+
+    if (isCompressed) {
+        memset(dstRect.pBits, 0, dstRect.Pitch * std::max(1u, (h + 3) / 4));
+    } else {
+        uint8_t *srcBytes = (uint8_t *)srcRect.pBits;
+        uint8_t *dstBytes = (uint8_t *)dstRect.pBits;
+        for (UINT y = 0; y < h; y++) {
+            for (UINT x = 0; x < w; x++) {
+                // Nearest neighbor
+                UINT srcX = x * 2;
+                UINT srcY = y * 2;
+                if (srcX >= prev_w) srcX = prev_w - 1;
+                if (srcY >= prev_h) srcY = prev_h - 1;
+
+                memcpy(dstBytes + y * dstRect.Pitch + x * bpp,
+                       srcBytes + srcY * srcRect.Pitch + srcX * bpp,
+                       bpp);
+            }
+        }
+    }
+
+    UnlockRect(level);
+    UnlockRect(level - 1);
+  }
+}
