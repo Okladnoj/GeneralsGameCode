@@ -687,7 +687,7 @@ set(GAMEENGINE_SRC
 #    Source/Common/Thing/ThingTemplate.cpp
     Source/Common/UserPreferences.cpp
 #    Source/Common/version.cpp
-    Source/Common/WorkerProcess.cpp
+    #Source/Common/WorkerProcess.cpp # Windows-only
     Source/GameClient/ClientInstance.cpp
     Source/GameClient/Color.cpp
     Source/GameClient/Credits.cpp

@@ -4,11 +4,13 @@
 #include "Common/GameAudio.h"
 #include <AVFoundation/AVFoundation.h>
 #include <vector>
+#include <set>
 #include <string>
 
 struct ApplePlayingAudio {
   void *playerNode;
   std::string eventName;  // Copy of event name, NOT a pointer (avoids dangling)
+  AudioHandle handle;     // DX8-style handle for isCurrentlyPlaying tracking
 };
 
 class MacOSAudioManager : public AudioManager {
@@ -71,6 +73,14 @@ public:
   virtual void *getHandleForBink() override;
   virtual void releaseHandleForBink() override;
 
+  // TheSuperHackers @fix macOS: Override isCurrentlyPlaying to return false.
+  // The base class always returns true, which permanently blocks:
+  // - EVA speech (Eva::processPlayingMessages never advances past first message)
+  // - MissileLauncherBuildingUpdate state machine (door audio stuck)
+  // - TurretAI sound restart, JetAI afterburner sounds
+  // - FiringTracker looping sound cleanup
+  virtual Bool isCurrentlyPlaying(AudioHandle handle) override;
+
   virtual void
   friend_forcePlayAudioEventRTS(const AudioEventRTS *eventToPlay) override;
 
@@ -94,4 +104,5 @@ private:
   void *m_engine;
   void *m_mainMixer;
   std::vector<ApplePlayingAudio> m_playingAudio;
+  std::set<AudioHandle> m_activeHandles;  // Tracks currently-playing audio handles
 };

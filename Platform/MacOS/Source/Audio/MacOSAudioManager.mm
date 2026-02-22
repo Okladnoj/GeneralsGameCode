@@ -79,7 +79,9 @@ void MacOSAudioManager::update() {
     AVAudioPlayer *player = (__bridge AVAudioPlayer *)it->playerNode;
     if (!player.isPlaying) {
       void *toRelease = it->playerNode;
+      AudioHandle finishedHandle = it->handle;
       it = m_playingAudio.erase(it);
+      m_activeHandles.erase(finishedHandle);
       (void)(__bridge_transfer AVAudioPlayer *)toRelease;
     } else {
       ++it;
@@ -88,21 +90,103 @@ void MacOSAudioManager::update() {
 }
 
 void MacOSAudioManager::processRequestList() {
-  // TheSuperHackers @fix macOS: The audio request list contains AudioEventRTS
-  // pointers that may be corrupted or dangling, causing SIGSEGV in
-  // AsciiString::str(). Since our audio is largely stubbed, just release
-  // the requests without accessing their event data.
+  // TheSuperHackers @fix macOS: Process audio requests properly.
+  // The previous stub just deleted all requests, which meant:
+  // - No audio was ever played through the request pipeline
+  // - AudioEventRTS objects leaked (m_pendingEvent never freed)
+  // Now we process AR_Play via friend_forcePlayAudioEventRTS (AVAudioPlayer)
+  // and handle AR_Stop/AR_Pause appropriately.
   for (auto it = m_audioRequests.begin(); it != m_audioRequests.end();) {
     AudioRequest *req = *it;
-    if (req) {
-      MemoryPoolObject::deleteInstanceInternal(req);
+    if (!req) {
+      it = m_audioRequests.erase(it);
+      continue;
     }
+
+    @try {
+      switch (req->m_request) {
+        case AR_Play: {
+          if (req->m_usePendingEvent && req->m_pendingEvent) {
+            AudioEventRTS *event = req->m_pendingEvent;
+            AudioHandle handle = event->getPlayingHandle();
+
+            // Track this handle as "playing"
+            m_activeHandles.insert(handle);
+
+            // Play through our AVAudioPlayer pipeline
+            friend_forcePlayAudioEventRTS(event);
+
+            // The event was allocated by addAudioEvent() via MSGNEW.
+            // We own it and must delete it after processing.
+            delete event;
+            req->m_pendingEvent = nullptr;
+          }
+          break;
+        }
+        case AR_Stop: {
+          AudioHandle handleToStop = req->m_handleToInteractOn;
+          m_activeHandles.erase(handleToStop);
+          // Stop matching playing audio
+          for (auto &playing : m_playingAudio) {
+            if (playing.handle == handleToStop && playing.playerNode) {
+              AVAudioPlayer *player = (__bridge AVAudioPlayer *)playing.playerNode;
+              [player stop];
+            }
+          }
+          break;
+        }
+        case AR_Pause: {
+          // Pause is a no-op for now — we don't track pause state
+          break;
+        }
+      }
+    } @catch (NSException *e) {
+      fprintf(stderr, "MACOS AUDIO: Exception in processRequestList: %s\n",
+              [[e reason] UTF8String]);
+      fflush(stderr);
+    }
+
+    deleteInstance(req);
     it = m_audioRequests.erase(it);
   }
 }
 
+// TheSuperHackers @fix macOS: The base AudioManager::isCurrentlyPlaying()
+// always returns true, which permanently blocks:
+// - EVA speech queue (Eva::processPlayingMessages, line 486)
+// - MissileLauncherBuildingUpdate door state machine
+// - TurretAI rotation sound restart
+// - JetAI afterburner sound management
+// - FiringTracker looping sound cleanup
+// We check our active handles set and the actual AVAudioPlayer state.
+Bool MacOSAudioManager::isCurrentlyPlaying(AudioHandle handle) {
+  if (handle == 0) return FALSE;
+
+  // Check if we're tracking this handle
+  if (m_activeHandles.find(handle) == m_activeHandles.end()) {
+    return FALSE;
+  }
+
+  // Check if the actual player is still playing
+  for (auto &playing : m_playingAudio) {
+    if (playing.handle == handle && playing.playerNode) {
+      AVAudioPlayer *player = (__bridge AVAudioPlayer *)playing.playerNode;
+      if (player.isPlaying) {
+        return TRUE;
+      }
+    }
+  }
+
+  // Handle exists but nothing is actually playing — remove it
+  m_activeHandles.erase(handle);
+  return FALSE;
+}
+
 void MacOSAudioManager::playAudioEvent(AudioEventRTS *event) {
-  // Stubbed for macOS
+  // Direct playback — used internally, not through request pipeline
+  if (event) {
+    friend_forcePlayAudioEventRTS(event);
+  }
 }
 
 void MacOSAudioManager::stopAudio(AudioAffect which) {
@@ -330,7 +414,9 @@ void MacOSAudioManager::friend_forcePlayAudioEventRTS(
     ApplePlayingAudio playing;
     playing.playerNode = (__bridge_retained void *)player;
     playing.eventName = eventToPlay->getEventName().str();
+    playing.handle = const_cast<AudioEventRTS*>(eventToPlay)->getPlayingHandle();
     m_playingAudio.push_back(playing);
+    m_activeHandles.insert(playing.handle);
 
     fprintf(stderr, "MACOS AUDIO: 🔊 Playing: '%s' vol=%.2f\n",
             pathStr.c_str(), player.volume);
