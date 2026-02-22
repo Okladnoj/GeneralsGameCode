@@ -75,3 +75,4 @@ bt.log
 test_bgra.*
 *.orig
 *.rej
+.agent/
