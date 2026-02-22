@@ -1248,15 +1248,19 @@ void TextureLoadTaskClass::End_Load(void)
 void TextureLoadTaskClass::Finish_Load(void)
 {
 	static int s_finishCount = 0;
-	if (++s_finishCount <= 30) {
+	static int s_failCount = 0;
+	s_finishCount++;
+	{
 		const char* texPath = "(null)";
 		if (Texture) {
 			StringClass tmp = Texture->Get_Full_Path();
 			texPath = tmp.Peek_Buffer();
-			fprintf(stderr, "[Finish_Load] #%d: state=%d tex='%s'\n",
-				s_finishCount, (int)State, texPath);
+			if (s_finishCount <= 50 || s_finishCount % 100 == 0) {
+				printf( "[Finish_Load] #%d: state=%d tex='%s'\n",
+					s_finishCount, (int)State, texPath);
+			}
 		} else {
-			fprintf(stderr, "[Finish_Load] #%d: state=%d tex='(null)'\n",
+			printf( "[Finish_Load] #%d: state=%d tex='(null)'\n",
 				s_finishCount, (int)State);
 		}
 	}
@@ -1265,14 +1269,14 @@ void TextureLoadTaskClass::Finish_Load(void)
 
 		case STATE_NONE:
 			if (!Begin_Load()) {
-				if (s_finishCount <= 30) {
-					fprintf(stderr, "[Finish_Load] #%d: Begin_Load FAILED\n", s_finishCount);
-				}
+				s_failCount++;
+				printf( "[Finish_Load] #%d: Begin_Load FAILED (total fails=%d)\n", s_finishCount, s_failCount);
+				fflush(stdout);
 				Apply_Missing_Texture();
 				break;
 			}
-			if (s_finishCount <= 30) {
-				fprintf(stderr, "[Finish_Load] #%d: Begin_Load OK, D3DTex=%p\n", s_finishCount, (void*)D3DTexture);
+			if (s_finishCount <= 50) {
+				printf( "[Finish_Load] #%d: Begin_Load OK, D3DTex=%p\n", s_finishCount, (void*)D3DTexture);
 			}
 			FALLTHROUGH;
 

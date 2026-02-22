@@ -240,7 +240,7 @@ HRESULT WINAPI D3DXCreateTexture(IDirect3DDevice8 *pDevice, UINT Width,
   static int s_createCount = 0;
   s_createCount++;
   if (s_createCount <= 50) {
-    fprintf(stderr, "[D3DXCreateTexture] #%d: %ux%u fmt=%u mips=%u usage=0x%x pool=%u dev=%p\n",
+    printf( "[D3DXCreateTexture] #%d: %ux%u fmt=%u mips=%u usage=0x%x pool=%u dev=%p\n",
             s_createCount, Width, Height, (unsigned)Format, MipLevels, 
             (unsigned)Usage, (unsigned)Pool, (void*)pDevice);
   }
@@ -248,7 +248,7 @@ HRESULT WINAPI D3DXCreateTexture(IDirect3DDevice8 *pDevice, UINT Width,
   HRESULT hr = pDevice->CreateTexture(Width, Height, MipLevels, Usage, Format, Pool, ppTexture);
   
   if (s_createCount <= 50) {
-    fprintf(stderr, "[D3DXCreateTexture] #%d: result=0x%x tex=%p\n",
+    printf( "[D3DXCreateTexture] #%d: result=0x%x tex=%p\n",
             s_createCount, (unsigned)hr, ppTexture ? (void*)*ppTexture : nullptr);
   }
   return hr;
@@ -266,7 +266,7 @@ HRESULT WINAPI D3DXCreateTextureFromFileExA(
   static int s_fromFileCount = 0;
   s_fromFileCount++;
   if (s_fromFileCount <= 30) {
-    fprintf(stderr, "[D3DXCreateTextureFromFileExA] #%d: '%s'\n",
+    printf( "[D3DXCreateTextureFromFileExA] #%d: '%s'\n",
             s_fromFileCount, pSrcFile ? pSrcFile : "(null)");
   }
 

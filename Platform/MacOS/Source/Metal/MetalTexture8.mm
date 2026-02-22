@@ -3,6 +3,8 @@
 #include "MetalSurface8.h"
 #include <map>
 #include <cstdio>
+#include <pthread.h>
+#include <execinfo.h>
 
 #ifndef D3DERR_INVALIDCALL
 #define D3DERR_INVALIDCALL E_FAIL
@@ -96,13 +98,25 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
   id<MTLTexture> tex = [mtlDev newTextureWithDescriptor:desc];
   m_Texture = (__bridge_retained void *)tex; // Retain manual ref
 
-  // Diagnostic: log terrain-related texture creation
+  // Diagnostic: log ALL texture creations to find missing ones
   static int s_texCreationCount = 0;
-  if (s_texCreationCount < 80) {
-    fprintf(stderr, "[MetalTexture8] Created #%d: %ux%u fmt=%u levels=%u pool=%u tex=%p\n",
-            s_texCreationCount, width, height, (unsigned)format, m_Levels, (unsigned)pool, (void*)m_Texture);
-    s_texCreationCount++;
+  s_texCreationCount++;
+  bool isDXT = (format == D3DFMT_DXT1 || format == D3DFMT_DXT2 || format == D3DFMT_DXT3 || format == D3DFMT_DXT4 || format == D3DFMT_DXT5);
+  printf( "[MetalTexture8] Created #%d: %ux%u fmt=%u levels=%u pool=%u tex=%p mtl=%p%s\n",
+          s_texCreationCount, width, height, (unsigned)format, m_Levels, (unsigned)pool,
+          (void*)this, (void*)m_Texture, isDXT ? " DXT" : "");
+  // Backtrace for DXT textures #51+ to find who creates "empty" rendering textures
+  if (isDXT && s_texCreationCount > 50 && s_texCreationCount <= 55) {
+    void *bt[16];
+    int n = backtrace(bt, 16);
+    char **syms = backtrace_symbols(bt, n);
+    if (syms) {
+      for (int j = 0; j < n && j < 10; j++)
+        printf("  BT[%d] %s\n", j, syms[j]);
+      free(syms);
+    }
   }
+  fflush(stdout);
 }
 
 MetalTexture8::MetalTexture8(MetalDevice8 *device, void *mtlTexture,
@@ -352,7 +366,7 @@ static void *Convert16to32(D3DFORMAT fmt, const void *src, UINT width,
         B = (uint8_t)(((px      ) & 0x1F) * 255 / 31);
         G = (uint8_t)(((px >>  5) & 0x1F) * 255 / 31);
         R = (uint8_t)(((px >> 10) & 0x1F) * 255 / 31);
-        A = (px >> 15) ? 255 : 0;
+        A = 255; // Force opaque — game often leaves alpha bit unset
         break;
       case D3DFMT_A4R4G4B4:
         // AAAA RRRR GGGG BBBB
@@ -388,17 +402,24 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
 
   // Diagnostic: log texture uploads
   static int s_texUnlockCount = 0;
-  if (s_texUnlockCount < 80) {
+  s_texUnlockCount++;
+  if (s_texUnlockCount <= 500) {
     UINT w = std::max(1u, m_Width >> Level);
     UINT h = std::max(1u, m_Height >> Level);
+    bool isCmp = (m_Format == D3DFMT_DXT1 || m_Format == D3DFMT_DXT2 ||
+                  m_Format == D3DFMT_DXT3 || m_Format == D3DFMT_DXT4 ||
+                  m_Format == D3DFMT_DXT5);
+    UINT dataSize = isCmp ? (std::max(1u,(w+3)/4) * std::max(1u,(h+3)/4) * lvl.bytesPerPixel)
+                          : (w * h * lvl.bytesPerPixel);
     uint32_t nonZero = 0;
-    UINT checkBytes = std::min((UINT)(w * h * lvl.bytesPerPixel), (UINT)256);
+    UINT checkBytes = std::min(dataSize, (UINT)256);
     const uint8_t *p = (const uint8_t *)lvl.ptr;
     for (UINT i = 0; i < checkBytes; i++) { if (p[i] != 0) nonZero++; }
-    fprintf(stderr, "[MetalTexture8] UnlockRect #%d: %ux%u fmt=%u(bpp=%u) lvl=%u nonZero=%u/%u tex=%p\n",
-            s_texUnlockCount, w, h, (unsigned)m_Format, lvl.bytesPerPixel,
-            Level, nonZero, checkBytes, (void*)m_Texture);
-    s_texUnlockCount++;
+    const char *fmtName = isCmp ? (m_Format == D3DFMT_DXT1 ? "DXT1" : "DXT3/5") : "uncompressed";
+    printf( "[MetalTexture8] UnlockRect #%d: %ux%u fmt=%u(%s bpp=%u) lvl=%u nonZero=%u/%u dataSize=%u tex=%p tid=%p\n",
+            s_texUnlockCount, w, h, (unsigned)m_Format, fmtName, lvl.bytesPerPixel,
+            Level, nonZero, checkBytes, dataSize, (void*)m_Texture, (void*)pthread_self());
+    fflush(stdout);
   }
 
   // Upload to Metal Texture
@@ -435,16 +456,13 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
     // For BC compressed formats, bytesPerRow = blocksWide * bytesPerBlock
     UINT bytesPerBlock = lvl.bytesPerPixel; // 8 for DXT1, 16 for DXT2-5
     UINT blocksWide = std::max(1u, (width + 3) / 4);
-    UINT blocksHigh = std::max(1u, (height + 3) / 4);
     UINT bytesPerRow = blocksWide * bytesPerBlock;
-    UINT bytesPerImage = bytesPerRow * blocksHigh;
 
+    // Use 4-arg replaceRegion for 2D textures (not 6-arg which is for 3D/array)
     [tex replaceRegion:region
            mipmapLevel:Level
-                 slice:0
              withBytes:lvl.ptr
-           bytesPerRow:bytesPerRow
-         bytesPerImage:bytesPerImage];
+           bytesPerRow:bytesPerRow];
   } else if (Is16BitFormat(m_Format)) {
     // Convert 16-bit source data to 32-bit BGRA8 before uploading to Metal
     UINT dstPitch = 0;

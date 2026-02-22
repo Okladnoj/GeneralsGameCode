@@ -91,10 +91,84 @@ inline HRESULT D3DXGetErrorStringA(HRESULT hr, char *pBuffer, UINT BufferLen) {
 }
 #define D3DXGetErrorString D3DXGetErrorStringA
 
-/* D3DXFilterTexture — generate mip levels for a texture */
-inline HRESULT D3DXFilterTexture(IDirect3DBaseTexture8 *, const void *, DWORD,
-                                 DWORD) {
-  return S_OK; /* stub — mip filtering handled by Metal */
+/* D3DXFilterTexture — generate mip levels for a texture.
+   Uses simple 2x2 box filter to downsample from level 0 down to smallest mip.
+   Critical for terrain/tree textures which only load level 0 data. */
+inline HRESULT D3DXFilterTexture(IDirect3DBaseTexture8 *pTexture,
+                                  const void *pPalette, DWORD SrcLevel,
+                                  DWORD Filter) {
+  if (!pTexture) return E_INVALIDARG;
+  
+  // All game callers pass IDirect3DTexture8* — safe to cast directly
+  IDirect3DTexture8 *tex2D = static_cast<IDirect3DTexture8*>(pTexture);
+  
+  DWORD levelCount = tex2D->GetLevelCount();
+  if (levelCount <= 1) {
+    return S_OK;
+  }
+  
+  // Get level 0 description to check format
+  D3DSURFACE_DESC desc0;
+  if (tex2D->GetLevelDesc(0, &desc0) != S_OK) {
+    return S_OK;
+  }
+  
+  // Only handle uncompressed BGRA8 formats (terrain/tree textures)
+  bool isBGRA = (desc0.Format == D3DFMT_A8R8G8B8 || desc0.Format == D3DFMT_X8R8G8B8);
+  if (!isBGRA) {
+    return S_OK; // Compressed textures already have all mip levels from DDS
+  }
+  
+  // For each mip level pair, read from source level and write box-filtered to dest level
+  for (DWORD lvl = 0; lvl + 1 < levelCount; lvl++) {
+    D3DSURFACE_DESC srcDesc, dstDesc;
+    tex2D->GetLevelDesc(lvl, &srcDesc);
+    tex2D->GetLevelDesc(lvl + 1, &dstDesc);
+    
+    D3DLOCKED_RECT srcLocked, dstLocked;
+    if (tex2D->LockRect(lvl, &srcLocked, nullptr, D3DLOCK_READONLY) != S_OK) break;
+    if (tex2D->LockRect(lvl + 1, &dstLocked, nullptr, 0) != S_OK) {
+      tex2D->UnlockRect(lvl);
+      break;
+    }
+    
+    // Box filter: average each 2x2 block of source pixels into 1 dest pixel
+    const uint8_t *src = (const uint8_t *)srcLocked.pBits;
+    uint8_t *dst = (uint8_t *)dstLocked.pBits;
+    
+    for (UINT y = 0; y < dstDesc.Height; y++) {
+      for (UINT x = 0; x < dstDesc.Width; x++) {
+        UINT sx = x * 2;
+        UINT sy = y * 2;
+        // Clamp to source bounds
+        UINT sx1 = (sx + 1 < srcDesc.Width) ? sx + 1 : sx;
+        UINT sy1 = (sy + 1 < srcDesc.Height) ? sy + 1 : sy;
+        
+        const uint8_t *p00 = src + sy  * srcLocked.Pitch + sx  * 4;
+        const uint8_t *p10 = src + sy  * srcLocked.Pitch + sx1 * 4;
+        const uint8_t *p01 = src + sy1 * srcLocked.Pitch + sx  * 4;
+        const uint8_t *p11 = src + sy1 * srcLocked.Pitch + sx1 * 4;
+        
+        uint8_t *pd = dst + y * dstLocked.Pitch + x * 4;
+        pd[0] = (uint8_t)((p00[0] + p10[0] + p01[0] + p11[0] + 2) / 4); // B
+        pd[1] = (uint8_t)((p00[1] + p10[1] + p01[1] + p11[1] + 2) / 4); // G
+        pd[2] = (uint8_t)((p00[2] + p10[2] + p01[2] + p11[2] + 2) / 4); // R
+        pd[3] = (uint8_t)((p00[3] + p10[3] + p01[3] + p11[3] + 2) / 4); // A
+      }
+    }
+    
+    tex2D->UnlockRect(lvl + 1); // triggers replaceRegion upload
+    tex2D->UnlockRect(lvl);
+  }
+  
+  static int s_filterCount = 0;
+  if (++s_filterCount <= 10) {
+    printf("[D3DXFilterTexture] #%d: %ux%u fmt=%u levels=%u\n",
+           s_filterCount, desc0.Width, desc0.Height, (unsigned)desc0.Format, levelCount);
+    fflush(stdout);
+  }
+  
+  return S_OK;
 }
 
 /* Compute vertex size from FVF flags (used by dx8fvf.cpp) */

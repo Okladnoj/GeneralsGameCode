@@ -203,7 +203,7 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
 
     // Diagnostic: log first few surface uploads
     static int s_surfaceUploadCount = 0;
-    if (s_surfaceUploadCount < 30) {
+    if (s_surfaceUploadCount < 200) {
       // Check if data is non-zero
       uint32_t nonZeroCount = 0;
       UINT checkBytes = std::min((UINT)(m_Width * m_Height * bpp), (UINT)256);
@@ -211,10 +211,11 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       for (UINT i = 0; i < checkBytes; i++) {
         if (checkPtr[i] != 0) nonZeroCount++;
       }
-      fprintf(stderr, "[MetalSurface8] UnlockRect #%d: %ux%u fmt=%u(bpp=%u) → mtlFmt=%lu(bpp=%u) mip=%u nonZero=%u/%u parent=%p\n",
+      printf("[MetalSurface8] UnlockRect #%d: %ux%u fmt=%u(bpp=%u) → mtlFmt=%lu(bpp=%u) mip=%u nonZero=%u/%u parent=%p\n",
               s_surfaceUploadCount, m_Width, m_Height, (unsigned)m_Format, bpp,
               (unsigned long)mtlFmt, mtlBpp, m_MipLevel, nonZeroCount, checkBytes,
               (void*)m_ParentTexture);
+      fflush(stdout);
       s_surfaceUploadCount++;
     }
 
@@ -248,7 +249,10 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
           B = (uint8_t)(((px      ) & 0x1F) * 255 / 31);
           G = (uint8_t)(((px >>  5) & 0x1F) * 255 / 31);
           R = (uint8_t)(((px >> 10) & 0x1F) * 255 / 31);
-          A = (px >> 15) ? 255 : 0;
+          // Force alpha to 255: terrain compositor writes RGB data without
+          // setting the alpha bit, but blend passes use SRC_ALPHA blending.
+          // A1R5G5B5 with alpha=0 makes terrain invisible.
+          A = 255;
           break;
         case D3DFMT_A4R4G4B4:
           B = (uint8_t)(((px      ) & 0x0F) * 255 / 15);
@@ -269,35 +273,27 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
       [tex replaceRegion:region
              mipmapLevel:m_MipLevel
-                   slice:0
                withBytes:converted
-             bytesPerRow:m_Width * 4
-           bytesPerImage:m_Width * m_Height * 4];
+             bytesPerRow:m_Width * 4];
       free(converted);
     } else if (isCompressed) {
       UINT bytesPerBlock = (mtlFmt == MTLPixelFormatBC1_RGBA) ? 8 : 16;
       UINT blocksWide = std::max(1u, (m_Width + 3) / 4);
-      UINT blocksHigh = std::max(1u, (m_Height + 3) / 4);
       UINT bytesPerRow = blocksWide * bytesPerBlock;
-      UINT bytesPerImage = bytesPerRow * blocksHigh;
 
       MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
       [tex replaceRegion:region
              mipmapLevel:m_MipLevel
-                   slice:0
                withBytes:m_LockedData
-             bytesPerRow:bytesPerRow
-           bytesPerImage:bytesPerImage];
+             bytesPerRow:bytesPerRow];
     } else {
       // Direct upload (formats match: 32-bit or 8-bit)
       UINT uploadBpr = m_Width * mtlBpp;
       MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
       [tex replaceRegion:region
              mipmapLevel:m_MipLevel
-                   slice:0
                withBytes:m_LockedData
-             bytesPerRow:uploadBpr
-           bytesPerImage:uploadBpr * m_Height];
+             bytesPerRow:uploadBpr];
     }
 
     // Mark texture as written so LockRect can read back existing data

@@ -604,10 +604,10 @@ TextureClass::TextureClass
 	TextureFormat(format)
 {
 	static int s_whCtorCount = 0;
-	if (++s_whCtorCount <= 20) {
-		fprintf(stderr, "[TextureClass::ctor(w,h)] #%d: %ux%u fmt=%d mips=%d pool=%d rt=%d\n",
-			s_whCtorCount, width, height, (int)format, (int)mip_level_count, (int)pool, (int)rendertarget);
-	}
+	s_whCtorCount++;
+	printf( "[TextureClass::ctor(w,h)] #%d: %ux%u fmt=%d mips=%d pool=%d rt=%d\n",
+		s_whCtorCount, width, height, (int)format, (int)mip_level_count, (int)pool, (int)rendertarget);
+	fflush(stdout);
 	Initialized=true;
 	IsProcedural=true;
 	IsReducible=false;
@@ -680,11 +680,11 @@ TextureClass::TextureClass
 	TextureFormat(texture_format)
 {
 	static int s_ctorCount = 0;
-	if (++s_ctorCount <= 30) {
-		fprintf(stderr, "[TextureClass::ctor(name)] #%d: name='%s' path='%s' fmt=%d mips=%d\n",
-			s_ctorCount, name ? name : "(null)", full_path ? full_path : "(null)",
-			(int)texture_format, (int)mip_level_count);
-	}
+	s_ctorCount++;
+	printf( "[TextureClass::ctor(name)] #%d: name='%s' path='%s' fmt=%d mips=%d\n",
+		s_ctorCount, name ? name : "(null)", full_path ? full_path : "(null)",
+		(int)texture_format, (int)mip_level_count);
+	fflush(stdout);
 	IsCompressionAllowed=allow_compression;
 	InactivationTime=DEFAULT_INACTIVATION_TIME;		// Default inactivation time 30 seconds
 	IsReducible=allow_reduction;
@@ -743,7 +743,7 @@ TextureClass::TextureClass
 	{
 		static int s_texDisabled = 0;
 		if (++s_texDisabled <= 10) {
-			fprintf(stderr, "[TextureClass] TEXTURING DISABLED #%d: name='%s'\n",
+			printf( "[TextureClass] TEXTURING DISABLED #%d: name='%s'\n",
 				s_texDisabled, name);
 		}
 		Initialized=true;
@@ -876,14 +876,15 @@ void TextureClass::Init()
 
 	static int s_initCount = 0;
 	s_initCount++;
-	if (s_initCount <= 30) {
+	{
 		const char* texName = "(none)";
 		StringClass tmpName = Get_Texture_Name();
 		if (!tmpName.Is_Empty()) texName = tmpName.Peek_Buffer();
-		fprintf(stderr, "[TextureClass::Init] #%d: name='%s' hasD3DTex=%d fmt=%d mips=%d w=%u h=%u\n",
+		printf( "[TextureClass::Init] #%d: name='%s' hasD3DTex=%d fmt=%d mips=%d w=%u h=%u\n",
 			s_initCount, texName,
 			(int)(Peek_D3D_Base_Texture() != nullptr), (int)TextureFormat,
 			(int)MipLevelCount, Width, Height);
+		fflush(stdout);
 	}
 
 	// If the texture has recently been inactivated, increase the inactivation time (this texture obviously
@@ -941,11 +942,12 @@ void TextureClass::Apply_New_Surface
 {
 	static int s_applyCount = 0;
 	s_applyCount++;
-	if (s_applyCount <= 30) {
+	if (s_applyCount <= 100 || s_applyCount % 200 == 0) {
 		StringClass tmpName2 = Get_Texture_Name();
-		fprintf(stderr, "[Apply_New_Surface] #%d: name='%s' init=%d tex=%p\n",
+		printf( "[Apply_New_Surface] #%d: name='%s' old=%p new=%p init=%d\n",
 			s_applyCount, tmpName2.Is_Empty() ? "(none)" : tmpName2.Peek_Buffer(),
-			(int)initialized, (void*)d3d_texture);
+			(void*)Peek_D3D_Base_Texture(), (void*)d3d_texture, (int)initialized);
+		fflush(stdout);
 	}
 	IDirect3DBaseTexture8* d3d_tex=Peek_D3D_Base_Texture();
 
@@ -981,12 +983,13 @@ void TextureClass::Apply_New_Surface
 void TextureClass::Apply(unsigned int stage)
 {
 	static int s_applyLogCount = 0;
-	if (s_applyLogCount < 30) {
-		s_applyLogCount++;
+	s_applyLogCount++;
+	if (s_applyLogCount <= 100 || s_applyLogCount % 500 == 0) {
 		StringClass tmpN3 = Get_Texture_Name();
-		fprintf(stderr, "[TextureClass::Apply] #%d: name='%s' init=%d hasD3D=%d stage=%u\n",
+		printf( "[TextureClass::Apply] #%d: name='%s' init=%d d3d=%p stage=%u\n",
 			s_applyLogCount, tmpN3.Is_Empty() ? "(none)" : tmpN3.Peek_Buffer(),
-			(int)Initialized, (int)(Peek_D3D_Base_Texture() != nullptr), stage);
+			(int)Initialized, (void*)Peek_D3D_Base_Texture(), stage);
+		fflush(stdout);
 	}
 	// Initialization needs to be done when texture is used if it hasn't been done before.
 	// XBOX always initializes textures at creation time.

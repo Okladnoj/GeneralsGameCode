@@ -870,7 +870,9 @@ STDMETHODIMP MetalDevice8::GetDeviceCaps(D3DCAPS8 *pCaps) {
   pCaps->MaxSimultaneousTextures = 8;
   pCaps->MaxTextureBlendStages = 8;
   pCaps->VertexShaderVersion = 0x0101;
-  pCaps->PixelShaderVersion = 0x0101;
+  // Metal does NOT support DX8 pixel shaders (.pso binaries).
+  // Report 0 so terrain/water/road shaders fall back to multi-pass TSS rendering.
+  pCaps->PixelShaderVersion = 0x0000;
   pCaps->MaxPrimitiveCount = 0xFFFFFF;
   pCaps->MaxVertexIndex = 0xFFFFFF;
   pCaps->MaxStreams = 8;

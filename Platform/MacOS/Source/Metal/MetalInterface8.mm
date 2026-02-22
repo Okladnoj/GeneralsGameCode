@@ -118,7 +118,8 @@ STDMETHODIMP MetalInterface8::GetDeviceCaps(UINT Adapter, DWORD DeviceType,
   pCaps->MaxSimultaneousTextures = 8;
   pCaps->MaxTextureBlendStages = 8;
   pCaps->VertexShaderVersion = 0x0101;
-  pCaps->PixelShaderVersion = 0x0101;
+  // Metal does NOT support DX8 pixel shaders (.pso binaries).
+  pCaps->PixelShaderVersion = 0x0000;
   pCaps->MaxPrimitiveCount = 0xFFFFFF;
   pCaps->MaxVertexIndex = 0xFFFFFF;
   pCaps->MaxStreams = 8;
