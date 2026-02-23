@@ -90,6 +90,11 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
   desc.usage = MTLTextureUsageShaderRead;
   if (usage & D3DUSAGE_RENDERTARGET) {
     desc.usage |= MTLTextureUsageRenderTarget;
+    // Render targets keep default storage (Managed) for compatibility
+  } else {
+    // Non-RT textures use Shared so replaceRegion is immediately GPU-visible
+    // Default (Managed) requires synchronizeResource which we don't do
+    desc.storageMode = MTLStorageModeShared;
   }
 
   id<MTLDevice> mtlDev = (__bridge id<MTLDevice>)m_Device->GetMTLDevice();
@@ -415,6 +420,7 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
     desc.height = tex.height;
     desc.mipmapLevelCount = 1;
     desc.usage = tex.usage;
+    desc.storageMode = MTLStorageModeShared;
 
     id<MTLTexture> newTex = [tex.device newTextureWithDescriptor:desc];
     CFRelease(m_Texture);

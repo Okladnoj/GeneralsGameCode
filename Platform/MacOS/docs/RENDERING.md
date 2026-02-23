@@ -289,3 +289,37 @@ MacOSGameWindowManager → W3DGameWindowManager → GameWindowManager
 | `MacOSGameWindowManager.h` | Inherits `W3DGameWindowManager`, overrides `allocateNewWindow`, `winFormatText`, `winGetTextSize` |
 | `MacOSGameWindowManager.mm` | Creates `MacOSGameWindow` instances, text rendering via `DisplayString` |
 | `MacOSGadgetDraw.mm` | Legacy simplified draw functions (no longer used but kept) |
+
+---
+
+## ✅ RESOLVED: Terrain Textures (MTLStorageModeShared)
+
+### Problem
+
+All terrain textures rendered as solid BLACK despite data being uploaded correctly via `replaceRegion`.
+
+### Root Cause
+
+On macOS, `MTLTextureDescriptor.storageMode` defaults to **`MTLStorageModeManaged`** (value `1`). With Managed storage, `replaceRegion` updates only the **CPU-side copy**. The GPU sees the changes only after an explicit `synchronizeResource:` call via a blit command encoder. Since we never called `synchronizeResource`, the GPU always read zeros.
+
+### Fix
+
+Set `desc.storageMode = MTLStorageModeShared` for non-render-target textures in `MetalTexture8.mm`. With Shared storage (unified memory on Apple Silicon), `replaceRegion` writes directly to GPU-accessible memory — no synchronization needed.
+
+```objc
+// MetalTexture8 constructor
+if (usage & D3DUSAGE_RENDERTARGET) {
+    desc.usage |= MTLTextureUsageRenderTarget;
+    // RT keeps default Managed — Shared+RT may crash
+} else {
+    desc.storageMode = MTLStorageModeShared;
+}
+```
+
+### Why Only Terrain Was Affected
+
+Other textures (3D objects, UI) also used Managed mode but appeared to work because:
+- **Single-mip textures** (`m_Levels == 1`) were RECREATED fresh in `MetalTexture8::UnlockRect`, and freshly-created textures with `replaceRegion` data appeared to synchronize automatically
+- **DDS textures** loaded via `D3DXCreateTextureFromFileExA` also went through `MetalTexture8::UnlockRect` (which recreates)
+- **Terrain textures** used `MetalSurface8::UnlockRect` which did NOT recreate — they called `replaceRegion` on the existing Managed texture, requiring explicit sync that was never done
+
