@@ -3,7 +3,11 @@
 #include "GameClient/Display.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/Image.h"
+#include "GameClient/InGameUI.h"
 #include "always.h"
+#include "W3DDevice/GameClient/W3DAssetManager.h"
+#include "WW3D2/render2d.h"
+#include "WW3D2/texture.h"
 #import <AppKit/AppKit.h>
 
 StdMouse::StdMouse(void) {
@@ -73,32 +77,131 @@ void StdMouse::setVisibility(Bool visible) {
 }
 
 void StdMouse::draw(void) {
-  if (!m_visible)
-    return;
+  // NOTE: do NOT check m_visible here — that flag controls the OS cursor.
+  // W3DMouse::draw() also doesn't check m_visible for DX8/POLYGON modes.
 
-  // Look up cursor image from MappedImageCollection every frame
-  // (hash map lookup is cheap, and images load from .big files at variable times)
-  const Image *img = nullptr;
-  if (m_cursorInfo[m_currentCursor].imageName.isNotEmpty() && TheMappedImageCollection) {
-    img = TheMappedImageCollection->findImageByName(m_cursorInfo[m_currentCursor].imageName);
+  // --- Full W3DMouse-equivalent cursor rendering ---
+  // Load multi-frame TGA textures via WW3DAssetManager, animate per FPS,
+  // handle directional cursors (8 scroll directions).
+
+  static TextureClass *cursorTextures[NUM_MOUSE_CURSORS][MAX_2D_CURSOR_ANIM_FRAMES] = {};
+  static int cursorFrameCount[NUM_MOUSE_CURSORS] = {};
+  static Render2DClass *cursorRenderer = nullptr;
+  static bool assetsLoaded = false;
+  static float animFrame = 0.0f;
+  static unsigned int lastAnimTime = 0;
+
+  WW3DAssetManager *am = WW3DAssetManager::Get_Instance();
+  if (!assetsLoaded && am) {
+    int totalLoaded = 0;
+    for (int i = 0; i < NUM_MOUSE_CURSORS; i++) {
+      if (m_cursorInfo[i].textureName.isEmpty()) continue;
+
+      const char *baseName = m_cursorInfo[i].textureName.str();
+      int numFrames = m_cursorInfo[i].numFrames;
+      int numDirs = m_cursorInfo[i].numDirections;
+      if (numFrames < 1) numFrames = 1;
+      if (numFrames > MAX_2D_CURSOR_ANIM_FRAMES) numFrames = MAX_2D_CURSOR_ANIM_FRAMES;
+
+      // Directional cursors: frameName = "SCCScroll0000.tga" to "SCCScroll0007.tga"
+      // Non-directional single: "SCCPointer.tga"
+      // Non-directional multi:  "SCCAttack0000.tga", "SCCAttack0001.tga", ...
+      int loaded = 0;
+      if (numFrames == 1 && numDirs <= 1) {
+        char tgaName[128];
+        snprintf(tgaName, sizeof(tgaName), "%s.tga", baseName);
+        cursorTextures[i][0] = am->Get_Texture(tgaName);
+        if (cursorTextures[i][0]) loaded = 1;
+      } else {
+        int totalFrames = (numDirs > 1) ? numDirs : numFrames;
+        if (totalFrames > MAX_2D_CURSOR_ANIM_FRAMES) totalFrames = MAX_2D_CURSOR_ANIM_FRAMES;
+        for (int f = 0; f < totalFrames; f++) {
+          char tgaName[128];
+          snprintf(tgaName, sizeof(tgaName), "%s%04d.tga", baseName, f);
+          cursorTextures[i][f] = am->Get_Texture(tgaName);
+          if (cursorTextures[i][f]) loaded++;
+        }
+      }
+      cursorFrameCount[i] = loaded;
+      totalLoaded += loaded;
+    }
+    cursorRenderer = new Render2DClass();
+    assetsLoaded = true;
+    lastAnimTime = timeGetTime();
+    printf("[StdMouse] Loaded %d cursor texture frames total\n", totalLoaded);
+    fflush(stdout);
   }
 
-  if (img) {
-    CursorInfo *info = &m_cursorInfo[m_currentCursor];
-    Int w = img->getImageWidth();
-    Int h = img->getImageHeight();
-    Int x = m_currMouse.pos.x - info->hotSpotPosition.x;
-    Int y = m_currMouse.pos.y - info->hotSpotPosition.y;
+  if (!cursorRenderer) return;
 
-    TheDisplay->drawImage(img, x, y, x + w, y + h,
-                          GameMakeColor(255, 255, 255, 255),
-                          Display::DRAW_IMAGE_ALPHA);
-  } else {
-    // Fallback: green crosshair so cursor is always visible
-    int cx = m_currMouse.pos.x;
-    int cy = m_currMouse.pos.y;
-    TheDisplay->drawFillRect(cx - 8, cy - 1, 16, 2, GameMakeColor(0, 255, 0, 200));
-    TheDisplay->drawFillRect(cx - 1, cy - 8, 2, 16, GameMakeColor(0, 255, 0, 200));
+  CursorInfo *info = &m_cursorInfo[m_currentCursor];
+  int frameCount = cursorFrameCount[m_currentCursor];
+  if (frameCount < 1) {
+    // No texture for this cursor — fallback green crosshair
+    if (TheDisplay) {
+      int cx = m_currMouse.pos.x;
+      int cy = m_currMouse.pos.y;
+      TheDisplay->drawFillRect(cx - 8, cy - 1, 16, 2, GameMakeColor(0, 255, 0, 200));
+      TheDisplay->drawFillRect(cx - 1, cy - 8, 2, 16, GameMakeColor(0, 255, 0, 200));
+    }
+    drawCursorText();
+    drawTooltip();
+    return;
+  }
+
+  // Determine which frame to display
+  int frameIdx = 0;
+  if (info->numDirections > 1) {
+    // Directional cursor (scroll): pick direction frame
+    // m_directionFrame is not accessible (W3DMouse member), compute inline
+    if (TheInGameUI && TheInGameUI->isScrolling()) {
+      Coord2D offset = TheInGameUI->getScrollAmount();
+      if (offset.x != 0 || offset.y != 0) {
+        Real len = sqrtf(offset.x * offset.x + offset.y * offset.y);
+        offset.x /= len; offset.y /= len;
+        Real theta = atan2f(offset.y, offset.x);
+        theta = fmodf(theta + (float)M_PI * 2.0f, (float)M_PI * 2.0f);
+        int numDirs = info->numDirections;
+        frameIdx = (int)(theta / (2.0f * (float)M_PI / (float)numDirs) + 0.5f);
+        if (frameIdx >= numDirs) frameIdx = 0;
+      }
+    }
+    if (frameIdx >= frameCount) frameIdx = 0;
+  } else if (frameCount > 1) {
+    // Animated cursor: advance frame by elapsed time and FPS
+    unsigned int now = timeGetTime();
+    float elapsed = (float)(now - lastAnimTime);
+    lastAnimTime = now;
+    float fpsMs = info->fps; // already in frames-per-ms from Mouse.ini
+    if (fpsMs > 0) {
+      animFrame += elapsed * fpsMs;
+      animFrame = fmodf(animFrame, (float)frameCount);
+    }
+    frameIdx = (int)animFrame;
+    if (frameIdx >= frameCount) frameIdx = 0;
+  }
+
+  TextureClass *tex = cursorTextures[m_currentCursor][frameIdx];
+  if (!tex) tex = cursorTextures[m_currentCursor][0]; // fallback to frame 0
+
+  if (tex) {
+    int texW = tex->Get_Width();
+    int texH = tex->Get_Height();
+    if (texW < 1) texW = 32;
+    if (texH < 1) texH = 32;
+    int x = m_currMouse.pos.x - info->hotSpotPosition.x;
+    int y = m_currMouse.pos.y - info->hotSpotPosition.y;
+
+    cursorRenderer->Set_Coordinate_Range(RectClass(0, 0, TheDisplay->getWidth(), TheDisplay->getHeight()));
+    cursorRenderer->Reset();
+    cursorRenderer->Enable_Texturing(TRUE);
+    cursorRenderer->Enable_Alpha(TRUE);
+    cursorRenderer->Set_Texture(tex);
+    cursorRenderer->Add_Quad(
+      RectClass(x, y, x + texW, y + texH),
+      RectClass(0.0f, 0.0f, 1.0f, 1.0f)
+    );
+    cursorRenderer->Render();
   }
 
   drawCursorText();
