@@ -1,7 +1,7 @@
 # macOS Stubs Audit — Systematic Tracking Table
 
 **Created:** 2026-02-20
-**Last Updated:** 2026-02-25 18:30
+**Last Updated:** 2026-02-25 19:40
 **Purpose:** Audit every stub in `Platform/MacOS/` to find the wild branch (`EXC_BAD_INSTRUCTION` at `0x100000000`) culprit.
 **Crash context:** PC jumps to `0x100000000` (Mach-O header), likely from nullptr vtable deref. Happens during `GameClient::update()` after `MetalDevice8::Clear` and 2D text drawing.
 
@@ -194,7 +194,10 @@
 
 ## 5. Game Client (Factory Methods)
 
-**File:** `Main/MacOSGameClient.mm` (238 lines)
+**File:** `Main/MacOSGameClient.mm` (197 lines)
+
+> **2026-02-25 19:35:** Implemented gameplay stubs via delegation to Core subsystems.
+> Removed MacOSTerrainVisual and MacOSSnowManager stubs — replaced by W3D equivalents.
 
 | Status | Stub / Class / Function | Notes |
 |:---|:---|:---|
@@ -202,25 +205,27 @@
 | ✅ | `MacOSGameClient::createDisplayStringManager()` | Returns `MacOSDisplayStringManager` |
 | ✅ | `MacOSGameClient::createFontLibrary()` | Returns `MacOSFontLibrary` (CoreText) |
 | ✅ | `MacOSGameClient::createInGameUI()` | Returns `W3DInGameUI` |
-| ✅ | `MacOSGameClient::createTerrainVisual()` | Returns `W3DTerrainVisual` ← **changed from MacOSTerrainVisual** |
+| ✅ | `MacOSGameClient::createTerrainVisual()` | Returns `W3DTerrainVisual` |
 | ✅ | `MacOSGameClient::createWindowManager()` | Returns `MacOSGameWindowManager` |
 | ✅ | `MacOSGameClient::createKeyboard()` | Returns `StdKeyboard` |
 | ✅ | `MacOSGameClient::createMouse()` | Returns `StdMouse` |
 | ✅ | `MacOSGameClient::createVideoPlayer()` | Returns `MacOSVideoPlayer` |
-| ⚠️ | `MacOSGameClient::setFrameRate()` | Empty |
-| ⚠️ | `MacOSGameClient::addScorch()` | No-op — needs `TheTerrainRenderObject` |
-| ⚠️ | `MacOSGameClient::createRayEffectByTemplate()` | No-op — needs W3D scene |
-| ⚠️ | `MacOSGameClient::setTeamColor()` / `setTextureLOD()` | No-op — needs terrain render object |
-| ✅ | `MacOSGameClient::releaseShadows()` / `allocateShadows()` | **FIXED** — now delegates to `GameClient::` base (iterates drawables) |
+| ✅ | `MacOSGameClient::addScorch()` | **IMPLEMENTED** — delegates to `TheTerrainRenderObject->addScorch()` |
+| ✅ | `MacOSGameClient::releaseShadows()` / `allocateShadows()` | Delegates to `GameClient::` base |
+| ✅ | `MacOSGameClient::createSnowManager()` | **IMPLEMENTED** — returns `W3DSnowManager` from Core |
+| ⚠️ | `MacOSGameClient::setFrameRate()` | No-op — frame rate governed by vsync |
+| ⚠️ | `MacOSGameClient::createRayEffectByTemplate()` | Logged stub — needs W3D scene |
+| ⚠️ | `MacOSGameClient::setTeamColor()` / `setTextureLOD()` | Logged stubs |
+| ⚠️ | `MacOSGameClient::notifyTerrainObjectMoved()` | Safe no-op |
 
 **File:** `Main/MacOSGameClient.mm` — Helper Classes
 
 | Status | Stub / Class / Function | Notes |
 |:---|:---|:---|
-| ⚠️ | `MacOSFontLibrary::loadFontData()` | Real — maps fonts via CoreText, sets `fontData=nullptr` |
-| ⚠️ | `MacOSSnowManager`  | All no-ops (init/reset/update) |
-| ⚠️ | `MacOSVideoPlayer` | Delegates to `VideoPlayer` base class |
-| ⚠️ | `MacOSTerrainVisual` (UNUSED) | **Not used anymore** — `W3DTerrainVisual` is used instead |
+| ✅ | `MacOSFontLibrary::loadFontData()` | Real — maps fonts via CoreText |
+| ✅ | `MacOSVideoPlayer` | Delegates to `VideoPlayer` base class |
+| ~~⚠️~~ | ~~`MacOSSnowManager`~~ | **REMOVED** — replaced by `W3DSnowManager` |
+| ~~⚠️~~ | ~~`MacOSTerrainVisual`~~ | **REMOVED** — `W3DTerrainVisual` used instead |
 
 ---
 
@@ -460,7 +465,7 @@ All previously-critical stubs have been resolved:
 | D3DX Helpers | 8 | 7 | 1 | 0 | 0 |
 | Display | 5 | 4 | 1 | 0 | 0 |
 | DisplayString | 5 | 4 | 1 | 0 | 0 |
-| GameClient Factory | 14 | 9 | 5 | 0 | 0 |
+| GameClient Factory | 18 | 14 | 4 | 0 | 0 |
 | GameEngine Factory | 11 | 9 | 2 | 0 | 0 |
 | AudioManager | 25 | 25 | 0 | 0 | 0 |
 | GameSpy/Network | 170+ | 1 | 169 | 0 | 0 |
@@ -472,4 +477,4 @@ All previously-critical stubs have been resolved:
 | windows.h | 9 | 1 | 8 | 0 | 0 |
 | Debug/Screenshot | 3 | 1 | 2 | 0 | 0 |
 | Git Info | 2 | 0 | 2 | 0 | 0 |
-| **TOTAL** | **~355** | **~139** | **~216** | **0** | **0** |
+| **TOTAL** | **~359** | **~144** | **~215** | **0** | **0** |
