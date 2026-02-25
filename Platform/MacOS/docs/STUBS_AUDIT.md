@@ -47,93 +47,104 @@
 
 ## 1. Graphics / Metal (DX8 Backend)
 
-**File:** `Metal/MetalDevice8.mm` (2408 lines)
+**File:** `Metal/MetalDevice8.mm` (2693 lines)
 
 | Status | Stub / Class / Function | Notes |
 |:---|:---|:---|
 | ✅ | `MetalDevice8::InitMetal()` | Real Metal device/layer/shaders init |
-| ✅ | `MetalDevice8::BeginScene()` / `EndScene()` | Real Metal frame lifecycle |
-| ✅ | `MetalDevice8::Clear()` | Real Metal clear |
-| ✅ | `MetalDevice8::Present()` | Real Metal drawable present |
-| ✅ | `MetalDevice8::DrawIndexedPrimitive()` | Real Metal encoded draw |
-| ✅ | `MetalDevice8::DrawPrimitiveUP()` | Real Metal immediate draw |
-| ✅ | `MetalDevice8::SetTexture()` | Real Metal texture binding |
-| ✅ | `MetalDevice8::SetRenderState()` | State cache, real pipeline state |
-| ✅ | `MetalDevice8::SetTransform()` | Matrix cache → uniforms |
-| ✅ | `MetalDevice8::CreateTexture()` | Creates `MetalTexture8` |
+| ✅ | `MetalDevice8::BeginScene()` / `EndScene()` | Real Metal frame lifecycle with command buffer management |
+| ✅ | `MetalDevice8::Clear()` | Real Metal clear (color + depth) |
+| ✅ | `MetalDevice8::Present()` | Real Metal drawable present with frame pacing |
+| ✅ | `MetalDevice8::DrawIndexedPrimitive()` | Real Metal encoded draw with full FVF parsing, PSO caching, TSS uniforms |
+| ✅ | `MetalDevice8::DrawPrimitiveUP()` | Real Metal immediate draw (used for UI quads) |
+| ✅ | `MetalDevice8::SetTexture()` | Real — stores texture + syncs to Metal encoder |
+| ✅ | `MetalDevice8::SetRenderState()` | State cache → pipeline state objects (blend, depth, cull, fog) |
+| ✅ | `MetalDevice8::SetTransform()` | Matrix cache → shader uniforms |
+| ✅ | `MetalDevice8::SetTextureStageState()` | Real TSS cache → fragment uniforms (colorOp/alphaOp/args) |
+| ✅ | `MetalDevice8::CreateTexture()` | Creates `MetalTexture8` with correct MTL format |
 | ✅ | `MetalDevice8::CreateVertexBuffer()` | Creates `MetalVertexBuffer8` |
 | ✅ | `MetalDevice8::CreateIndexBuffer()` | Creates `MetalIndexBuffer8` |
-| ⚠️ | `MetalDevice8::CreatePixelShader()` | Returns tracked dummy handle (no-op) — game mostly uses FFP, prevents 0 overriding |
+| ✅ | `MetalDevice8::SetMaterial()` | Real material storage → shader uniforms |
+| ✅ | `MetalDevice8::SetLight()` | Real light data storage → shader uniforms |
+| ✅ | `MetalDevice8::LightEnable()` | Real enable tracking |
+| ✅ | `MetalDevice8::SetStreamSource()` | Real — binds vertex buffer |
+| ✅ | `MetalDevice8::SetIndices()` | Real — binds index buffer |
+| ✅ | `MetalDevice8::GetBackBuffer()` | Creates `MetalSurface8` wrapper |
+| ✅ | `MetalDevice8::GetDepthStencilSurface()` | Creates `MetalSurface8` wrapper |
+| ⚠️ | `MetalDevice8::CreatePixelShader()` | Returns tracked dummy handle — game uses FFP |
 | ⚠️ | `MetalDevice8::CreateVertexShader()` | Returns tracked dummy handle with bit 31 set |
-| ⚠️ | `MetalDevice8::SetPixelShader()` | No-op |
-| ⚠️ | `MetalDevice8::SetVertexShader()` | Stores FVF, no real VS |
-| ⚠️ | `MetalDevice8::SetLight()` | Real light data storage |
-| ⚠️ | `MetalDevice8::LightEnable()` | Real enable tracking |
-| ⚠️ | `MetalDevice8::GetBackBuffer()` | Creates `MetalSurface8` |
-| ⚠️ | `MetalDevice8::GetDepthStencilSurface()` | Creates `MetalSurface8` |
+| ⚠️ | `MetalDevice8::SetPixelShader()` | No-op — Metal shader handles all FFP ops |
+| ⚠️ | `MetalDevice8::SetVertexShader()` | Stores FVF only — no real VS needed |
+| ⚠️ | `MetalDevice8::SetCursorProperties()` | No-op — using NSCursor |
+| ⚠️ | `MetalDevice8::SetCursorPosition()` | No-op — macOS handles cursor |
+| ⚠️ | `MetalDevice8::SetGammaRamp()` | No-op — gamma via system prefs |
 
-**File:** `Metal/MetalInterface8.mm` (184 lines)
+**File:** `Metal/MetalInterface8.mm` (229 lines)
 
 | Status | Stub / Class / Function | Notes |
 |:---|:---|:---|
 | ✅ | `MetalInterface8::CreateDevice()` | Creates `MetalDevice8`, calls `InitMetal()` |
-| ⚠️ | `MetalInterface8::GetDeviceCaps()` | Returns hardcoded high-end caps |
-| ⚠️ | `MetalInterface8::EnumAdapterModes()` | Returns 800×600 only |
-| ⚠️ | `MetalInterface8::GetAdapterMonitor()` | Returns `nullptr` — Windows: returns `HMONITOR` |
+| ✅ | `MetalInterface8::GetDeviceCaps()` | Returns comprehensive caps matching Metal hw |
+| ⚠️ | `MetalInterface8::EnumAdapterModes()` | Returns 800×600 only — could query NSScreen |
+| ⚠️ | `MetalInterface8::GetAdapterMonitor()` | Returns `nullptr` — Windows `HMONITOR` not needed |
+| ⚠️ | `MetalInterface8::RegisterSoftwareDevice()` | Returns `E_NOTIMPL` — not needed |
 
-**File:** `Metal/MetalTexture8.mm` (386 lines)
-
-| Status | Stub / Class / Function | Notes |
-|:---|:---|:---|
-| ✅ | `MetalTexture8` constructor | Creates real MTLTexture |
-| ✅ | `MetalTexture8::LockRect()` / `UnlockRect()` | Real staging + upload |
-| ✅ | `MetalTexture8::GetLevelDesc()` / `GetSurfaceLevel()` | Returns real data |
-
-**File:** `Metal/MetalVertexBuffer8.mm` (133 lines)
+**File:** `Metal/MetalTexture8.mm` (542 lines)
 
 | Status | Stub / Class / Function | Notes |
 |:---|:---|:---|
-| ✅ | `MetalVertexBuffer8::Lock()` / `Unlock()` / `GetMTLBuffer()` | Real sys-mem + lazy MTL buffer |
+| ✅ | `MetalTexture8` constructor | Creates real MTLTexture, zero-fills mip levels |
+| ✅ | `MetalTexture8::LockRect()` / `UnlockRect()` | Real staging + 16-bit→32-bit conversion + upload |
+| ✅ | `MetalTexture8::GetLevelDesc()` / `GetSurfaceLevel()` | Returns real data, creates `MetalSurface8` wrapper |
+| ⚠️ | `MetalTexture8::SetLOD()` / `GetLOD()` | Returns 0 — LOD bias not yet implemented |
 
-**File:** `Metal/MetalIndexBuffer8.mm` (125 lines)
-
-| Status | Stub / Class / Function | Notes |
-|:---|:---|:---|
-| ✅ | `MetalIndexBuffer8::Lock()` / `Unlock()` / `GetMTLBuffer()` | Real sys-mem + lazy MTL buffer |
-
-**File:** `Metal/MetalSurface8.mm` (153 lines)
+**File:** `Metal/MetalVertexBuffer8.mm` (132 lines)
 
 | Status | Stub / Class / Function | Notes |
 |:---|:---|:---|
-| ✅ | `MetalSurface8::LockRect()` / `UnlockRect()` | Staging buffer alloc, but **no upload** to Metal texture on unlock |
-| ⚠️ | `MetalSurface8::GetContainer()` | Returns `nullptr`, `E_NOTIMPL` |
+| ✅ | `MetalVertexBuffer8::Lock()` / `Unlock()` / `GetMTLBuffer()` | Real sys-mem + lazy MTL buffer creation |
+
+**File:** `Metal/MetalIndexBuffer8.mm` (124 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MetalIndexBuffer8::Lock()` / `Unlock()` / `GetMTLBuffer()` | Real sys-mem + lazy MTL buffer creation |
+
+**File:** `Metal/MetalSurface8.mm` (325 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MetalSurface8::LockRect()` | Real staging buffer allocation with format-aware sizing |
+| ✅ | `MetalSurface8::UnlockRect()` | Real upload to parent Metal texture with 16-bit→32-bit conversion |
+| ✅ | `MetalSurface8::GetDesc()` | Returns real format/size data |
+| ⚠️ | `MetalSurface8::GetContainer()` | Returns `nullptr`, `E_NOTIMPL` — rarely called |
 
 ---
 
 ## 2. W3D Shader Manager
 
-**File:** `Stubs/MacOSW3DShaderManager.mm` (190 lines)
+**File:** `Stubs/MacOSW3DShaderManager.mm` (213 lines)
 
 | Status | Stub / Class / Function | Notes |
 |:---|:---|:---|
-| ⚠️ | `W3DShaderManager::init()` | Printf only |
+| ⚠️ | `W3DShaderManager::init()` | Printf only — actual shader compilation done in MetalDevice8 |
 | ⚠️ | `W3DShaderManager::shutdown()` | Printf only |
-| ⚠️ | `W3DShaderManager::getChipset()` | Returns `DC_GEFORCE4` (high-end) |
-| ⚠️ | `W3DShaderManager::getShaderPasses()` | Returns `1` |
-| ⚠️ | `W3DShaderManager::setShader()` | Stores shader type, returns `TRUE` |
-| ⚠️ | `W3DShaderManager::setShroudTex()` | Returns `TRUE` |
-| ⚠️ | `W3DShaderManager::LoadAndCreateD3DShader()` | Returns `S_OK` (no real shader) |
-| ⚠️ | `W3DShaderManager::testMinimumRequirements()` | Reports high-end hardware |
-| ⚠️ | `W3DShaderManager::getGPUPerformanceIndex()` | Returns `STATIC_GAME_LOD_VERY_HIGH` |
-| ⚠️ | `W3DShaderManager::endRenderToTexture()` | Returns **`nullptr`** — **SAFE**: all callers check `if (!tex) return false;` |
-| ⚠️ | `W3DShaderManager::getRenderTexture()` | Returns **`nullptr`** — **SAFE**: callers check nullptr |
-| ⚠️ | `W3DShaderManager::startRenderToTexture()` | No-op |
+| ✅ | `W3DShaderManager::getChipset()` | Returns `DC_GEFORCE4` — correctly reports high-end for LOD selection |
+| ✅ | `W3DShaderManager::getShaderPasses()` | Returns `1` — correct, Metal does single-pass |
+| ✅ | `W3DShaderManager::setShader()` | Stores shader type + binds textures via `DX8Wrapper::Set_Texture()` |
+| ⚠️ | `W3DShaderManager::setShroudTex()` | Returns `TRUE` — shroud not yet implemented |
+| ⚠️ | `W3DShaderManager::LoadAndCreateD3DShader()` | Returns `S_OK` — no D3D shaders needed (Metal shader handles all) |
+| ✅ | `W3DShaderManager::testMinimumRequirements()` | Reports high-end hardware with correct values |
+| ✅ | `W3DShaderManager::getGPUPerformanceIndex()` | Returns `STATIC_GAME_LOD_VERY_HIGH` |
+| ⚠️ | `W3DShaderManager::endRenderToTexture()` | Returns `nullptr` — **SAFE**: callers check |
+| ⚠️ | `W3DShaderManager::getRenderTexture()` | Returns `nullptr` — **SAFE**: callers check |
+| ⚠️ | `W3DShaderManager::startRenderToTexture()` | No-op — render-to-texture not needed yet |
 | ⚠️ | `W3DShaderManager::drawViewport()` | No-op |
-| ⚠️ | `W3DShaderManager::filterPreRender()` / `filterPostRender()` / `filterSetup()` | Returns `false` (no filtering) |
-| ⚠️ | `ScreenBWFilter::*` | All no-ops |
-| ⚠️ | `ScreenBWFilterDOT3::*` | All no-ops |
-| ⚠️ | `ScreenMotionBlurFilter::*` | All no-ops |
-| ⚠️ | `ScreenCrossFadeFilter::*` | All no-ops |
+| ⚠️ | `W3DShaderManager::filterPreRender()` / `filterPostRender()` / `filterSetup()` | Returns `false` — post-processing filters not yet |
+| ⚠️ | `ScreenBWFilter::*` | All no-ops — black & white filter (nuke effect) |
+| ⚠️ | `ScreenBWFilterDOT3::*` | All no-ops — DOT3 BW filter |
+| ⚠️ | `ScreenMotionBlurFilter::*` | All no-ops — motion blur effect |
+| ⚠️ | `ScreenCrossFadeFilter::*` | All no-ops — cross-fade transitions |
 
 ---
 
@@ -447,8 +458,8 @@ All previously-critical stubs have been resolved:
 
 | Category | Total Stubs | ✅ Implemented | ⚠️ Safe Stub | ❌ Dangerous | 🔴 Critical |
 |:---|:---|:---|:---|:---|:---|
-| Metal / DX8 | 40 | 26 | 14 | 0 | 0 |
-| W3D Shader Manager | 18 | 0 | 18 | 0 | 0 |
+| Metal / DX8 | 42 | 33 | 9 | 0 | 0 |
+| W3D Shader Manager | 18 | 5 | 13 | 0 | 0 |
 | D3DX Helpers | 8 | 7 | 1 | 0 | 0 |
 | Display | 5 | 4 | 1 | 0 | 0 |
 | DisplayString | 5 | 4 | 1 | 0 | 0 |
@@ -464,4 +475,4 @@ All previously-critical stubs have been resolved:
 | windows.h | 9 | 1 | 8 | 0 | 0 |
 | Debug/Screenshot | 3 | 1 | 2 | 0 | 0 |
 | Git Info | 2 | 0 | 2 | 0 | 0 |
-| **TOTAL** | **~350** | **~110** | **~240** | **0** | **0** |
+| **TOTAL** | **~355** | **~124** | **~231** | **0** | **0** |
