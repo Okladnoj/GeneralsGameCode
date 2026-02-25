@@ -76,3 +76,4 @@ test_bgra.*
 *.orig
 *.rej
 .agent/
+.agent/NEXT_STEPS_PROMPT*.md
