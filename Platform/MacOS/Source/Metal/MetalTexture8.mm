@@ -18,6 +18,8 @@ UINT BytesPerPixelFromD3D(D3DFORMAT fmt) {
   case D3DFMT_X1R5G5B5:
   case D3DFMT_A1R5G5B5:
   case D3DFMT_A4R4G4B4:
+  case D3DFMT_V8U8:
+  case D3DFMT_L6V5U5:
     return 2;
   case D3DFMT_R8G8B8:
     return 3;
@@ -25,6 +27,9 @@ UINT BytesPerPixelFromD3D(D3DFORMAT fmt) {
   case D3DFMT_L8:
   case D3DFMT_P8:
     return 1;
+  case D3DFMT_A8L8:
+  case D3DFMT_A8P8:
+    return 2;
   case D3DFMT_DXT1:
     return 8; // Per 4x4 block (8 bytes)
   case D3DFMT_DXT2:
@@ -50,6 +55,22 @@ MTLPixelFormat MetalFormatFromD3D(D3DFORMAT fmt) {
   case D3DFMT_A1R5G5B5:
   case D3DFMT_A4R4G4B4:
     return MTLPixelFormatBGRA8Unorm;
+
+  case D3DFMT_V8U8:
+  case D3DFMT_L6V5U5:
+    return MTLPixelFormatRG8Snorm;
+
+  case D3DFMT_L8:
+  case D3DFMT_P8:
+    return MTLPixelFormatR8Unorm;
+
+  case D3DFMT_A8:
+    return MTLPixelFormatA8Unorm;
+
+  case D3DFMT_A8L8:
+  case D3DFMT_A8P8:
+  case D3DFMT_A4L4:
+    return MTLPixelFormatRG8Unorm;
 
   // macOS Metal supports BC compression
   case D3DFMT_DXT1:
@@ -101,11 +122,48 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
   id<MTLTexture> tex = [mtlDev newTextureWithDescriptor:desc];
   m_Texture = (__bridge_retained void *)tex; // Retain manual ref
 
+  // Zero-fill all mip levels — MTLStorageModeShared starts with undefined data.
+  // Without this, textures that never receive LockRect/UnlockRect data uploads
+  // will display as white/garbage on Apple Silicon.
+  {
+    bool isCompressed = (format == D3DFMT_DXT1 || format == D3DFMT_DXT2 ||
+                         format == D3DFMT_DXT3 || format == D3DFMT_DXT4 ||
+                         format == D3DFMT_DXT5);
+    UINT bpp = BytesPerPixelFromD3D(format);
+    for (UINT lvl = 0; lvl < m_Levels; lvl++) {
+      UINT w = std::max(1u, width >> lvl);
+      UINT h = std::max(1u, height >> lvl);
+      UINT dataSize, bytesPerRow;
+      if (isCompressed) {
+        UINT blocksWide = std::max(1u, (w + 3) / 4);
+        UINT blocksHigh = std::max(1u, (h + 3) / 4);
+        bytesPerRow = blocksWide * bpp;
+        dataSize = bytesPerRow * blocksHigh;
+      } else {
+        bytesPerRow = w * bpp;
+        dataSize = bytesPerRow * h;
+      }
+      void *zeros = calloc(1, dataSize);
+      if (zeros) {
+        MTLRegion region = MTLRegionMake2D(0, 0, w, h);
+        if (isCompressed) {
+          UINT blocksHigh = std::max(1u, (h + 3) / 4);
+          [tex replaceRegion:region mipmapLevel:lvl slice:0
+                   withBytes:zeros bytesPerRow:bytesPerRow bytesPerImage:bytesPerRow * blocksHigh];
+        } else {
+          [tex replaceRegion:region mipmapLevel:lvl withBytes:zeros bytesPerRow:bytesPerRow];
+        }
+        free(zeros);
+      }
+    }
+  }
+
   // Diagnostic: log terrain-related texture creation
   static int s_texCreationCount = 0;
-  if (s_texCreationCount < 80) {
-    fprintf(stderr, "[MetalTexture8] Created #%d: %ux%u fmt=%u levels=%u pool=%u tex=%p\n",
+  if (s_texCreationCount < 200) {
+    printf("[MetalTexture8] Created #%d: %ux%u fmt=%u levels=%u pool=%u tex=%p\n",
             s_texCreationCount, width, height, (unsigned)format, m_Levels, (unsigned)pool, (void*)m_Texture);
+    fflush(stdout);
     s_texCreationCount++;
   }
 }
@@ -120,19 +178,20 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, void *mtlTexture,
 
   id<MTLTexture> tex = (__bridge id<MTLTexture>)mtlTexture;
   if (tex) {
-    // We want to RETAIN it because we will Release it in destructor.
-    // __bridge_retained transfers +1.
-    // If tex is __bridge (no transfer), we need a retain.
-    // If we cast `void*` -> `id`, it's __bridge.
-    // `tex` is just a pointer usage.
-    // We want to store it as `m_Texture` (void*) with +1 ref count.
     m_Texture = (__bridge_retained void *)tex;
-
     m_Width = (UINT)tex.width;
     m_Height = (UINT)tex.height;
     m_Levels = (UINT)tex.mipmapLevelCount;
   } else {
     m_Texture = nullptr;
+  }
+
+  static int s_ctor2Count = 0;
+  if (s_ctor2Count < 50) {
+    fprintf(stderr, "[MetalTexture8::ctor2] #%d: %ux%u fmt=%u lvls=%u this=%p mtl=%p\n",
+            s_ctor2Count, m_Width, m_Height, (unsigned)format, m_Levels,
+            (void*)this, mtlTexture);
+    s_ctor2Count++;
   }
 }
 
@@ -393,16 +452,17 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
 
   // Diagnostic: log texture uploads
   static int s_texUnlockCount = 0;
-  if (s_texUnlockCount < 80) {
+  if (s_texUnlockCount < 200) {
     UINT w = std::max(1u, m_Width >> Level);
     UINT h = std::max(1u, m_Height >> Level);
     uint32_t nonZero = 0;
     UINT checkBytes = std::min((UINT)(w * h * lvl.bytesPerPixel), (UINT)256);
     const uint8_t *p = (const uint8_t *)lvl.ptr;
     for (UINT i = 0; i < checkBytes; i++) { if (p[i] != 0) nonZero++; }
-    fprintf(stderr, "[MetalTexture8] UnlockRect #%d: %ux%u fmt=%u(bpp=%u) lvl=%u nonZero=%u/%u tex=%p\n",
+    printf("[MetalTexture8] UnlockRect #%d: %ux%u fmt=%u(bpp=%u) lvl=%u nonZero=%u/%u tex=%p\n",
             s_texUnlockCount, w, h, (unsigned)m_Format, lvl.bytesPerPixel,
             Level, nonZero, checkBytes, (void*)m_Texture);
+    fflush(stdout);
     s_texUnlockCount++;
   }
 

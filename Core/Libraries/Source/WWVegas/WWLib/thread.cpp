@@ -31,6 +31,12 @@
 #include <windows.h>
 #endif
 
+#ifdef _UNIX
+#include <pthread.h>
+#include <unistd.h>
+#include <sched.h>
+#endif
+
 ThreadClass::ThreadClass(const char *thread_name, ExceptionHandlerType exception_handler) : handle(0), running(false), thread_priority(0)
 {
 	if (thread_name) {
@@ -89,7 +95,9 @@ void ThreadClass::Execute()
 {
 	WWASSERT(!handle);	// Only one thread at a time!
 	#ifdef _UNIX
-		// assert(0);
+		// macOS: Thread not started. Background work is done on the main
+		// thread (e.g. TextureLoader::Update drains _BackgroundQueue).
+		// This avoids Metal thread-safety issues with D3D/Metal APIs.
 		return;
 	#else
 		handle=_beginthread(&Internal_Thread_Function,0,this);
@@ -100,22 +108,27 @@ void ThreadClass::Execute()
 
 void ThreadClass::Set_Priority(int priority)
 {
-	#ifdef _UNIX
-		// assert(0);
-		return;
-	#else
-		thread_priority=priority;
-		if (handle) SetThreadPriority((HANDLE)handle,THREAD_PRIORITY_NORMAL+thread_priority);
+	thread_priority=priority;
+	#ifndef _UNIX
+	if (handle) SetThreadPriority((HANDLE)handle,THREAD_PRIORITY_NORMAL+thread_priority);
 	#endif
 }
 
 void ThreadClass::Stop(unsigned ms)
 {
+	running=false;
 	#ifdef _UNIX
-		// assert(0);
-		return;
+		// Wait for thread to finish (it checks 'running' flag)
+		unsigned time=TIMEGETTIME();
+		while (handle) {
+			if ((TIMEGETTIME()-time)>ms) {
+				// Timeout — force clear handle
+				handle=0;
+				break;
+			}
+			usleep(1000); // 1ms
+		}
 	#else
-		running=false;
 		unsigned time=TIMEGETTIME();
 		while (handle) {
 			if ((TIMEGETTIME()-time)>ms) {
@@ -141,7 +154,8 @@ HANDLE test_event = ::CreateEvent (nullptr, FALSE, FALSE, "");
 void ThreadClass::Switch_Thread()
 {
 	#ifdef _UNIX
-		return;
+		sched_yield();
+		usleep(1000); // 1ms to prevent tight spin
 	#else
 		//	::SwitchToThread ();
 		::WaitForSingleObject (test_event, 1);
@@ -153,7 +167,7 @@ void ThreadClass::Switch_Thread()
 unsigned ThreadClass::_Get_Current_Thread_ID()
 {
 	#ifdef _UNIX
-		return 0;
+		return (unsigned)(uintptr_t)pthread_self();
 	#else
 		return GetCurrentThreadId();
 	#endif

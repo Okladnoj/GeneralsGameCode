@@ -1688,6 +1688,20 @@ unsigned DX8TextureCategoryClass::Add_Mesh(
 
 void DX8TextureCategoryClass::Render(void)
 {
+#ifdef __APPLE__
+	{
+		static int s_tcRender = 0;
+		if (s_tcRender < 30) {
+			TextureClass* t0 = Peek_Texture(0);
+			printf("[TexCat::Render] #%d tex0=%p name='%s' d3d=%p\n",
+				s_tcRender, (void*)t0,
+				t0 ? t0->Get_Texture_Name().str() : "(null)",
+				t0 ? (void*)t0->Peek_D3D_Base_Texture() : nullptr);
+			fflush(stdout);
+			s_tcRender++;
+		}
+	}
+#endif
 	#ifdef WWDEBUG
 	if (!WW3D::Expose_Prelit()) {
 	#endif
@@ -1719,6 +1733,23 @@ void DX8TextureCategoryClass::Render(void)
 
 	DX8Wrapper::Set_Shader(theShader);
 
+#ifdef __APPLE__
+	{
+		static int s_shaderLog = 0;
+		if (s_shaderLog < 50) {
+			TextureClass* t0 = Peek_Texture(0);
+			printf("[TexCat::Shader] #%d texturing=%d gradient=%d hasTex=%d bits=0x%lx name='%s'\n",
+				s_shaderLog, 
+				(int)theShader.Get_Texturing(),
+				(int)theShader.Get_Primary_Gradient(),
+				(t0 != nullptr),
+				(unsigned long)theShader.Get_Bits(),
+				t0 ? t0->Get_Texture_Name().str() : "(null)");
+			fflush(stdout);
+			s_shaderLog++;
+		}
+	}
+#endif
 	if (m_gForceMultiply && theShader.Get_Dst_Blend_Func() == ShaderClass::DSTBLEND_ZERO) {
 		theShader.Set_Dst_Blend_Func(ShaderClass::DSTBLEND_SRC_COLOR);
 		theShader.Set_Src_Blend_Func(ShaderClass::SRCBLEND_ZERO);

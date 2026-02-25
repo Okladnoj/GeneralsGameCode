@@ -138,23 +138,33 @@ public:
         return;
       }
 
-      for (int i = 0; i < m_Width * m_Height; i++) {
-        unsigned char r = src[i * 4 + 0];
-        unsigned char g = src[i * 4 + 1];
-        unsigned char b = src[i * 4 + 2];
-        unsigned char a = src[i * 4 + 3];
+      // Copy row-by-row, respecting lr.Pitch (which may be larger than
+      // m_Width * 4 due to buffer-backed texture alignment).
+      int srcPitch = m_Width * 4;
+      int dstPitch = lr.Pitch;
 
-        // Unpremultiply and convert to BGRA
-        if (a > 0 && a < 255) {
-          dst[i * 4 + 0] = (unsigned char)((int)b * 255 / a);
-          dst[i * 4 + 1] = (unsigned char)((int)g * 255 / a);
-          dst[i * 4 + 2] = (unsigned char)((int)r * 255 / a);
-        } else {
-          dst[i * 4 + 0] = b;
-          dst[i * 4 + 1] = g;
-          dst[i * 4 + 2] = r;
+      for (int y = 0; y < m_Height; y++) {
+        unsigned char *srcRow = src + y * srcPitch;
+        unsigned char *dstRow = dst + y * dstPitch;
+
+        for (int x = 0; x < m_Width; x++) {
+          unsigned char r = srcRow[x * 4 + 0];
+          unsigned char g = srcRow[x * 4 + 1];
+          unsigned char b = srcRow[x * 4 + 2];
+          unsigned char a = srcRow[x * 4 + 3];
+
+          // Unpremultiply and convert to BGRA
+          if (a > 0 && a < 255) {
+            dstRow[x * 4 + 0] = (unsigned char)((int)b * 255 / a);
+            dstRow[x * 4 + 1] = (unsigned char)((int)g * 255 / a);
+            dstRow[x * 4 + 2] = (unsigned char)((int)r * 255 / a);
+          } else {
+            dstRow[x * 4 + 0] = b;
+            dstRow[x * 4 + 1] = g;
+            dstRow[x * 4 + 2] = r;
+          }
+          dstRow[x * 4 + 3] = a;
         }
-        dst[i * 4 + 3] = a;
       }
       m_D3DTexture->UnlockRect(0);
     }

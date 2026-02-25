@@ -680,10 +680,11 @@ TextureClass::TextureClass
 	TextureFormat(texture_format)
 {
 	static int s_ctorCount = 0;
-	if (++s_ctorCount <= 30) {
-		fprintf(stderr, "[TextureClass::ctor(name)] #%d: name='%s' path='%s' fmt=%d mips=%d\n",
+	if (++s_ctorCount <= 80) {
+		printf("[TextureClass::ctor(name)] #%d: name='%s' path='%s' fmt=%d mips=%d\n",
 			s_ctorCount, name ? name : "(null)", full_path ? full_path : "(null)",
 			(int)texture_format, (int)mip_level_count);
+		fflush(stdout);
 	}
 	IsCompressionAllowed=allow_compression;
 	InactivationTime=DEFAULT_INACTIVATION_TIME;		// Default inactivation time 30 seconds
@@ -767,10 +768,20 @@ TextureClass::TextureClass
 	// mesh is rendered.
 #ifdef __APPLE__
 	// On macOS, always initialize textures immediately during construction.
-	// The thumbnail/background loading system doesn't work with our Metal backend,
-	// so we must load textures eagerly.
+	// The thumbnail/background loading system sets Initialized=true via
+	// Load_Locked_Surface → Load_Thumbnail → Apply_New_Surface before we get here.
+	// We must reset it so Request_Foreground_Loading actually loads the full texture
+	// instead of skipping because it thinks the thumbnail is the final texture.
 	if (TextureLoader::Is_DX8_Thread())
 	{
+		// Reset both Initialized flag AND the D3DTexture pointer.
+		// Thumbnail set Initialized=true AND D3DTexture=thumbnail_ptr.
+		// Init() checks both: line 877 (Initialized) and line 905 (!Peek_D3D_Base_Texture()).
+		// Without clearing D3DTexture, Init() skips Request_Foreground_Loading entirely.
+		Initialized = false;
+		IDirect3DBaseTexture8* oldTex = Peek_D3D_Base_Texture();
+		Poke_Texture(nullptr);
+		if (oldTex) oldTex->Release();
 		Init();
 	}
 #else
@@ -880,10 +891,11 @@ void TextureClass::Init()
 		const char* texName = "(none)";
 		StringClass tmpName = Get_Texture_Name();
 		if (!tmpName.Is_Empty()) texName = tmpName.Peek_Buffer();
-		fprintf(stderr, "[TextureClass::Init] #%d: name='%s' hasD3DTex=%d fmt=%d mips=%d w=%u h=%u\n",
+		printf("[TextureClass::Init] #%d: name='%s' hasD3DTex=%d fmt=%d mips=%d w=%u h=%u\n",
 			s_initCount, texName,
 			(int)(Peek_D3D_Base_Texture() != nullptr), (int)TextureFormat,
 			(int)MipLevelCount, Width, Height);
+		fflush(stdout);
 	}
 
 	// If the texture has recently been inactivated, increase the inactivation time (this texture obviously
@@ -941,11 +953,13 @@ void TextureClass::Apply_New_Surface
 {
 	static int s_applyCount = 0;
 	s_applyCount++;
-	if (s_applyCount <= 30) {
+	if (s_applyCount <= 200) {
 		StringClass tmpName2 = Get_Texture_Name();
-		fprintf(stderr, "[Apply_New_Surface] #%d: name='%s' init=%d tex=%p\n",
+		IDirect3DBaseTexture8* oldTex2 = Peek_D3D_Base_Texture();
+		printf("[Apply_New_Surface] #%d: name='%s' init=%d newTex=%p oldTex=%p\n",
 			s_applyCount, tmpName2.Is_Empty() ? "(none)" : tmpName2.Peek_Buffer(),
-			(int)initialized, (void*)d3d_texture);
+			(int)initialized, (void*)d3d_texture, (void*)oldTex2);
+		fflush(stdout);
 	}
 	IDirect3DBaseTexture8* d3d_tex=Peek_D3D_Base_Texture();
 
@@ -993,31 +1007,6 @@ void TextureClass::Apply(unsigned int stage)
 	if (!Initialized)
 	{
 		Init();
-
-		/* was in battlefield// Non-thumbnailed textures are always initialized when used
-		if (MipLevelCount==MIP_LEVELS_1)
-		{
-		}
-		// Thumbnailed textures have delayed initialization and a background loading system
-		else
-		{
-			// Limit the number of texture initializations per frame to reduce stuttering
-			if (TexturesAppliedPerFrame<MAX_TEXTURES_APPLIED_PER_FRAME)
-			{
-				TexturesAppliedPerFrame++;
-				Init();
-			}
-			else
-			{
-				// If texture can't be initialized in this frame, at least make sure we have the thumbnail.
-				if (!Peek_Texture())
-				{
-					WW3DFormat format=TextureFormat;
-					Load_Locked_Surface();
-					TextureFormat=format;
-				}
-			}
-		}*/
 	}
 	LastAccessed=WW3D::Get_Sync_Time();
 

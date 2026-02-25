@@ -239,7 +239,7 @@ HRESULT WINAPI D3DXCreateTexture(IDirect3DDevice8 *pDevice, UINT Width,
   
   static int s_createCount = 0;
   s_createCount++;
-  if (s_createCount <= 50) {
+  if (true) {
     fprintf(stderr, "[D3DXCreateTexture] #%d: %ux%u fmt=%u mips=%u usage=0x%x pool=%u dev=%p\n",
             s_createCount, Width, Height, (unsigned)Format, MipLevels, 
             (unsigned)Usage, (unsigned)Pool, (void*)pDevice);
@@ -247,7 +247,7 @@ HRESULT WINAPI D3DXCreateTexture(IDirect3DDevice8 *pDevice, UINT Width,
   
   HRESULT hr = pDevice->CreateTexture(Width, Height, MipLevels, Usage, Format, Pool, ppTexture);
   
-  if (s_createCount <= 50) {
+  if (true) {
     fprintf(stderr, "[D3DXCreateTexture] #%d: result=0x%x tex=%p\n",
             s_createCount, (unsigned)hr, ppTexture ? (void*)*ppTexture : nullptr);
   }
@@ -524,11 +524,51 @@ HRESULT WINAPI D3DXCreateVolumeTexture(
 }
 
 
+class MockD3DXBuffer : public ID3DXBuffer {
+  ULONG m_ref = 1;
+  void *m_data;
+  DWORD m_size;
+
+public:
+  MockD3DXBuffer(const void *data, DWORD size) : m_size(size) {
+    m_data = calloc(1, size > 0 ? size : 1);
+    if (data && size > 0)
+      memcpy(m_data, data, size);
+  }
+  virtual ~MockD3DXBuffer() { free(m_data); }
+
+  STDMETHODIMP QueryInterface(REFIID riid, void **ppvObj) override {
+    if (!ppvObj)
+      return E_POINTER;
+    *ppvObj = this; // Minimal mock
+    AddRef();
+    return S_OK;
+  }
+  STDMETHODIMP_(ULONG) AddRef() override { return ++m_ref; }
+  STDMETHODIMP_(ULONG) Release() override {
+    ULONG r = --m_ref;
+    if (r == 0)
+      delete this;
+    return r;
+  }
+  STDMETHODIMP_(void *) GetBufferPointer() override { return m_data; }
+  STDMETHODIMP_(DWORD) GetBufferSize() override { return m_size; }
+};
+
 HRESULT WINAPI D3DXAssembleShader(const void *pSrcData, UINT SrcDataLen,
                                   DWORD Flags, LPD3DXBUFFER *ppConstants,
                                   LPD3DXBUFFER *ppCompiledShader,
                                   LPD3DXBUFFER *ppCompilationErrors) {
-  return E_NOTIMPL;
+  if (ppCompiledShader) {
+    *ppCompiledShader = new MockD3DXBuffer(pSrcData, SrcDataLen);
+  }
+  if (ppConstants) {
+    *ppConstants = nullptr;
+  }
+  if (ppCompilationErrors) {
+    *ppCompilationErrors = nullptr;
+  }
+  return S_OK;
 }
 
 } // extern "C"

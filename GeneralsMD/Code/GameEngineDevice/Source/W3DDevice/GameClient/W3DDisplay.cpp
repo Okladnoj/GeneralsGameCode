@@ -1669,6 +1669,13 @@ void W3DDisplay::draw( void )
 	if (TheGlobalData->m_headless)
 		return;
 
+#ifdef __APPLE__
+	// macOS: Process the texture loading queue here because WW3D::Begin_Render
+	// may not always reach TextureLoader::Update(). Without this, model textures
+	// stay as thumbnails/MissingTexture and never get full-resolution loaded.
+	TextureLoader::Update(nullptr);
+#endif
+
 	static int rflowFrameNum = 0;
 	DLOG_RFLOW(1, "W3DDisplay::draw frame=%d fps=%.1f headless=%d",
 		rflowFrameNum++, m_averageFPS, (int)TheGlobalData->m_headless);
@@ -1846,6 +1853,14 @@ AGAIN:
 			//USE_PERF_TIMER(BigAssRenderLoop)
 			static Bool couldRender = true;
 			Real minWaterOpacity = TheWaterTransparency ? TheWaterTransparency->m_minWaterOpacity : 1.0f;
+			{
+				static int s_drawBR = 0;
+				if (++s_drawBR <= 5) {
+					fprintf(stderr, "[W3DDisplay::draw] #%d: breakMovie=%d disableRender=%d calling Begin_Render\n",
+						s_drawBR, (int)TheGlobalData->m_breakTheMovie, (int)TheGlobalData->m_disableRender);
+					fflush(stderr);
+				}
+			}
 			if ((TheGlobalData->m_breakTheMovie == FALSE) && (TheGlobalData->m_disableRender == false) && WW3D::Begin_Render( true, true, Vector3( 0.0f, 0.0f, 0.0f ), minWaterOpacity ) == WW3D_ERROR_OK)
 			{
 

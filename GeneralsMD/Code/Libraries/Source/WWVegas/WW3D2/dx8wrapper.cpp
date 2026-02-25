@@ -2388,6 +2388,20 @@ void DX8Wrapper::Apply_Render_State_Changes() {
                         : "null"));
 
       if (render_state.Textures[i]) {
+#ifdef __APPLE__
+        if (i == 0) {
+          static int s_arsLog = 0;
+          if (s_arsLog < 300) {
+            StringClass tn = render_state.Textures[0]->Get_Full_Path();
+            printf("[ARS::Apply] #%d tex=%p name='%s' d3d=%p\n",
+              s_arsLog, (void*)render_state.Textures[0],
+              tn.Is_Empty() ? "(empty)" : tn.Peek_Buffer(),
+              (void*)render_state.Textures[0]->Peek_D3D_Base_Texture());
+            fflush(stdout);
+            s_arsLog++;
+          }
+        }
+#endif
         render_state.Textures[i]->Apply(i);
       } else {
         TextureBaseClass::Apply_Null(i);
@@ -2620,6 +2634,8 @@ DX8Wrapper::_Create_DX8_Texture(const char *filename,
       mip_level_count, // create_mipmaps ? 0 : 1,
       0, D3DFMT_UNKNOWN, D3DPOOL_MANAGED, D3DX_FILTER_BOX, D3DX_FILTER_BOX, 0,
       nullptr, nullptr, &texture);
+
+  fprintf(stderr, "[Create_DX8_Texture] file='%s' result=%u\n", filename ? filename : "null", result);
 
   if (result != D3D_OK) {
     return MissingTexture::_Get_Missing_Texture();

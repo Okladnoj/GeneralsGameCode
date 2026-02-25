@@ -121,6 +121,8 @@ STDMETHODIMP MetalSurface8::LockRect(D3DLOCKED_RECT *pLockedRect,
   case D3DFMT_A1R5G5B5:
   case D3DFMT_A4R4G4B4:
   case D3DFMT_X1R5G5B5:
+  case D3DFMT_V8U8:
+  case D3DFMT_L6V5U5:
     bpp = 2;
     break;
   case D3DFMT_A8:
@@ -184,6 +186,11 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       bpp = 2;
       is16bit = true;
       break;
+    case D3DFMT_V8U8:
+    case D3DFMT_L6V5U5:
+      bpp = 2;
+      is16bit = false;
+      break;
     case D3DFMT_A8:
       bpp = 1;
       break;
@@ -199,6 +206,8 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       mtlBpp = 4;
     } else if (mtlFmt == MTLPixelFormatR8Unorm) {
       mtlBpp = 1;
+    } else if (mtlFmt == MTLPixelFormatRG8Snorm || mtlFmt == MTLPixelFormatRG8Unorm) {
+      mtlBpp = 2;
     }
 
     // Diagnostic: log first few surface uploads

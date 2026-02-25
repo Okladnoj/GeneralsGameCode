@@ -1130,6 +1130,18 @@ TextureClass *WW3DAssetManager::Get_Texture(const char *filename,
   ** See if the texture has already been loaded.
   */
   TextureClass *tex = TextureHash.Get(lower_case_name);
+
+  static int s_getTexCount = 0;
+  s_getTexCount++;
+  if (s_getTexCount <= 80) {
+    printf("[WW3D::Get_Texture] #%d: '%s' cached=%d init=%d hasD3D=%d\n",
+            s_getTexCount, lower_case_name.Peek_Buffer(),
+            (int)(tex != nullptr),
+            tex ? (int)tex->Is_Initialized() : -1,
+            tex ? (int)(tex->Peek_D3D_Base_Texture() != nullptr) : -1);
+    fflush(stdout);
+  }
+
   if (tex && (tex->Is_Initialized() == true) &&
       (texture_format != WW3D_FORMAT_UNKNOWN)) {
     WWASSERT_PRINT(
@@ -1159,6 +1171,13 @@ TextureClass *WW3DAssetManager::Get_Texture(const char *filename,
     }
 
     TextureHash.Insert(tex->Get_Texture_Name(), tex);
+
+    if (s_getTexCount <= 80) {
+      printf("[WW3D::Get_Texture] #%d: CREATED new '%s' tex=%p hasD3D=%d\n",
+              s_getTexCount, lower_case_name.Peek_Buffer(), (void*)tex,
+              (int)(tex->Peek_D3D_Base_Texture() != nullptr));
+      fflush(stdout);
+    }
   }
 
   tex->Add_Ref();

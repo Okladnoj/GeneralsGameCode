@@ -786,7 +786,11 @@ void WW3D::Set_Texture_Filter(int texture_filter)
  *=============================================================================================*/
 WW3DErrorType WW3D::Begin_Render(bool clear,bool clearz,const Vector3 & color, float dest_alpha, void(*network_callback)(void))
 {
+	static int s_brCount = 0;
+	s_brCount++;
+
 	if (!IsInitted) {
+		if (s_brCount <= 5) fprintf(stderr, "[Begin_Render] #%d: NOT INITTED, returning OK early\n", s_brCount);
 		return(WW3D_ERROR_OK);
 	}
 
@@ -800,6 +804,7 @@ WW3DErrorType WW3D::Begin_Render(bool clear,bool clearz,const Vector3 & color, f
 
 	if (DX8Wrapper::_Get_D3D_Device8() && (hr=DX8Wrapper::_Get_D3D_Device8()->TestCooperativeLevel()) != D3D_OK)
 	{
+		if (s_brCount <= 5) fprintf(stderr, "[Begin_Render] #%d: TestCooperativeLevel FAILED hr=0x%x\n", s_brCount, (unsigned)hr);
         // If the device was lost, do not render until we get it back
         if( D3DERR_DEVICELOST == hr )
             return WW3D_ERROR_GENERIC;	//other app has the device
@@ -813,6 +818,8 @@ WW3DErrorType WW3D::Begin_Render(bool clear,bool clearz,const Vector3 & color, f
 
 		return WW3D_ERROR_GENERIC;
 	}
+
+	if (s_brCount <= 5) fprintf(stderr, "[Begin_Render] #%d: proceeding to TextureLoader::Update\n", s_brCount);
 
 	// Memory allocation statistics
 	LastFrameMemoryAllocations=WWMemoryLogClass::Get_Allocate_Count();

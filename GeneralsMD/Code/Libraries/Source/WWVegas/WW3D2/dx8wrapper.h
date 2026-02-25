@@ -1165,6 +1165,19 @@ WWINLINE void DX8Wrapper::Set_Texture(unsigned stage,TextureBaseClass* texture)
 {
 	WWASSERT(stage<(unsigned int)CurrentCaps->Get_Max_Textures_Per_Pass());
 	if (texture==render_state.Textures[stage]) return;
+#ifdef __APPLE__
+	if (stage == 0) {
+		static int s_setTexLog = 0;
+		if (s_setTexLog < 200) {
+			const char* tname = texture ? texture->Get_Full_Path().str() : "(null)";
+			IDirect3DBaseTexture8* d3d = texture ? texture->Peek_D3D_Base_Texture() : nullptr;
+			printf("[DX8::Set_Texture] #%d stage=0 tex=%p d3d=%p name='%s'\n",
+				s_setTexLog, (void*)texture, (void*)d3d, tname ? tname : "?");
+			fflush(stdout);
+			s_setTexLog++;
+		}
+	}
+#endif
 	REF_PTR_SET(render_state.Textures[stage],texture);
 	render_state_changed|=(TEXTURE0_CHANGED<<stage);
 }

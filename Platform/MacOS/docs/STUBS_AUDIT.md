@@ -63,8 +63,8 @@
 | ✅ | `MetalDevice8::CreateTexture()` | Creates `MetalTexture8` |
 | ✅ | `MetalDevice8::CreateVertexBuffer()` | Creates `MetalVertexBuffer8` |
 | ✅ | `MetalDevice8::CreateIndexBuffer()` | Creates `MetalIndexBuffer8` |
-| ⚠️ | `MetalDevice8::CreatePixelShader()` | Returns `S_OK` (no-op) — game uses FFP mostly |
-| ⚠️ | `MetalDevice8::CreateVertexShader()` | Returns `S_OK` (no-op) |
+| ⚠️ | `MetalDevice8::CreatePixelShader()` | Returns tracked dummy handle (no-op) — game mostly uses FFP, prevents 0 overriding |
+| ⚠️ | `MetalDevice8::CreateVertexShader()` | Returns tracked dummy handle with bit 31 set |
 | ⚠️ | `MetalDevice8::SetPixelShader()` | No-op |
 | ⚠️ | `MetalDevice8::SetVertexShader()` | Stores FVF, no real VS |
 | ⚠️ | `MetalDevice8::SetLight()` | Real light data storage |

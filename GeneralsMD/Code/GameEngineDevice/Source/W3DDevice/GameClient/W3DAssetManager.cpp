@@ -165,6 +165,7 @@ TextureClass *	W3DAssetManager::Get_Texture
 		bool allow_reduction
 	)
 {
+	fprintf(stderr, "[W3DAssetManager::Get_Texture] filename='%s'\n", filename ? filename : "null");
 	//Just call the base implementation after adjusting reduction to deal
 	//with our special types.
 

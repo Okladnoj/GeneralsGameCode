@@ -71,7 +71,7 @@ struct TextureStageConfig {
 };
 
 struct FragmentUniforms {
-    TextureStageConfig stages[2];
+    TextureStageConfig stages[4];
     float4 textureFactor;   // D3DRS_TEXTUREFACTOR (ARGB as float4)
     float4 fogColor;
     float  fogStart;
@@ -81,10 +81,11 @@ struct FragmentUniforms {
     uint   alphaTestEnable;
     uint   alphaFunc;        // D3DCMP enum
     float  alphaRef;         // normalized 0..1
-    uint   hasTexture0;
-    uint   hasTexture1;
-    uint   _pad0;
+    uint   hasTexture[4];
+    uint   specularEnable;
     uint   _pad1;
+    uint   _pad2;
+    uint   _pad3;
 };
 
 // ─────────────────────────────────────────────────────
@@ -358,8 +359,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
 //  Selects the color/alpha source based on D3DTA value
 // ─────────────────────────────────────────────────────
 float4 resolveArg(uint argId,
-                  float4 texColor0,
-                  float4 texColor1,
+                  float4 texColor0, float4 texColor1, float4 texColor2, float4 texColor3,
                   float4 diffuse,
                   float4 specular,
                   float4 current,
@@ -371,7 +371,11 @@ float4 resolveArg(uint argId,
     switch (source) {
         case D3DTA_DIFFUSE:  val = diffuse;  break;
         case D3DTA_CURRENT:  val = current;  break;
-        case D3DTA_TEXTURE:  val = (stageIndex == 0) ? texColor0 : texColor1; break;
+        case D3DTA_TEXTURE:  
+            val = (stageIndex == 0) ? texColor0 :
+                  (stageIndex == 1) ? texColor1 :
+                  (stageIndex == 2) ? texColor2 : texColor3;
+            break;
         case D3DTA_TFACTOR:  val = tFactor;  break;
         case D3DTA_SPECULAR: val = specular; break;
         default:             val = current;  break;
@@ -496,20 +500,24 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                              constant FragmentUniforms &fragUniforms [[buffer(2)]],
                              texture2d<float> tex0 [[texture(0)]],
                              texture2d<float> tex1 [[texture(1)]],
+                             texture2d<float> tex2 [[texture(2)]],
+                             texture2d<float> tex3 [[texture(3)]],
                              sampler sampler0 [[sampler(0)]],
-                             sampler sampler1 [[sampler(1)]]) {
+                             sampler sampler1 [[sampler(1)]],
+                             sampler sampler2 [[sampler(2)]],
+                             sampler sampler3 [[sampler(3)]]) {
     
     // Sample textures
-    float4 texColor0 = (fragUniforms.hasTexture0 != 0) ? tex0.sample(sampler0, in.texCoord)
-                                                        : float4(1.0);
-    float4 texColor1 = (fragUniforms.hasTexture1 != 0) ? tex1.sample(sampler1, in.texCoord2)
-                                                        : float4(1.0);
+    float4 texColor0 = (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, in.texCoord)  : float4(1.0);
+    float4 texColor1 = (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, in.texCoord2) : float4(1.0);
+    float4 texColor2 = (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, in.texCoord)  : float4(1.0);
+    float4 texColor3 = (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, in.texCoord)  : float4(1.0);
     
     float4 diffuse = in.color;
     
     // Untextured 3D draws (terrain BASE pass): return diffuse directly.
     // Textured 3D/2D draws: go through full TSS pipeline below.
-    if (uniforms.useProjection == 1 && fragUniforms.hasTexture0 == 0) {
+    if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] == 0) {
         return float4(diffuse.rgb, 1.0);
     }
 
@@ -518,30 +526,23 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     float4 tFactor = fragUniforms.textureFactor;
     float4 current = diffuse;
 
-    // --- Process Stage 0 ---
-    uint colorOp0 = fragUniforms.stages[0].colorOp;
-    if (colorOp0 != D3DTOP_DISABLE) {
-        float4 cArg1 = resolveArg(fragUniforms.stages[0].colorArg1, texColor0, texColor1, diffuse, specular, current, tFactor, 0);
-        float4 cArg2 = resolveArg(fragUniforms.stages[0].colorArg2, texColor0, texColor1, diffuse, specular, current, tFactor, 0);
-        float4 colorResult = evaluateBlendOp(colorOp0, cArg1, cArg2, diffuse, texColor0, tFactor, current);
-        uint alphaOp0 = fragUniforms.stages[0].alphaOp;
-        float4 aArg1 = resolveArg(fragUniforms.stages[0].alphaArg1, texColor0, texColor1, diffuse, specular, current, tFactor, 0);
-        float4 aArg2 = resolveArg(fragUniforms.stages[0].alphaArg2, texColor0, texColor1, diffuse, specular, current, tFactor, 0);
-        float4 alphaResult = evaluateBlendOp(alphaOp0, aArg1, aArg2, diffuse, texColor0, tFactor, current);
-        current = float4(colorResult.rgb, alphaResult.a);
-    }
+    for (int i = 0; i < 4; i++) {
+        uint colorOp = fragUniforms.stages[i].colorOp;
+        if (colorOp == 0 || colorOp == D3DTOP_DISABLE) break;
 
-    // --- Process Stage 1 ---
-    uint colorOp1 = fragUniforms.stages[1].colorOp;
-    if (colorOp1 != D3DTOP_DISABLE) {
-        float4 c1a1 = resolveArg(fragUniforms.stages[1].colorArg1, texColor0, texColor1, diffuse, specular, current, tFactor, 1);
-        float4 c1a2 = resolveArg(fragUniforms.stages[1].colorArg2, texColor0, texColor1, diffuse, specular, current, tFactor, 1);
-        float4 cr1 = evaluateBlendOp(colorOp1, c1a1, c1a2, diffuse, texColor0, tFactor, current);
-        uint alphaOp1 = fragUniforms.stages[1].alphaOp;
-        float4 a1a1 = resolveArg(fragUniforms.stages[1].alphaArg1, texColor0, texColor1, diffuse, specular, current, tFactor, 1);
-        float4 a1a2 = resolveArg(fragUniforms.stages[1].alphaArg2, texColor0, texColor1, diffuse, specular, current, tFactor, 1);
-        float4 ar1 = evaluateBlendOp(alphaOp1, a1a1, a1a2, diffuse, texColor0, tFactor, current);
-        current = float4(cr1.rgb, ar1.a);
+        // Determine current stage texture for BLENDTEXTUREALPHA
+        float4 stageTexColor = (i == 0) ? texColor0 : (i == 1) ? texColor1 : (i == 2) ? texColor2 : texColor3;
+
+        float4 cArg1 = resolveArg(fragUniforms.stages[i].colorArg1, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
+        float4 cArg2 = resolveArg(fragUniforms.stages[i].colorArg2, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
+        float4 colorResult = evaluateBlendOp(colorOp, cArg1, cArg2, diffuse, stageTexColor, tFactor, current);
+        
+        uint alphaOp = fragUniforms.stages[i].alphaOp;
+        float4 aArg1 = resolveArg(fragUniforms.stages[i].alphaArg1, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
+        float4 aArg2 = resolveArg(fragUniforms.stages[i].alphaArg2, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
+        float4 alphaResult = evaluateBlendOp(alphaOp, aArg1, aArg2, diffuse, stageTexColor, tFactor, current);
+        
+        current = float4(colorResult.rgb, alphaResult.a);
     }
 
     // --- Alpha Test ---
@@ -556,13 +557,15 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         current.rgb = mix(fragUniforms.fogColor.rgb, current.rgb, in.fogFactor);
     }
 
-    // Add specular
-    current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
+    // Add specular only if D3DRS_SPECULARENABLE is TRUE
+    if (fragUniforms.specularEnable != 0) {
+        current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
+    }
 
-    // For 3D draws: discard fragments where TSS produced near-black output
-    // (usually from empty/unloaded textures). This prevents multiplicative
-    // blend passes from destroying the visible BASE terrain underneath.
-    if (uniforms.useProjection == 1 && dot(current.rgb, float3(1.0)) < 0.01) {
+    // Handle empty/unloaded textures: empty DXT1 blocks decode to (0,0,0,1)
+    // opaque black. Discard such fragments to reveal terrain BASE pass underneath.
+    if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
+        dot(current.rgb, float3(1.0)) < 0.01) {
         discard_fragment();
     }
 

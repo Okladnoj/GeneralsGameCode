@@ -105,9 +105,11 @@ MetalDevice8::MetalDevice8()
   m_TextureStageStates[0][D3DTSS_ALPHAOP] = D3DTOP_SELECTARG1;
   m_TextureStageStates[0][D3DTSS_ALPHAARG1] = D3DTA_TEXTURE;
   m_TextureStageStates[0][D3DTSS_ALPHAARG2] = D3DTA_CURRENT;
-  // Stage 1: DISABLE (default)
-  m_TextureStageStates[1][D3DTSS_COLOROP] = D3DTOP_DISABLE;
-  m_TextureStageStates[1][D3DTSS_ALPHAOP] = D3DTOP_DISABLE;
+  // Stages 1+: DISABLE (default)
+  for (int s = 1; s < MAX_TEXTURE_STAGES; s++) {
+    m_TextureStageStates[s][D3DTSS_COLOROP] = D3DTOP_DISABLE;
+    m_TextureStageStates[s][D3DTSS_ALPHAOP] = D3DTOP_DISABLE;
+  }
   // Default sampler states: WRAP + LINEAR
   for (int s = 0; s < MAX_TEXTURE_STAGES; s++) {
     m_TextureStageStates[s][D3DTSS_ADDRESSU] = D3DTADDRESS_WRAP;
@@ -244,7 +246,7 @@ struct TextureStageConfig {
 
 // Stage 7: FragmentUniforms (matches MacOSShaders.metal, buffer 2)
 struct FragmentUniforms {
-  TextureStageConfig stages[2];
+  TextureStageConfig stages[4];
   simd::float4 textureFactor; // D3DRS_TEXTUREFACTOR as RGBA float
   simd::float4 fogColor;
   float fogStart;
@@ -254,10 +256,11 @@ struct FragmentUniforms {
   uint32_t alphaTestEnable;
   uint32_t alphaFunc; // D3DCMP enum
   float alphaRef;     // normalized 0..1
-  uint32_t hasTexture0;
-  uint32_t hasTexture1;
-  uint32_t _pad0;
+  uint32_t hasTexture[4];
+  uint32_t specularEnable;
   uint32_t _pad1;
+  uint32_t _pad2;
+  uint32_t _pad3;
 };
 
 // Stage 8: LightData (matches MacOSShaders.metal)
@@ -984,6 +987,15 @@ STDMETHODIMP MetalDevice8::CreateTexture(UINT w, UINT h, UINT l, DWORD u,
   if (!t)
     return E_POINTER;
   *t = W3DNEW MetalTexture8(this, w, h, l, u, f, p);
+  
+  static int s_createTexCount = 0;
+  s_createTexCount++;
+  // Get return address to identify caller
+  void* ra = __builtin_return_address(0);
+  void* ra2 = __builtin_return_address(1);
+  fprintf(stderr, "[MetalDevice8::CreateTexture] #%d: %ux%u fmt=%u mips=%u pool=%u tex=%p caller=%p caller2=%p\n",
+          s_createTexCount, w, h, (unsigned)f, l, (unsigned)p, (void*)*t, ra, ra2);
+  
   return D3D_OK;
 }
 
@@ -1694,8 +1706,8 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   FragmentUniforms fu;
   memset(&fu, 0, sizeof(fu));
 
-  // Copy TSS config for stages 0 and 1
-  for (int s = 0; s < 2; s++) {
+  // Copy TSS config for stages 0 to 3
+  for (int s = 0; s < 4; s++) {
     fu.stages[s].colorOp = m_TextureStageStates[s][D3DTSS_COLOROP];
     fu.stages[s].colorArg1 = m_TextureStageStates[s][D3DTSS_COLORARG1];
     fu.stages[s].colorArg2 = m_TextureStageStates[s][D3DTSS_COLORARG2];
@@ -1741,8 +1753,29 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   }
 
   // Texture presence flags
-  fu.hasTexture0 = (m_Textures[0] != nullptr) ? 1 : 0;
-  fu.hasTexture1 = (m_Textures[1] != nullptr) ? 1 : 0;
+  for (int s = 0; s < 4; ++s) {
+    fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
+  }
+  fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
+
+  // Diagnostic: log first textured 3D draw calls to debug white models
+  if (u.useProjection == 1 && fu.hasTexture[0]) {
+    static int s_3dTexDrawCount = 0;
+    if (++s_3dTexDrawCount <= 10) {
+      MetalTexture8 *tex0 = (MetalTexture8 *)m_Textures[0];
+      id<MTLTexture> mtl0 = tex0 ? tex0->GetMTLTexture() : nil;
+      printf("[3D_DRAW] #%d: hasTex0=%d mtl=%p %lux%lu "
+             "colorOp0=%u colorArg1_0=%u colorArg2_0=%u "
+             "alphaOp0=%u lighting=%u\n",
+             s_3dTexDrawCount, fu.hasTexture[0],
+             (__bridge void*)mtl0,
+             mtl0 ? (unsigned long)mtl0.width : 0,
+             mtl0 ? (unsigned long)mtl0.height : 0,
+             fu.stages[0].colorOp, fu.stages[0].colorArg1, fu.stages[0].colorArg2,
+             fu.stages[0].alphaOp, m_RenderStates[D3DRS_LIGHTING]);
+      fflush(stdout);
+    }
+  }
 
   [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
 
@@ -1822,7 +1855,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   [MTL_ENCODER setVertexBytes:&lu length:sizeof(lu) atIndex:3];
 
   // 6. Bind Textures and Samplers
-  for (int s = 0; s < 2; s++) {
+  for (int s = 0; s < 4; s++) {
     if (m_Textures[s]) {
       MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
       id<MTLTexture> mtlTex = tex->GetMTLTexture();
@@ -1908,6 +1941,42 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
                (unsigned)m_RenderStates[D3DRS_FOGENABLE]);
         if (isBase) basePass++; else texPass++;
       }
+    }
+  }
+
+  // --- 3D mesh diagnostic: log first N draws with normals (buildings/units) ---
+  {
+    static int s_3dMeshLogCount = 0;
+    bool is3D = !(fvf & D3DFVF_XYZRHW);
+    bool hasNormal = (fvf & D3DFVF_NORMAL) != 0;
+    bool hasTex = m_Textures[0] != nullptr;
+    if (is3D && hasNormal && s_3dMeshLogCount < 30) {
+      MetalTexture8 *tex0 = hasTex ? (MetalTexture8 *)m_Textures[0] : nullptr;
+      id<MTLTexture> mtl0 = tex0 ? tex0->GetMTLTexture() : nil;
+      printf("[3D_MESH #%d] fvf=0x%x pc=%u tex0=%p(%lux%lu) tex1=%p "
+              "lighting=%u matDiff=(%.2f,%.2f,%.2f,%.2f) matAmb=(%.2f,%.2f,%.2f) "
+              "diffSrc=%u ambSrc=%u emSrc=%u "
+              "S0:COP=%u CA1=%u CA2=%u AOP=%u AA1=%u "
+              "globAmb=0x%x alphaB=%u\n",
+              s_3dMeshLogCount, (unsigned)fvf, pc,
+              (void*)m_Textures[0],
+              mtl0 ? (unsigned long)mtl0.width : 0, mtl0 ? (unsigned long)mtl0.height : 0,
+              (void*)m_Textures[1],
+              (unsigned)m_RenderStates[D3DRS_LIGHTING],
+              m_Material.Diffuse.r, m_Material.Diffuse.g, m_Material.Diffuse.b, m_Material.Diffuse.a,
+              m_Material.Ambient.r, m_Material.Ambient.g, m_Material.Ambient.b,
+              (unsigned)m_RenderStates[D3DRS_DIFFUSEMATERIALSOURCE],
+              (unsigned)m_RenderStates[D3DRS_AMBIENTMATERIALSOURCE],
+              (unsigned)m_RenderStates[D3DRS_EMISSIVEMATERIALSOURCE],
+              (unsigned)m_TextureStageStates[0][D3DTSS_COLOROP],
+              (unsigned)m_TextureStageStates[0][D3DTSS_COLORARG1],
+              (unsigned)m_TextureStageStates[0][D3DTSS_COLORARG2],
+              (unsigned)m_TextureStageStates[0][D3DTSS_ALPHAOP],
+              (unsigned)m_TextureStageStates[0][D3DTSS_ALPHAARG1],
+              (unsigned)m_RenderStates[D3DRS_AMBIENT],
+              (unsigned)m_RenderStates[D3DRS_ALPHABLENDENABLE]);
+      fflush(stdout);
+      s_3dMeshLogCount++;
     }
   }
   frameDrawCount++;
@@ -2015,7 +2084,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   // 5. Build Fragment Uniforms (buffer 2) — Stage 7 TSS
   FragmentUniforms fu;
   memset(&fu, 0, sizeof(fu));
-  for (int s = 0; s < 2; s++) {
+  for (int s = 0; s < 4; s++) {
     fu.stages[s].colorOp = m_TextureStageStates[s][D3DTSS_COLOROP];
     fu.stages[s].colorArg1 = m_TextureStageStates[s][D3DTSS_COLORARG1];
     fu.stages[s].colorArg2 = m_TextureStageStates[s][D3DTSS_COLORARG2];
@@ -2051,8 +2120,38 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
     memcpy(&fu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
     memcpy(&fu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
   }
-  fu.hasTexture0 = (m_Textures[0] != nullptr) ? 1 : 0;
-  fu.hasTexture1 = (m_Textures[1] != nullptr) ? 1 : 0;
+  for (int s = 0; s < 4; ++s) {
+    fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
+  }
+  fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
+
+  // Diagnostic: log indexed draw calls with unique texture pointers
+  {
+    static int s_idxDrawCount = 0;
+    static void* s_lastMtl = nullptr;
+    MetalTexture8 *tex0 = m_Textures[0] ? (MetalTexture8 *)m_Textures[0] : nullptr;
+    id<MTLTexture> mtl0 = tex0 ? tex0->GetMTLTexture() : nil;
+    void* curMtl = (__bridge void*)mtl0;
+    // Log whenever texture changes or lighting is on (models)
+    bool isNewTex = (curMtl != s_lastMtl);
+    bool isLit = (m_RenderStates[D3DRS_LIGHTING] != 0);
+    if ((isNewTex || isLit) && ++s_idxDrawCount <= 30) {
+      printf("[IDX_DRAW] #%d: hasTex0=%d mtl=%p %lux%lu fmt=%lu "
+             "cOp=%u cA1=%u cA2=%u aOp=%u lit=%u fvf=0x%x%s\n",
+             s_idxDrawCount, fu.hasTexture[0],
+             curMtl,
+             mtl0 ? (unsigned long)mtl0.width : 0,
+             mtl0 ? (unsigned long)mtl0.height : 0,
+             mtl0 ? (unsigned long)mtl0.pixelFormat : 0,
+             fu.stages[0].colorOp, fu.stages[0].colorArg1, fu.stages[0].colorArg2,
+             fu.stages[0].alphaOp, m_RenderStates[D3DRS_LIGHTING],
+             (unsigned)fvf,
+             isLit ? " [MODEL]" : "");
+      fflush(stdout);
+      s_lastMtl = curMtl;
+    }
+  }
+
   [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
 
   // 5b. Build Lighting Uniforms (buffer 3) — Stage 8 Lighting
@@ -2121,15 +2220,55 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
     memcpy(&lu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
   }
 
+  // Diagnostic: log lighting uniforms for first lit model draw
+  if (lu.lightingEnabled && lu.hasNormals) {
+    static int s_litLogCount = 0;
+    if (++s_litLogCount <= 3) {
+      printf("[LIT] #%d: matDiff=(%.2f,%.2f,%.2f) matAmb=(%.2f,%.2f,%.2f) "
+             "matEmis=(%.2f,%.2f,%.2f) matSpec=(%.2f,%.2f,%.2f) pow=%.1f "
+             "globAmb=(%.2f,%.2f,%.2f) diffSrc=%u ambSrc=%u\n",
+             s_litLogCount,
+             lu.materialDiffuse.x, lu.materialDiffuse.y, lu.materialDiffuse.z,
+             lu.materialAmbient.x, lu.materialAmbient.y, lu.materialAmbient.z,
+             lu.materialEmissive.x, lu.materialEmissive.y, lu.materialEmissive.z,
+             lu.materialSpecular.x, lu.materialSpecular.y, lu.materialSpecular.z,
+             lu.materialPower,
+             lu.globalAmbient.x, lu.globalAmbient.y, lu.globalAmbient.z,
+             lu.diffuseSource, lu.ambientSource);
+      for (int i = 0; i < 4; i++) {
+        if (lu.lights[i].enabled) {
+          printf("[LIT]   light[%d] type=%u diff=(%.2f,%.2f,%.2f) amb=(%.2f,%.2f,%.2f) "
+                 "dir=(%.2f,%.2f,%.2f)\n",
+                 i, lu.lights[i].type,
+                 lu.lights[i].diffuse.x, lu.lights[i].diffuse.y, lu.lights[i].diffuse.z,
+                 lu.lights[i].ambient.x, lu.lights[i].ambient.y, lu.lights[i].ambient.z,
+                 lu.lights[i].direction.x, lu.lights[i].direction.y, lu.lights[i].direction.z);
+        }
+      }
+      fflush(stdout);
+    }
+  }
+
   [MTL_ENCODER setVertexBytes:&lu length:sizeof(lu) atIndex:3];
 
   // 6. Bind Textures and Samplers
-  for (int s = 0; s < 2; s++) {
+  for (int s = 0; s < 4; s++) {
     if (m_Textures[s]) {
       MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
       id<MTLTexture> mtlTex = tex->GetMTLTexture();
       if (mtlTex) {
         [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s];
+        // Log textures bound without data (empty/unloaded)
+        if (s == 0 && !tex->HasBeenWritten()) {
+          static int s_emptyTexCount = 0;
+          if (++s_emptyTexCount <= 20) {
+            printf("[EMPTY_TEX] #%d: tex=%p mtl=%p %lux%lu fmt=%lu written=%d\n",
+                   s_emptyTexCount, (void*)tex, (__bridge void*)mtlTex,
+                   (unsigned long)mtlTex.width, (unsigned long)mtlTex.height,
+                   (unsigned long)mtlTex.pixelFormat, (int)tex->HasBeenWritten());
+            fflush(stdout);
+          }
+        }
       }
     }
     void *samplerState = GetSamplerState(s);
@@ -2340,7 +2479,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   // Fragment Uniforms
   FragmentUniforms fu;
   memset(&fu, 0, sizeof(fu));
-  for (int s = 0; s < 2; s++) {
+  for (int s = 0; s < 4; s++) {
     fu.stages[s].colorOp = m_TextureStageStates[s][D3DTSS_COLOROP];
     fu.stages[s].colorArg1 = m_TextureStageStates[s][D3DTSS_COLORARG1];
     fu.stages[s].colorArg2 = m_TextureStageStates[s][D3DTSS_COLORARG2];
@@ -2374,8 +2513,10 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
     memcpy(&fu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
     memcpy(&fu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
   }
-  fu.hasTexture0 = (m_Textures[0] != nullptr) ? 1 : 0;
-  fu.hasTexture1 = (m_Textures[1] != nullptr) ? 1 : 0;
+  for (int s = 0; s < 4; ++s) {
+    fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
+  }
+  fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
   [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
 
   // Lighting Uniforms
@@ -2446,8 +2587,11 @@ MetalDevice8::DrawIndexedPrimitiveUP(DWORD pt, UINT mvi, UINT nvi, UINT pc,
 STDMETHODIMP MetalDevice8::CreateVertexShader(const DWORD *decl,
                                               const DWORD *func, DWORD *handle,
                                               DWORD usage) {
-  if (handle)
-    *handle = 0;
+  static DWORD s_nextVS = 1;
+  if (handle) {
+    // Top bit set means it's a shader handle, not an FVF
+    *handle = (1 << 31) | s_nextVS++;
+  }
   return D3D_OK;
 }
 
@@ -2508,8 +2652,10 @@ HRESULT MetalDevice8::GetIndices(IDirect3DIndexBuffer8 **ib, UINT *base) {
 // ─────────────────────────────────────────────────────
 
 STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
-  if (handle)
-    *handle = 0;
+  static DWORD s_nextPS = 1;
+  if (handle) {
+    *handle = (1 << 31) | s_nextPS++;
+  }
   return D3D_OK;
 }
 
