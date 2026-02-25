@@ -123,28 +123,25 @@
 
 ## 2. W3D Shader Manager
 
-**File:** `Stubs/MacOSW3DShaderManager.mm` (213 lines)
+**File:** ~~`Stubs/MacOSW3DShaderManager.mm`~~ **REMOVED** — all symbols now linked from `Core/GameEngineDevice/Source/W3DDevice/GameClient/W3DShaderManager.cpp`
+
+> **2026-02-25:** The stub file contained no-op overrides for ALL 60+ Core symbols.
+> Removing it enabled shroud/fog-of-war, render-to-texture, terrain shader pipeline,
+> and all screen filter effects.
 
 | Status | Stub / Class / Function | Notes |
 |:---|:---|:---|
-| ⚠️ | `W3DShaderManager::init()` | Printf only — actual shader compilation done in MetalDevice8 |
-| ⚠️ | `W3DShaderManager::shutdown()` | Printf only |
-| ✅ | `W3DShaderManager::getChipset()` | Returns `DC_GEFORCE4` — correctly reports high-end for LOD selection |
-| ✅ | `W3DShaderManager::getShaderPasses()` | Returns `1` — correct, Metal does single-pass |
-| ✅ | `W3DShaderManager::setShader()` | Stores shader type + binds textures via `DX8Wrapper::Set_Texture()` |
-| ⚠️ | `W3DShaderManager::setShroudTex()` | Returns `TRUE` — shroud not yet implemented |
-| ⚠️ | `W3DShaderManager::LoadAndCreateD3DShader()` | Returns `S_OK` — no D3D shaders needed (Metal shader handles all) |
-| ✅ | `W3DShaderManager::testMinimumRequirements()` | Reports high-end hardware with correct values |
-| ✅ | `W3DShaderManager::getGPUPerformanceIndex()` | Returns `STATIC_GAME_LOD_VERY_HIGH` |
-| ⚠️ | `W3DShaderManager::endRenderToTexture()` | Returns `nullptr` — **SAFE**: callers check |
-| ⚠️ | `W3DShaderManager::getRenderTexture()` | Returns `nullptr` — **SAFE**: callers check |
-| ⚠️ | `W3DShaderManager::startRenderToTexture()` | No-op — render-to-texture not needed yet |
-| ⚠️ | `W3DShaderManager::drawViewport()` | No-op |
-| ⚠️ | `W3DShaderManager::filterPreRender()` / `filterPostRender()` / `filterSetup()` | Returns `false` — post-processing filters not yet |
-| ⚠️ | `ScreenBWFilter::*` | All no-ops — black & white filter (nuke effect) |
-| ⚠️ | `ScreenBWFilterDOT3::*` | All no-ops — DOT3 BW filter |
-| ⚠️ | `ScreenMotionBlurFilter::*` | All no-ops — motion blur effect |
-| ⚠️ | `ScreenCrossFadeFilter::*` | All no-ops — cross-fade transitions |
+| ✅ | `W3DShaderManager::init()` | **CORE** — creates render target, initializes shader/filter chains |
+| ✅ | `W3DShaderManager::shutdown()` | **CORE** — releases render targets + shader resources |
+| ✅ | `W3DShaderManager::getChipset()` | **CORE** — detects GPU via adapter identifier |
+| ✅ | `W3DShaderManager::setShader()` | **CORE** — dispatches to W3DShaders[shader]→set(pass) |
+| ✅ | `W3DShaderManager::setShroudTex()` | **CORE** — fog of war texture with camera-space transform |
+| ✅ | `W3DShaderManager::startRenderToTexture()` | **CORE** — sets offscreen render target |
+| ✅ | `W3DShaderManager::endRenderToTexture()` | **CORE** — restores original render target |
+| ✅ | `W3DShaderManager::filterPreRender()` / `filterPostRender()` | **CORE** — dispatches to W3DFilters[] |
+| ✅ | `ScreenBWFilter::*` | **CORE** — black & white filter (nuke effect) |
+| ✅ | `ScreenMotionBlurFilter::*` | **CORE** — motion blur effect |
+| ✅ | `ScreenCrossFadeFilter::*` | **CORE** — cross-fade transitions |
 
 ---
 
@@ -458,8 +455,8 @@ All previously-critical stubs have been resolved:
 
 | Category | Total Stubs | ✅ Implemented | ⚠️ Safe Stub | ❌ Dangerous | 🔴 Critical |
 |:---|:---|:---|:---|:---|:---|
-| Metal / DX8 | 42 | 33 | 9 | 0 | 0 |
-| W3D Shader Manager | 18 | 5 | 13 | 0 | 0 |
+| Metal / DX8 | 42 | 35 | 7 | 0 | 0 |
+| W3D Shader Manager | 18 | 18 | 0 | 0 | 0 |
 | D3DX Helpers | 8 | 7 | 1 | 0 | 0 |
 | Display | 5 | 4 | 1 | 0 | 0 |
 | DisplayString | 5 | 4 | 1 | 0 | 0 |
@@ -475,4 +472,4 @@ All previously-critical stubs have been resolved:
 | windows.h | 9 | 1 | 8 | 0 | 0 |
 | Debug/Screenshot | 3 | 1 | 2 | 0 | 0 |
 | Git Info | 2 | 0 | 2 | 0 | 0 |
-| **TOTAL** | **~355** | **~124** | **~231** | **0** | **0** |
+| **TOTAL** | **~355** | **~139** | **~216** | **0** | **0** |
