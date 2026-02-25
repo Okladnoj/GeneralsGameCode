@@ -960,9 +960,30 @@ STDMETHODIMP MetalDevice8::GetBackBuffer(UINT i, D3DBACKBUFFER_TYPE t,
 // ─────────────────────────────────────────────────────
 
 STDMETHODIMP MetalDevice8::SetGammaRamp(DWORD f, const D3DGAMMARAMP *p) {
+  if (!p) return D3D_OK;
+  memcpy(&m_GammaRamp, p, sizeof(D3DGAMMARAMP));
+
+  // Convert 16-bit ramp (0-65535) to float (0.0-1.0) for CoreGraphics
+  CGGammaValue red[256], green[256], blue[256];
+  for (int i = 0; i < 256; i++) {
+    red[i]   = p->red[i]   / 65535.0f;
+    green[i] = p->green[i] / 65535.0f;
+    blue[i]  = p->blue[i]  / 65535.0f;
+  }
+  CGSetDisplayTransferByTable(CGMainDisplayID(), 256, red, green, blue);
+
+  static bool logged = false;
+  if (!logged) {
+    printf("[MetalDevice8] SetGammaRamp applied (first call)\n");
+    fflush(stdout);
+    logged = true;
+  }
   return D3D_OK;
 }
-STDMETHODIMP MetalDevice8::GetGammaRamp(D3DGAMMARAMP *p) { return D3D_OK; }
+STDMETHODIMP MetalDevice8::GetGammaRamp(D3DGAMMARAMP *p) {
+  if (p) memcpy(p, &m_GammaRamp, sizeof(D3DGAMMARAMP));
+  return D3D_OK;
+}
 
 // ─────────────────────────────────────────────────────
 //  Cursor — no-ops (macOS uses NSCursor natively)

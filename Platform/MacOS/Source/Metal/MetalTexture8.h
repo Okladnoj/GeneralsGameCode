@@ -66,6 +66,7 @@ private:
   D3DFORMAT m_Format;
   D3DPOOL m_Pool;
   bool m_HasBeenWritten = false;  // Track if texture data has been uploaded
+  DWORD m_LOD = 0;                // Texture LOD (max mip level clamp)
 
   // Staging for LockRect (assuming single lock for now)
   // We might need a map of locked levels if multiple levels are locked

@@ -251,8 +251,12 @@ STDMETHODIMP_(D3DRESOURCETYPE) MetalTexture8::GetType() {
 }
 
 // IDirect3DBaseTexture8
-STDMETHODIMP_(DWORD) MetalTexture8::SetLOD(DWORD LODNew) { return 0; }
-STDMETHODIMP_(DWORD) MetalTexture8::GetLOD() { return 0; }
+STDMETHODIMP_(DWORD) MetalTexture8::SetLOD(DWORD LODNew) {
+  DWORD old = m_LOD;
+  m_LOD = LODNew;
+  return old;
+}
+STDMETHODIMP_(DWORD) MetalTexture8::GetLOD() { return m_LOD; }
 STDMETHODIMP_(DWORD) MetalTexture8::GetLevelCount() { return m_Levels; }
 
 // IDirect3DTexture8

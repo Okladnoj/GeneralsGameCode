@@ -228,6 +228,7 @@ private:
 
   DWORD m_VertexShader;
   DWORD m_PixelShader;
+  D3DGAMMARAMP m_GammaRamp;
 
   void *m_HWND;
   float m_ScreenWidth;
