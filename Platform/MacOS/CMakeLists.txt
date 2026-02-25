@@ -138,6 +138,8 @@ target_link_libraries(macos_platform PUBLIC
     corei_always
     corei_gameengine_include
     zi_libraries_source_wwvegas
+    binkstub
+    milesstub
 )
 # Zero Hour includes and defines — PRIVATE to avoid leaking RTS_ZEROHOUR
 # to the Generals target that also links macos_platform
