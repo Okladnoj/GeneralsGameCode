@@ -8,7 +8,7 @@
 
 ---
 
-## Текущее состояние (2026-02-25, 19:40)
+## Текущее состояние (2026-02-25, 20:45)
 
 ### ✅ Работает
 - **Terrain** — текстуры, песок, горы, камни ✅
@@ -25,11 +25,15 @@
 - **SetLOD/GetLOD** — хранение LOD значения ✅
 - **W3DSnowManager** — снег через Core ✅
 - **Mipmap генерация** — D3DXFilterTexture через Metal blit encoder ✅
+- **Cursor (2D)** — TGA текстуры загружаются через WW3DAssetManager, анимация, 8 направлений скролла ✅
+- **takeScreenShot** — наследуется от W3DDisplay ✅
+- **toggleMovieCapture** — наследуется от W3DDisplay ✅
 
 ### ⚠️ Известные визуальные проблемы
 - **Terrain blend** — переходы между текстурами тёмные/неполные
 - **Деревья** — частично отсутствуют
 - **Лазеры/трейсеры** — не видны (stub)
+- **Cursor RM_W3D** — 3D модели курсоров (зелёные прицелы, красные круги атаки) не реализованы. Текущий 2D fallback покрывает базовый геймплей
 - **Краш при выходе** — `freeDisplayString` SIGSEGV при shutdown (не критичен)
 
 ### Статистика стабов
@@ -67,18 +71,13 @@
 
 ## Фаза 2: Cosmetic — Не критичные, но полезные
 
-### 2.1 `MacOSDisplay::takeScreenShot()` — In-game скриншот
-**Файл:** `Client/MacOSDisplay.mm`
-**Статус:** ⚠️ Empty
-**Реализация:**
-- Захватить текущий drawable из MetalDevice8
-- Сохранить как TGA через `CGImageDestination`
+### 2.1 `MacOSDisplay::takeScreenShot()` — ✅ ГОТОВО
+- Убран пустой override → используется W3DDisplay::takeScreenShot()
 
-### 2.2 `StdMouse::setCursor()` — Кастомные курсоры
-**Файл:** `Main/StdMouse.mm`
-**Статус:** ⚠️ Ограничен 3 курсорами (arrow/crosshair/hand)
-**Реализация:**
-- Загрузить .ani/.cur файлы, конвертировать в NSCursor
+### 2.2 `StdMouse::draw()` — ✅ ГОТОВО (2D), ⚠️ RM_W3D TODO
+- **Реализовано:** TGA текстуры через WW3DAssetManager + Render2DClass
+- **Поддержка:** многокадровая анимация (FPS), 8-direction scroll, hotspot
+- **TODO:** RM_W3D 3D модели курсоров (targeting crosshairs, attack circles, move arrows). Требует: W3D model loading, ortho camera, WW3D::Render() per-frame
 
 ### 2.3 `MetalInterface8::EnumAdapterModes()` — Список разрешений
 **Файл:** `Metal/MetalInterface8.mm`
