@@ -212,20 +212,22 @@ void StdMouse::draw(void) {
 }
 
 void StdMouse::capture(void) {
-  // macOS doesn't have a direct "capture" like Win32 SetCapture
-  // but we can use CGAssociateMouseAndMouseCursorPosition or similar if needed
+  // Confine cursor to game window — equivalent to Win32 SetCapture + ClipCursor
+  CGAssociateMouseAndMouseCursorPosition(false);
+  onCursorCaptured(TRUE);
 }
 
 void StdMouse::releaseCapture(void) {
-  // Reverse of capture
+  CGAssociateMouseAndMouseCursorPosition(true);
+  onCursorCaptured(FALSE);
 }
 
 void StdMouse::regainFocus() {
-  // macOS specific focus regain logic
+  Mouse::regainFocus();
 }
 
 void StdMouse::loseFocus() {
-  // macOS specific focus loss logic
+  Mouse::loseFocus();
 }
 
 UnsignedByte StdMouse::getMouseEvent(MouseIO *result, Bool flush) {
