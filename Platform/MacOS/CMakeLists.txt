@@ -47,9 +47,9 @@ set(COMMON_SRC
 #       all symbols (setShroudTex, init, setShader, RTT, filters). The stub file
 #       was overriding real implementations with no-ops, blocking shroud/fog-of-war,
 #       render-to-texture, and screen filter effects.
+# NOTE: GitInfoStubs.cpp was REMOVED — real resources target provides gitinfo.
 set(STUBS_SRC
     Source/Stubs/GameSpyStubs.cpp
-    Source/Stubs/GitInfoStubs.cpp
     Source/Stubs/WWDownloadStubs.cpp
 )
 
@@ -140,6 +140,7 @@ target_link_libraries(macos_platform PUBLIC
     zi_libraries_source_wwvegas
     binkstub
     milesstub
+    resources
 )
 # Zero Hour includes and defines — PRIVATE to avoid leaking RTS_ZEROHOUR
 # to the Generals target that also links macos_platform

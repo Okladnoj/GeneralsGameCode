@@ -117,7 +117,7 @@ STDMETHODIMP MetalInterface8::EnumAdapterModes(UINT Adapter, UINT Mode,
     return E_POINTER;
   queryDisplayModes();
   if (Mode >= s_modeCount)
-    return D3DERR_INVALIDCALL;
+    return E_FAIL;
   pMode->Width = s_modes[Mode].w;
   pMode->Height = s_modes[Mode].h;
   pMode->RefreshRate = s_modes[Mode].hz;

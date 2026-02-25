@@ -261,6 +261,8 @@ AsciiString MacOSAudioManager::getMusicTrackName() const { return ""; }
 
 void MacOSAudioManager::openDevice() {}
 void MacOSAudioManager::closeDevice() {}
+// Returns nullptr — AVAudioPlayer doesn't need a device handle.
+// Win32 returns LPDIRECTSOUND8 for Miles Sound System.
 void *MacOSAudioManager::getDevice() { return nullptr; }
 
 void MacOSAudioManager::notifyOfAudioCompletion(UnsignedInt audioCompleted,
@@ -304,6 +306,8 @@ void MacOSAudioManager::removePlayingAudio(AsciiString eventName) {}
 void MacOSAudioManager::removeAllDisabledAudio() {}
 
 Bool MacOSAudioManager::has3DSensitiveStreamsPlaying() const { return FALSE; }
+// Returns nullptr — Bink video not supported on macOS (MacOSVideoPlayer is a stub).
+// Win32 returns a Miles HDIGDRIVER for Bink's audio callback.
 void *MacOSAudioManager::getHandleForBink() { return nullptr; }
 void MacOSAudioManager::releaseHandleForBink() {}
 
