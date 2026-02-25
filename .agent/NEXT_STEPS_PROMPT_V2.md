@@ -1,5 +1,9 @@
 # V2: Terrain / Ground Texture Layers — Next Steps
 
+## ⚠️ ОБЯЗАТЕЛЬНО прочитать перед началом работы:
+- **`Platform/MacOS/docs/RENDERING.md`** — полная документация render pipeline
+- **`.agent/image_zh_origin.png`** — как должна выглядеть intro сцена (оригинал)
+
 ## Состояние на 2026-02-25
 
 ### ✅ Решено
