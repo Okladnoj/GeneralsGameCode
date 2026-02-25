@@ -7,6 +7,57 @@
 #import "MetalDevice8.h"
 #include <cstdio>
 #include <cstring>
+#import <AppKit/AppKit.h>
+#import <CoreGraphics/CoreGraphics.h>
+
+// ─── Display mode cache ───────────────────────────────────────
+struct DisplayModeEntry { UINT w, h, hz; };
+static DisplayModeEntry s_modes[64];
+static UINT s_modeCount = 0;
+static bool s_modesQueried = false;
+
+static void queryDisplayModes() {
+  if (s_modesQueried) return;
+  s_modesQueried = true;
+  s_modeCount = 0;
+
+  CGDirectDisplayID display = CGMainDisplayID();
+  CFArrayRef allModes = CGDisplayCopyAllDisplayModes(display, nullptr);
+  if (!allModes) {
+    // Fallback: current screen size
+    NSScreen *scr = [NSScreen mainScreen];
+    CGFloat sf = scr.backingScaleFactor;
+    s_modes[0] = { (UINT)(scr.frame.size.width * sf), (UINT)(scr.frame.size.height * sf), 60 };
+    s_modeCount = 1;
+    return;
+  }
+
+  CFIndex count = CFArrayGetCount(allModes);
+  for (CFIndex i = 0; i < count && s_modeCount < 64; i++) {
+    CGDisplayModeRef mode = (CGDisplayModeRef)CFArrayGetValueAtIndex(allModes, i);
+    size_t w = CGDisplayModeGetWidth(mode);
+    size_t h = CGDisplayModeGetHeight(mode);
+    double hz = CGDisplayModeGetRefreshRate(mode);
+    if (hz < 1.0) hz = 60.0;
+    if (w < 800 || h < 600) continue; // skip tiny modes
+
+    // Deduplicate
+    bool dup = false;
+    for (UINT j = 0; j < s_modeCount; j++) {
+      if (s_modes[j].w == (UINT)w && s_modes[j].h == (UINT)h) { dup = true; break; }
+    }
+    if (!dup) {
+      s_modes[s_modeCount++] = { (UINT)w, (UINT)h, (UINT)hz };
+    }
+  }
+  CFRelease(allModes);
+
+  if (s_modeCount == 0) {
+    s_modes[0] = { 800, 600, 60 };
+    s_modeCount = 1;
+  }
+  fprintf(stderr, "[MetalInterface8] Enumerated %u display modes\n", s_modeCount);
+}
 
 MetalInterface8::MetalInterface8() : m_RefCount(1) {
   fprintf(stderr, "[MetalInterface8] Created\n");
@@ -56,16 +107,20 @@ MetalInterface8::GetAdapterIdentifier(UINT Adapter, DWORD Flags,
 }
 
 STDMETHODIMP_(UINT) MetalInterface8::GetAdapterModeCount(UINT Adapter) {
-  return 1;
+  queryDisplayModes();
+  return s_modeCount;
 }
 
 STDMETHODIMP MetalInterface8::EnumAdapterModes(UINT Adapter, UINT Mode,
                                                D3DDISPLAYMODE *pMode) {
   if (!pMode)
     return E_POINTER;
-  pMode->Width = 800;
-  pMode->Height = 600;
-  pMode->RefreshRate = 60;
+  queryDisplayModes();
+  if (Mode >= s_modeCount)
+    return D3DERR_INVALIDCALL;
+  pMode->Width = s_modes[Mode].w;
+  pMode->Height = s_modes[Mode].h;
+  pMode->RefreshRate = s_modes[Mode].hz;
   pMode->Format = D3DFMT_A8R8G8B8;
   return D3D_OK;
 }
@@ -74,10 +129,14 @@ STDMETHODIMP MetalInterface8::GetAdapterDisplayMode(UINT Adapter,
                                                     D3DDISPLAYMODE *pMode) {
   if (!pMode)
     return E_POINTER;
-  pMode->Width = 800;
-  pMode->Height = 600;
-  pMode->RefreshRate = 60;
-  pMode->Format = D3DFMT_A8R8G8B8;
+  @autoreleasepool {
+    NSScreen *scr = [NSScreen mainScreen];
+    CGFloat sf = scr.backingScaleFactor;
+    pMode->Width = (UINT)(scr.frame.size.width * sf);
+    pMode->Height = (UINT)(scr.frame.size.height * sf);
+    pMode->RefreshRate = 60;
+    pMode->Format = D3DFMT_A8R8G8B8;
+  }
   return D3D_OK;
 }
 
