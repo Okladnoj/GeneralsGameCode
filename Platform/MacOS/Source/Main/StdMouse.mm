@@ -80,7 +80,10 @@ void StdMouse::draw(void) {
   // NOTE: do NOT check m_visible here — that flag controls the OS cursor.
   // W3DMouse::draw() also doesn't check m_visible for DX8/POLYGON modes.
 
-  // --- Full W3DMouse-equivalent cursor rendering ---
+  // --- Full W3DMouse-equivalent cursor rendering (2D texture mode) ---
+  // TODO: RM_W3D mode not implemented — 3D model cursors (green targeting
+  //   crosshairs, red attack circles, move arrows) are rendered as 2D fallback.
+  //   Needs: W3D model loading, ortho camera, WW3D::Render() per-frame.
   // Load multi-frame TGA textures via WW3DAssetManager, animate per FPS,
   // handle directional cursors (8 scroll directions).
 
