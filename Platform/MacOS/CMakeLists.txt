@@ -43,10 +43,13 @@ set(COMMON_SRC
 
 # ── Stubs (GameSpy, WWDownload — Windows-only libs) ──
 # NOTE: LZHLStubs.cpp was REMOVED — real liblzhl is linked via core_compression.
+# NOTE: MacOSW3DShaderManager.mm was REMOVED — Core/W3DShaderManager.cpp provides
+#       all symbols (setShroudTex, init, setShader, RTT, filters). The stub file
+#       was overriding real implementations with no-ops, blocking shroud/fog-of-war,
+#       render-to-texture, and screen filter effects.
 set(STUBS_SRC
     Source/Stubs/GameSpyStubs.cpp
     Source/Stubs/GitInfoStubs.cpp
-    Source/Stubs/MacOSW3DShaderManager.mm
     Source/Stubs/WWDownloadStubs.cpp
 )
 
