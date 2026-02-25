@@ -2060,20 +2060,29 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
 
   // --- Targeted terrain diagnostic ---
   static int terrainDiag = 0;
-  if (fvf == 0x242 && terrainDiag < 3) {
+  if (fvf == 0x242 && terrainDiag < 5) {
     MetalVertexBuffer8 *tvb = (MetalVertexBuffer8 *)m_StreamSource;
     id<MTLBuffer> tbuf = (__bridge id<MTLBuffer>)tvb->GetMTLBuffer();
     uint8_t *tdata = (uint8_t*)tbuf.contents;
     if (tdata) {
-      // FVF 0x242: XYZ(12B) + DIFFUSE(4B) + UV1(8B) + UV2(8B) = 32B stride
-      uint32_t d0, d1, d2;
-      memcpy(&d0, tdata + 12, 4);       // vertex 0 diffuse
-      memcpy(&d1, tdata + 32 + 12, 4);  // vertex 1 diffuse
-      memcpy(&d2, tdata + 64 + 12, 4);  // vertex 2 diffuse
+      uint32_t d0;
+      memcpy(&d0, tdata + 12, 4);
       float *pos = (float*)tdata;
-      printf("TERRAIN_VTX[%d]: pos0=(%.1f,%.1f,%.1f) diffuse0=0x%08x diffuse1=0x%08x diffuse2=0x%08x nv=%u tex0=%p alphaB=%u\n",
-             terrainDiag, pos[0], pos[1], pos[2], d0, d1, d2, nv, (void*)m_Textures[0],
+      float uv0[2], uv1[2];
+      memcpy(uv0, tdata + 16, 8);
+      memcpy(uv1, tdata + 24, 8);
+      MetalTexture8 *tex = m_Textures[0] ? (MetalTexture8 *)m_Textures[0] : nullptr;
+      id<MTLTexture> mtl = tex ? tex->GetMTLTexture() : nil;
+      printf("TERRAIN[%d]: pos=(%.1f,%.1f,%.1f) diff=0x%08x uv0=(%.4f,%.4f) uv1=(%.4f,%.4f) tex=%p(%lux%lu fmt=%lu) cOp=%u aOp=%u alphaB=%u\n",
+             terrainDiag, pos[0], pos[1], pos[2], d0,
+             uv0[0], uv0[1], uv1[0], uv1[1],
+             (__bridge void*)mtl,
+             mtl ? (unsigned long)mtl.width : 0, mtl ? (unsigned long)mtl.height : 0,
+             mtl ? (unsigned long)mtl.pixelFormat : 0,
+             (unsigned)m_TextureStageStates[0][D3DTSS_COLOROP],
+             (unsigned)m_TextureStageStates[0][D3DTSS_ALPHAOP],
              (unsigned)m_RenderStates[D3DRS_ALPHABLENDENABLE]);
+      fflush(stdout);
     }
     terrainDiag++;
   }

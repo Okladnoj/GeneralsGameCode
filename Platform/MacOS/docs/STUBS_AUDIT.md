@@ -1,7 +1,7 @@
 # macOS Stubs Audit — Systematic Tracking Table
 
 **Created:** 2026-02-20
-**Last Updated:** 2026-02-20 22:28
+**Last Updated:** 2026-02-25 18:30
 **Purpose:** Audit every stub in `Platform/MacOS/` to find the wild branch (`EXC_BAD_INSTRUCTION` at `0x100000000`) culprit.
 **Crash context:** PC jumps to `0x100000000` (Mach-O header), likely from nullptr vtable deref. Happens during `GameClient::update()` after `MetalDevice8::Clear` and 2D text drawing.
 
@@ -139,7 +139,7 @@
 
 ## 3. D3DX Helper Functions
 
-**File:** `Main/D3DXStubs.mm` (538 lines)
+**File:** `Main/D3DXStubs.mm` (639 lines)
 
 | Status | Stub / Class / Function | Notes |
 |:---|:---|:---|
@@ -147,7 +147,16 @@
 | ✅ | `D3DXCreateTexture()` | Delegates to `MetalDevice8::CreateTexture()` |
 | ✅ | `DecompressDXT1()` / `DecompressDXT5()` | Real CPU decompression |
 | ✅ | `LoadFileData()` | Real — reads from filesystem + .big archives |
+| ✅ | `D3DXFilterTexture()` | **FIXED 2026-02-25** — generates mipmaps via Metal blit encoder. Was inline no-op stub in `d3dx8core.h`, caused **black terrain** (mip levels 1+ were all-zero) |
 | ⚠️ | Texture cache (`s_TextureCache`) | HashMap-based, functional |
+
+**File:** `Include/d3dx8core.h` — Inline Helpers
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `D3DXFilterTexture()` | **MOVED** to D3DXStubs.mm — was inline no-op stub, now real Metal mipmap generation |
+| ⚠️ | `D3DXGetErrorStringA()` | Returns generic stub string — cosmetic only |
+| ⚠️ | `D3DXGetFVFVertexSize()` | Real calculation from FVF flags |
 
 ---
 
@@ -440,7 +449,7 @@ All previously-critical stubs have been resolved:
 |:---|:---|:---|:---|:---|:---|
 | Metal / DX8 | 40 | 26 | 14 | 0 | 0 |
 | W3D Shader Manager | 18 | 0 | 18 | 0 | 0 |
-| D3DX Helpers | 5 | 5 | 0 | 0 | 0 |
+| D3DX Helpers | 8 | 7 | 1 | 0 | 0 |
 | Display | 5 | 4 | 1 | 0 | 0 |
 | DisplayString | 5 | 4 | 1 | 0 | 0 |
 | GameClient Factory | 14 | 9 | 5 | 0 | 0 |

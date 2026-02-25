@@ -210,9 +210,10 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       mtlBpp = 2;
     }
 
-    // Diagnostic: log first few surface uploads
+    // Diagnostic: log surface uploads
     static int s_surfaceUploadCount = 0;
-    if (s_surfaceUploadCount < 30) {
+    bool shouldLog = (s_surfaceUploadCount < 200) || (m_Width >= 1024);
+    if (shouldLog) {
       // Check if data is non-zero
       uint32_t nonZeroCount = 0;
       UINT checkBytes = std::min((UINT)(m_Width * m_Height * bpp), (UINT)256);
@@ -220,10 +221,11 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       for (UINT i = 0; i < checkBytes; i++) {
         if (checkPtr[i] != 0) nonZeroCount++;
       }
-      fprintf(stderr, "[MetalSurface8] UnlockRect #%d: %ux%u fmt=%u(bpp=%u) → mtlFmt=%lu(bpp=%u) mip=%u nonZero=%u/%u parent=%p\n",
+      printf("[MetalSurface8] UnlockRect #%d: %ux%u fmt=%u(bpp=%u) → mtlFmt=%lu(bpp=%u) mip=%u nonZero=%u/%u parent=%p is16=%d\n",
               s_surfaceUploadCount, m_Width, m_Height, (unsigned)m_Format, bpp,
               (unsigned long)mtlFmt, mtlBpp, m_MipLevel, nonZeroCount, checkBytes,
-              (void*)m_ParentTexture);
+              (void*)m_ParentTexture, (int)is16bit);
+      fflush(stdout);
       s_surfaceUploadCount++;
     }
 

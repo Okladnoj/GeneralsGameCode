@@ -392,3 +392,109 @@ if (usage & D3DUSAGE_RENDERTARGET) {
 - **Одноуровневые текстуры** (`m_Levels == 1`) ПЕРЕСОЗДАВАЛИСЬ с нуля в `MetalTexture8::UnlockRect`, а только что созданные текстуры с данными от `replaceRegion`, видимо, синхронизировались автоматически.
 - **DDS текстуры**, загруженные через `D3DXCreateTextureFromFileExA`, также проходили через `MetalTexture8::UnlockRect` (что пересоздавало текстуру).
 - **Текстуры ландшафта** использовали `MetalSurface8::UnlockRect`, который НЕ выполнял пересоздание — они вызывали `replaceRegion` для существующей Managed текстуры, что требовало явной синхронизации, которая не делалась.
+
+---
+
+## Terrain Rendering Pipeline Architecture
+
+### Key Classes
+
+| Class | File | Role |
+|:---|:---|:---|
+| `HeightMapRenderObjClass` | `HeightMap.cpp` | Main terrain render object (3D heightmap) |
+| `FlatHeightMapRenderObjClass` | `FlatHeightMap.cpp` | Simplified low-LOD version |
+| `TerrainShader2Stage` | `W3DShaderManager.cpp` | 2-stage terrain shader (minimum GPU fallback) |
+| `TerrainShader8Stage` | `W3DShaderManager.cpp` | 8-stage shader (Nvidia TNT/GeForce2) |
+| `TerrainShaderPixelShader` | `W3DShaderManager.cpp` | Pixel shader (modern GPUs) |
+| `W3DTerrainVisual` | `W3DTerrainVisual.h` | High-level terrain visual interface |
+| `BaseHeightMapRenderObjClass` | `BaseHeightMap.cpp` | Base class for all heightmap renderers |
+
+### Multi-Pass Rendering
+
+Terrain is rendered in **multiple passes** via `W3DShaderManager`. For `TerrainShader2Stage` (the most basic implementation, used as fallback):
+
+#### Shader `ST_TERRAIN_BASE` — 2 passes:
+
+**Pass 0 — Macro Texture (opaque base pass)**
+```
+Texture:  m_stageZeroTexture (terrain atlas) — bound to stage 0
+UV set:   texCoordIndex = 0 (macro texture coordinates)
+colorOp:  D3DTOP_MODULATE (texture × diffuse)
+alphaOp:  D3DTOP_DISABLE
+Blending: DISABLED (opaque draw)
+Stage 1:  DISABLED
+```
+
+**Pass 1 — Detail Tile Blend (translucent overlay pass)**
+```
+Texture:  m_stageZeroTexture (same atlas, different UVs!) — bound to stage 0
+UV set:   texCoordIndex = 1 (detail tile coordinates)
+colorOp:  D3DTOP_MODULATE (texture × diffuse)
+alphaOp:  D3DTOP_MODULATE (texture.a × diffuse.a)
+Blending: ENABLED — SrcAlpha / InvSrcAlpha
+Stage 1:  DISABLED
+```
+
+Vertex alpha (`diffuse.a`) controls the blend transition mask between terrain textures.
+
+#### Noise/Cloud shaders — 3 passes:
+Pass 2 adds cloud shadows and/or lightmap via `D3DTSS_TCI_CAMERASPACEPOSITION` (camera-space texture projection).
+
+### Terrain Textures
+
+Terrain uses a **single macro atlas** (`m_stageZeroTexture`) at 1024×1024 (format `fmt=80` = `MTLPixelFormatRGBA8Unorm`). Both texture stages (0 and 1) in `W3DShaderManager::setTexture()` point to the same atlas:
+
+```cpp
+W3DShaderManager::setTexture(0, m_stageZeroTexture);  // for pass 0 (macro UVs)
+W3DShaderManager::setTexture(1, m_stageZeroTexture);  // for pass 1 (detail UVs)
+```
+
+**Important:** `W3DShaderManager::setTexture()` does NOT call `DX8Wrapper::Set_Texture()`. It only stores the pointer in `m_Textures[]` for later use by the shader. The terrain shader binds textures directly via the device:
+
+```cpp
+// Inside TerrainShader2Stage::set(pass):
+DX8Wrapper::_Get_D3D_Device8()->SetTexture(0, 
+    W3DShaderManager::getShaderTexture(0)->Peek_D3D_Texture());
+```
+
+### Extra Blend Tiles (3-Way Blending)
+
+When `TheGlobalData->m_use3WayTerrainBlends` is enabled, additional tiles are drawn after the main passes via `renderExtraBlendTiles()`. This handles corner cases where 3 different textures meet. Uses `DynamicVBAccessClass` with `DX8_FVF_XYZNDUV2` format and separate VB/IB.
+
+### Terrain FVF
+
+Terrain uses `fvf = 0x252`:
+- `D3DFVF_XYZ` (0x002) — 3D position
+- `D3DFVF_DIFFUSE` (0x040) — vertex color (lighting + alpha for blend mask)
+- `D3DFVF_TEX2` (0x200) — dual UV coordinates (macro + detail)
+- `D3DFVF_NORMAL` (0x010) — normals for lighting
+
+Vertices are filled in `HeightMapRenderObjClass::updateVB()`, where `diffuse` contains:
+- **RGB** — static terrain lighting (`getStaticDiffuse()`)
+- **Alpha** — blend tile transition mask
+
+### HeightMapRenderObjClass::Render() Draw Order
+
+```
+1.  Set_Light_Environment() — set global lighting
+2.  Set_Texture(0, nullptr) and Set_Texture(1, nullptr) — clear textures
+3.  ShaderClass::Invalidate() — reset shader cache
+4.  Set_Material() + Set_Shader() — set WW3D shader
+5.  Set_Index_Buffer() — single IB for all tiles
+6.  for (pass = 0; pass < devicePasses; pass++):
+    a. W3DShaderManager::setShader(st, pass) → TerrainShader2Stage::set(pass)
+       - Apply_Render_State_Changes() — applies cached states
+       - Sets TSS via Set_DX8_Texture_Stage_State()
+       - Binds texture via _Get_D3D_Device8()->SetTexture()
+    b. for (each VB tile):
+       - Set_Vertex_Buffer(vb)
+       - Draw_Triangles() → Draw() → Apply_Render_State_Changes() + DrawIndexedPrimitive()
+7.  renderShoreLines() — shore lines
+8.  renderExtraBlendTiles() — 3-way blend tiles
+9.  drawRoads() — roads
+10. drawScorches() — scorch marks
+11. drawBridges() — bridges
+12. shroud pass — fog of war (if enabled)
+```
+
+

@@ -92,10 +92,9 @@ inline HRESULT D3DXGetErrorStringA(HRESULT hr, char *pBuffer, UINT BufferLen) {
 #define D3DXGetErrorString D3DXGetErrorStringA
 
 /* D3DXFilterTexture — generate mip levels for a texture */
-inline HRESULT D3DXFilterTexture(IDirect3DBaseTexture8 *, const void *, DWORD,
-                                 DWORD) {
-  return S_OK; /* stub — mip filtering handled by Metal */
-}
+HRESULT WINAPI D3DXFilterTexture(IDirect3DBaseTexture8 *pTexture,
+                                  const void *pPalette, DWORD SrcLevel,
+                                  DWORD Filter);
 
 /* Compute vertex size from FVF flags (used by dx8fvf.cpp) */
 inline UINT D3DXGetFVFVertexSize(DWORD FVF) {

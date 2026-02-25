@@ -1,116 +1,116 @@
-# V2: Terrain / Ground Texture Layers — Next Steps
+# V2: Terrain Texture Fix — Next Steps
 
 ## ⚠️ ОБЯЗАТЕЛЬНО прочитать перед началом работы:
-- **`Platform/MacOS/docs/RENDERING.md`** — полная документация render pipeline
-- **`.agent/image_zh_origin.png`** — как должна выглядеть intro сцена (оригинал)
-
-## Состояние на 2026-02-25
-
-### ✅ Решено
-1. **Модели (юниты, здания, корабль)** — рендерятся с полноценными текстурами.
-   - **Корневая причина**: `D3DRS_SPECULARENABLE` по умолчанию `FALSE`, но шейдер
-     ВСЕГДА добавлял specular. С `materialPower=0.1` specular вымывал всё в белый.
-   - **Фикс**: `specularEnable` в FragmentUniforms, guard в шейдере.
-
-2. **Вода** — анимированная, корректная текстура.
-
-3. **UI** — кнопки меню, иконки, текст работают.
-
-4. **Эффекты** — огонь, взрывы, дым визуально корректны.
-
-### ❌ НЕ решено: Terrain (земля) и горы
-
-**Проблема**: Terrain рисуется МНОГОСЛОЙНО, но overlay/blend текстурные слои
-не отображаются. Видна только BASE pass (diffuse vertex color) — бежевый/серый
-однородный цвет без текстурных деталей.
-
-**Shell map**: горы — белые блобы (vertex lighting ≈ 1.0 + нет текстурных overlay'ев).
-В оригинале горы имеют коричневую скальную текстуру.
-
-**In-game**: земля — однородный цвет без деталей. Дороги видны (отдельный textured
-overlay). В оригинале — детальная текстура песка/травы/камня.
+- **`Platform/MacOS/docs/RENDERING.md`** — спецификация render pipeline (terrain pipeline, texture caching, TSS)
+- **`.agent/image_zh_origin.png`** — оригинальный вид shell map (reference)
+- **`.agent/workflows/build-and-run.md`** — как собирать, запускать и делать скриншот
 
 ---
 
-## Архитектура terrain rendering в Generals
+## Текущее состояние (2026-02-25)
 
-### Как terrain рисуется (DirectX 8 оригинал):
+### ✅ Работает
+- **3D модели** (корабль, вертолёт, камни, деревья) — текстуры корректные
+- **Вода** — анимированная, корректная
+- **UI** — кнопки меню, иконки, текст
+- **Эффекты** — огонь, взрывы, дым
+- **Terrain geometry** — heightmap рендерится, форма гор правильная
 
-```
-Terrain render order:
-1. BASE PASS: untextured mesh (diffuse vertex color, lit=0, fvf=0x252)
-   → Устанавливает z-buffer, базовый цвет рельефа
-   → hasTexture[0]=0
+### ❌ OPEN BUG: White Terrain (текстура не применяется)
 
-2. BLEND/OVERLAY PASSES: textured quads с alpha blending (множество draw calls)
-   → Каждый terrain tile (песок, трава, скала, грязь) рисуется отдельным overlay
-   → Vertex alpha контролирует blend factor
-   → hasTexture[0]=1, lit=0, fvf=0x252
-   → TSS: MODULATE(texture, diffuse), alpha blending ON
-
-3. ROAD PASSES: отдельные textured overlays для дорог
-   → Работают ✅
-
-4. MODEL PASSES: W3D mesh объекты (здания, деревья, камни)
-   → hasTexture[0]=1, lit=1, fvf=0x112
-   → TSS: MODULATE(texture, vertex_color_from_lighting)
-```
-
-### Что наблюдаем через debug:
-
-- **EMPTY_TEX**: 20 пустых текстур = все это `MissingTexture` (64x64 BGRA8,
-  `HasBeenWritten=false`). Из них 16 = одна текстура `trstrtholecvr.tga` (не найден файл).
-
-- **IDX_DRAW**: MODEL draws все имеют `hasTex0=1` с 128x128 DXT текстурами.
-  Данные загружены (`HasBeenWritten=true`). НО горы визуально белые.
-
-- **Debug shader** (split texCoord): на горной карте terrain overlay текстуры
-  **ЧАСТИЧНО загружены** — видны синие горы, песок. Но часть overlay'ев = чёрные
-  (пустые DXT текстуры).
-
-### Гипотезы почему overlay'и пустые:
-
-1. **Apply_New_Surface race condition**: foreground loading создаёт новый
-   MetalTexture8 через `Apply_New_Surface`, но позже thumbnail/background task
-   перезаписывает его обратно на пустую thumbnail текстуру.
-
-2. **Terrain texture atlas**: terrain может использовать специальную систему
-   текстурных атласов, которая собирает tile-текстуры в большие текстуры.
-   Этот процесс может использовать `UpdateTexture` (копирование из sysmem
-   в vidmem), который НЕ реализован в Metal адаптере.
-
-3. **Multi-pass blending**: terrain overlay draws используют alpha blending
-   с конкретными blend states. Наш адаптер может неправильно устанавливать
-   SRC_ALPHA/INV_SRC_ALPHA blend factors.
-
-4. **Текстуры не привязываются**: mesh'и гор могут ссылаться на текстуры,
-   которые были созданы, но затем заменены пустыми через lifecycle.
+**Симптом**: Terrain heightmap рендерится как **белые горы** без текстур. Геометрия видна и opaque, но macro texture atlas не применяется. Сравни с `.agent/image_zh_origin.png`.
 
 ---
 
-## План отладки
+## Root Cause: Unconditional Null Texture Re-Apply
 
-### Шаг 1: Проверить `UpdateTexture`
-`IDirect3DDevice8::UpdateTexture(src, dst)` копирует данные из system mem
-текстуры в video mem. Используется для non-managed текстур. Если наш стаб
-— пустой, данные не копируются.
+`Apply_Render_State_Changes()` в `dx8wrapper.cpp` (строка ~2377) на Apple **безусловно** переприменяет `render_state.Textures[0]` на каждый `Draw()`:
+
 ```cpp
-// MetalDevice8.mm: проверить реализацию UpdateTexture
+#ifdef __APPLE__
+    { // безусловный блок — ВСЕГДА входит
+#else
+    if (render_state_changed & mask) { // условный — только при изменении
+#endif
 ```
 
-### Шаг 2: Логировать terrain overlay draws
-Увеличить лимит IDX_DRAW лога для unlit textured draws (terrain overlays).
-Записать: текстуру pointer, size, HasBeenWritten, blend state.
+Terrain shader (`TerrainShader2Stage::set()` в `W3DShaderManager.cpp`) привязывает текстуру **напрямую** к device:
+```cpp
+DX8Wrapper::_Get_D3D_Device8()->SetTexture(0, texture->Peek_D3D_Texture());
+```
+Это обновляет только device cache (`m_Textures[0]`), НЕ wrapper cache (`render_state.Textures[0]`).
 
-### Шаг 3: Проверить alpha blending state
-Для terrain overlay draws: залогировать `D3DRS_ALPHABLENDENABLE`,
-`D3DRS_SRCBLEND`, `D3DRS_DESTBLEND`. Убедиться что они корректно
-передаются в Metal pipeline state.
+`render_state.Textures[0]` = `nullptr` (установлен в `HeightMapRenderObjClass::Render()`). Безусловный re-apply ставит `Apply_Null(0)` → затирает terrain текстуру.
 
-### Шаг 4: Проверить texture lifecycle
-Залогировать в каком порядке текстуры создаются, заполняются данными,
-и привязываются к draw calls. Искать случаи, где текстура получает данные,
-а потом теряет их (перезапись).
+### Три уровня кеширования текстур
+
+```
+Level 1: render_state.Textures[i]    — TextureBaseClass*     ← ЗДЕСЬ null
+         Updated by: DX8Wrapper::Set_Texture()
+
+Level 2: DX8Wrapper::Textures[i]     — IDirect3DBaseTexture8*
+         Updated by: DX8Wrapper::Set_DX8_Texture()
+
+Level 3: MetalDevice8::m_Textures[i]  — IDirect3DBaseTexture8*  ← terrain ставит СЮДА
+         Updated by: MetalDevice8::SetTexture()
+```
+
+---
+
+## Что пробовали и результат
+
+| # | Подход | Файл | Результат | Почему не сработало |
+|:--|:---|:---|:---|:---|
+| 1 | Skip `Apply_Null` если `TEXTURE_CHANGED` не set | `dx8wrapper.cpp` | Terrain невидим (transparent) | `alpha = diffuse.a` может быть 0; без null re-apply, alpha blending pass рендерит прозрачно |
+| 2 | `Set_Texture()` в `TerrainShader2Stage::set()` | `W3DShaderManager.cpp` | Всё ещё белый | Текстура ставится, но `COLOROP = SELECTARG2` (игнорирует текстуру, берёт только diffuse) |
+| 3 | Fix #1 + Fix #2 вместе | оба файла | Всё ещё белый | TSS показывает MODULATE в логах, но визуально белый — возможно текстура содержит белые данные или alpha проблема |
+
+### TSS Backtrace (доказательство)
+
+`COLOROP` переключается между MODULATE(4) и SELECTARG2(3) из-за **UI draws** (мышь, кнопки), а НЕ между terrain tiles:
+
+```
+[TSS_DIAG] stage0 COLOROP 4→3 backtrace:
+  ShaderClass::Apply()
+  Apply_Render_State_Changes()
+  Draw() → Render2DClass::Render() → StdMouse::draw()
+```
+
+Внутри terrain pass, TSS стабильно MODULATE — проблема только в null текстуре.
+
+---
+
+## Применённые фиксы (уже в коде)
+
+В `MacOSShaders.metal`:
+
+1. **D3DTOP_DISABLE alpha**: При `alphaOp == D3DTOP_DISABLE` alpha сохраняет `current.a` (раньше вычислялось через `evaluateOp` → возвращало texture alpha → terrain становился прозрачным)
+
+2. **Removed early-return hack**: Убран `if (useProjection==1 && hasTexture[0]==0) return diffuse`. Все draws проходят через TSS pipeline.
+
+---
+
+## Рекомендуемые стратегии фикса
+
+### Option A — Не давать Apply_Null затирать device текстуру
+В `Apply_Render_State_Changes()`, Apple блок: если `render_state.Textures[i] == null` И `TEXTURE_CHANGED` НЕ set → **пропустить** Apply_Null. НО: нужно также убедиться что alpha правильный (alphaOp=DISABLE → alpha=1.0, alpha blending OFF для pass 0).
+
+**Проблема**: при этом фиксе terrain рендерился прозрачным. Нужно одновременно фиксить alpha blending state.
+
+### Option B — Terrain shader обновляет wrapper cache
+В `TerrainShader2Stage::set()` на Apple, после direct device SetTexture, вызывать `DX8Wrapper::Set_Texture(0, textureObj)`. Это обновит `render_state.Textures[0]` → re-apply поставит правильную текстуру.
+
+**Проблема**: Set_Texture() ставит TEXTURE0_CHANGED → Apply повторно вызывает TextureClass::Apply() → может конфликтовать с ShaderClass::Apply() timing.
+
+### Option C — Убрать unconditional re-apply полностью
+Удалить `#ifdef __APPLE__` unconditional block. Metal port читает текстуры из `m_Textures[]` при DrawIndexedPrimitive — re-apply из wrapper не нужен.
+
+**Риск**: могут сломаться другие текстуры (модели, UI) которые зависят от re-apply.
+
+### Option D — Terrain shader с TEXTURING_ENABLE
+Изменить terrain shader's `m_shaderClass` на `TEXTURING_ENABLE` → ShaderClass::Apply() поставит MODULATE вместо SELECTARG2 → terrain texture будет multiplied с diffuse.
+
+**Риск**: нужно убедиться что terrain shader ставит текстуру ДО ShaderClass::Apply().
 
 ---
 
@@ -118,15 +118,16 @@ Terrain render order:
 
 | Файл | Назначение |
 |------|-----------|
-| `MacOSShaders.metal` | Fragment shader — TSS pipeline, fog, specular |
+| `MacOSShaders.metal` | Fragment shader — TSS pipeline, fog, alpha |
 | `MetalDevice8.mm` | Metal pipeline — draw calls, uniforms, textures |
-| `MetalTexture8.mm` | Metal texture — LockRect/UnlockRect, data upload |
-| `texture.cpp` | TextureClass — Init(), Apply(), texture lifecycle |
-| `textureloader.cpp` | TextureLoadTaskClass — Begin_Load, Load, End_Load |
-| `dx8wrapper.cpp` | DX8Wrapper — Set_DX8_Texture, draw dispatch |
+| `dx8wrapper.cpp` | `Apply_Render_State_Changes()` — unconditional re-apply (строка ~2377) |
+| `W3DShaderManager.cpp` | `TerrainShader2Stage::set()` — terrain texture + TSS binding |
+| `dx8wrapper.h` | `Set_Texture()`, `Set_DX8_Texture_Stage_State()` — wrapper caching |
+| `shader.cpp` | `ShaderClass::Apply()` — TSS from shader settings |
+| `HeightMap.cpp` | `HeightMapRenderObjClass::Render()` — terrain draw order |
 
 ## ⚠️ Правила
 - `printf` + `fflush(stdout)` для логов (НЕ `fprintf(stderr)`)
-- Не удалять `discard_fragment` для пустых текстур — без него пустые DXT
-  текстуры рендерятся как opaque black
-- Тестировать на shell map (горы) И in-game (terrain)
+- Не удалять `discard_fragment` для пустых текстур в шейдере
+- Тестировать на shell map (горы = `.agent/image_zh_origin.png`)
+- Собирать и тестировать: `sh build_run_mac.sh --screenshot`

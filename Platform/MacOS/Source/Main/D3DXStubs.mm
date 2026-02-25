@@ -573,6 +573,47 @@ HRESULT WINAPI D3DXAssembleShader(const void *pSrcData, UINT SrcDataLen,
 
 } // extern "C"
 
+// D3DXFilterTexture is declared with C++ linkage in d3dx8core.h
+HRESULT WINAPI D3DXFilterTexture(IDirect3DBaseTexture8 *pTexture,
+                                  const void *pPalette, DWORD SrcLevel,
+                                  DWORD Filter) {
+  if (!pTexture) return E_POINTER;
+  
+  // All our textures are MetalTexture8 — safe to static_cast
+  MetalTexture8 *mtlTex = static_cast<MetalTexture8 *>(
+      static_cast<IDirect3DTexture8 *>(pTexture));
+  if (!mtlTex) return D3D_OK;
+  
+  id<MTLTexture> tex = mtlTex->GetMTLTexture();
+  if (!tex || tex.mipmapLevelCount <= 1) return D3D_OK;
+  
+  // Use Metal blit encoder to generate mipmaps from level 0
+  id<MTLDevice> device = tex.device;
+  id<MTLCommandQueue> queue = [device newCommandQueue];
+  if (!queue) return E_FAIL;
+  
+  id<MTLCommandBuffer> cmdBuf = [queue commandBuffer];
+  if (!cmdBuf) return E_FAIL;
+  
+  id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
+  [blit generateMipmapsForTexture:tex];
+  [blit endEncoding];
+  
+  [cmdBuf commit];
+  [cmdBuf waitUntilCompleted];
+  
+  static int s_filterCount = 0;
+  if (s_filterCount < 20) {
+    printf("[D3DXFilterTexture] Generated mipmaps for %lux%lu tex=%p levels=%lu\n",
+           (unsigned long)tex.width, (unsigned long)tex.height,
+           (__bridge void*)tex, (unsigned long)tex.mipmapLevelCount);
+    fflush(stdout);
+    s_filterCount++;
+  }
+  
+  return D3D_OK;
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  Entry Points — called from dx8wrapper.cpp
 // ═══════════════════════════════════════════════════════════════

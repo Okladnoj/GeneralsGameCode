@@ -2375,9 +2375,10 @@ void DX8Wrapper::Apply_Render_State_Changes() {
   int i = 0;
   for (; i < CurrentCaps->Get_Max_Textures_Per_Pass(); ++i, mask <<= 1) {
 #ifdef __APPLE__
-    // Metal creates a new render command encoder for each draw call.
-    // Unlike DirectX, texture bindings do NOT persist between encoders.
-    // Always re-apply textures to the current encoder.
+    // Metal: always re-apply textures that exist in wrapper cache.
+    // But if wrapper cache is null AND this texture was NOT explicitly changed,
+    // skip Apply_Null — a terrain/custom shader may have set a texture directly
+    // on the device via SetTexture() which we must not clobber.
     {
 #else
     if (render_state_changed & mask) {
@@ -2388,23 +2389,17 @@ void DX8Wrapper::Apply_Render_State_Changes() {
                         : "null"));
 
       if (render_state.Textures[i]) {
-#ifdef __APPLE__
-        if (i == 0) {
-          static int s_arsLog = 0;
-          if (s_arsLog < 300) {
-            StringClass tn = render_state.Textures[0]->Get_Full_Path();
-            printf("[ARS::Apply] #%d tex=%p name='%s' d3d=%p\n",
-              s_arsLog, (void*)render_state.Textures[0],
-              tn.Is_Empty() ? "(empty)" : tn.Peek_Buffer(),
-              (void*)render_state.Textures[0]->Peek_D3D_Base_Texture());
-            fflush(stdout);
-            s_arsLog++;
-          }
-        }
-#endif
         render_state.Textures[i]->Apply(i);
       } else {
+#ifdef __APPLE__
+        // Only apply null if this texture was explicitly changed to null.
+        // This protects textures set directly on the device (e.g., terrain shader).
+        if (render_state_changed & mask) {
+          TextureBaseClass::Apply_Null(i);
+        }
+#else
         TextureBaseClass::Apply_Null(i);
+#endif
       }
     }
   }

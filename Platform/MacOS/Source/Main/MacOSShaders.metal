@@ -83,9 +83,7 @@ struct FragmentUniforms {
     float  alphaRef;         // normalized 0..1
     uint   hasTexture[4];
     uint   specularEnable;
-    uint   _pad1;
-    uint   _pad2;
-    uint   _pad3;
+    uint   texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX: which UV set each stage uses
 };
 
 // ─────────────────────────────────────────────────────
@@ -507,19 +505,20 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                              sampler sampler2 [[sampler(2)]],
                              sampler sampler3 [[sampler(3)]]) {
     
-    // Sample textures
-    float4 texColor0 = (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, in.texCoord)  : float4(1.0);
-    float4 texColor1 = (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, in.texCoord2) : float4(1.0);
-    float4 texColor2 = (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, in.texCoord)  : float4(1.0);
-    float4 texColor3 = (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, in.texCoord)  : float4(1.0);
+    // Select UV coordinates based on D3DTSS_TEXCOORDINDEX per stage
+    float2 uv0 = (fragUniforms.texCoordIndex[0] == 1) ? in.texCoord2 : in.texCoord;
+    float2 uv1 = (fragUniforms.texCoordIndex[1] == 0) ? in.texCoord  : in.texCoord2;
+    float2 uv2 = (fragUniforms.texCoordIndex[2] == 1) ? in.texCoord2 : in.texCoord;
+    float2 uv3 = (fragUniforms.texCoordIndex[3] == 1) ? in.texCoord2 : in.texCoord;
+    
+    // Sample textures using their respective UV coordinates
+    float4 texColor0 = (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, uv0) : float4(1.0);
+    float4 texColor1 = (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, uv1) : float4(1.0);
+    float4 texColor2 = (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, uv2) : float4(1.0);
+    float4 texColor3 = (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, uv3) : float4(1.0);
     
     float4 diffuse = in.color;
     
-    // Untextured 3D draws (terrain BASE pass): return diffuse directly.
-    // Textured 3D/2D draws: go through full TSS pipeline below.
-    if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] == 0) {
-        return float4(diffuse.rgb, 1.0);
-    }
 
     // Full TSS processing for 2D and textured 3D draws
     float4 specular = in.specularColor;
@@ -538,11 +537,18 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         float4 colorResult = evaluateBlendOp(colorOp, cArg1, cArg2, diffuse, stageTexColor, tFactor, current);
         
         uint alphaOp = fragUniforms.stages[i].alphaOp;
-        float4 aArg1 = resolveArg(fragUniforms.stages[i].alphaArg1, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
-        float4 aArg2 = resolveArg(fragUniforms.stages[i].alphaArg2, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
-        float4 alphaResult = evaluateBlendOp(alphaOp, aArg1, aArg2, diffuse, stageTexColor, tFactor, current);
+        float alphaVal;
+        if (alphaOp == 0 || alphaOp == D3DTOP_DISABLE) {
+            // D3DTOP_DISABLE for alpha means "don't modify alpha from previous stage"
+            alphaVal = current.a;
+        } else {
+            float4 aArg1 = resolveArg(fragUniforms.stages[i].alphaArg1, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
+            float4 aArg2 = resolveArg(fragUniforms.stages[i].alphaArg2, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
+            float4 alphaResult = evaluateBlendOp(alphaOp, aArg1, aArg2, diffuse, stageTexColor, tFactor, current);
+            alphaVal = alphaResult.a;
+        }
         
-        current = float4(colorResult.rgb, alphaResult.a);
+        current = float4(colorResult.rgb, alphaVal);
     }
 
     // --- Alpha Test ---
@@ -562,10 +568,11 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
     }
 
-    // Handle empty/unloaded textures: empty DXT1 blocks decode to (0,0,0,1)
+    // Handle empty/unloaded textures: empty DXT1 blocks decode to exact (0,0,0,1)
     // opaque black. Discard such fragments to reveal terrain BASE pass underneath.
+    // Threshold must be very low to avoid discarding dark but valid texture fragments.
     if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
-        dot(current.rgb, float3(1.0)) < 0.01) {
+        dot(current.rgb, float3(1.0)) < 0.001) {
         discard_fragment();
     }
 
