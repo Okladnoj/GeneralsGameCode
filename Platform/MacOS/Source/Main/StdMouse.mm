@@ -212,13 +212,14 @@ void StdMouse::draw(void) {
 }
 
 void StdMouse::capture(void) {
-  // Confine cursor to game window — equivalent to Win32 SetCapture + ClipCursor
-  CGAssociateMouseAndMouseCursorPosition(false);
+  // NOTE: CGAssociateMouseAndMouseCursorPosition(false) breaks input because
+  // StdMouse uses absolute NSEvent coordinates, not mouse deltas.
+  // To implement properly, need to switch to delta-based input first.
+  // For now, just notify the base class.
   onCursorCaptured(TRUE);
 }
 
 void StdMouse::releaseCapture(void) {
-  CGAssociateMouseAndMouseCursorPosition(true);
   onCursorCaptured(FALSE);
 }
 
