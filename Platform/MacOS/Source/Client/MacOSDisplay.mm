@@ -72,8 +72,8 @@ public:
   // setClipRegion, isClippingEnabled, enableClipping, etc.
   // All go through m_2DRender (Render2DClass) → DX8Wrapper → Metal.
 
-  virtual void takeScreenShot(void) override {}
-  virtual void toggleMovieCapture(void) override {}
+  // takeScreenShot() — inherited from W3DDisplay (saves TGA/BMP via DX8 back buffer)
+  // toggleMovieCapture() — inherited from W3DDisplay (WW3D::Toggle_Movie_Capture)
 #if defined(RTS_DEBUG)
   virtual void dumpAssetUsage(const char *mapname) override {}
   virtual void dumpModelAssets(const char *path) override {}
