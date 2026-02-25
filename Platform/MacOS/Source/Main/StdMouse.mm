@@ -76,33 +76,29 @@ void StdMouse::draw(void) {
   if (!m_visible)
     return;
 
-  CursorInfo *info = &m_cursorInfo[m_currentCursor];
-  if (info->imageName.isNotEmpty()) {
-    const Image *img =
-        TheMappedImageCollection->findImageByName(info->imageName);
-    if (!img) {
-      static AsciiString lastMissingCursor;
-      if (lastMissingCursor != info->imageName) {
-        printf("DEBUG: StdMouse::draw: CURSOR IMAGE NOT FOUND: %s\n",
-               info->imageName.str());
-        fflush(stdout);
-        lastMissingCursor = info->imageName;
-      }
-    }
-    if (img) {
-      Int w = img->getImageWidth();
-      Int h = img->getImageHeight();
-      Int x = m_currMouse.pos.x - info->hotSpotPosition.x;
-      Int y = m_currMouse.pos.y - info->hotSpotPosition.y;
+  // Look up cursor image from MappedImageCollection every frame
+  // (hash map lookup is cheap, and images load from .big files at variable times)
+  const Image *img = nullptr;
+  if (m_cursorInfo[m_currentCursor].imageName.isNotEmpty() && TheMappedImageCollection) {
+    img = TheMappedImageCollection->findImageByName(m_cursorInfo[m_currentCursor].imageName);
+  }
 
-      TheDisplay->drawImage(img, x, y, x + w, y + h,
-                            GameMakeColor(255, 255, 255, 255),
-                            Display::DRAW_IMAGE_ALPHA);
-    } else {
-      // DEBUG FALLBACK: Big Green square (20x20) so it's impossible to miss
-      TheDisplay->drawFillRect(m_currMouse.pos.x - 10, m_currMouse.pos.y - 10,
-                               20, 20, GameMakeColor(0, 255, 0, 255));
-    }
+  if (img) {
+    CursorInfo *info = &m_cursorInfo[m_currentCursor];
+    Int w = img->getImageWidth();
+    Int h = img->getImageHeight();
+    Int x = m_currMouse.pos.x - info->hotSpotPosition.x;
+    Int y = m_currMouse.pos.y - info->hotSpotPosition.y;
+
+    TheDisplay->drawImage(img, x, y, x + w, y + h,
+                          GameMakeColor(255, 255, 255, 255),
+                          Display::DRAW_IMAGE_ALPHA);
+  } else {
+    // Fallback: green crosshair so cursor is always visible
+    int cx = m_currMouse.pos.x;
+    int cy = m_currMouse.pos.y;
+    TheDisplay->drawFillRect(cx - 8, cy - 1, 16, 2, GameMakeColor(0, 255, 0, 200));
+    TheDisplay->drawFillRect(cx - 1, cy - 8, 2, 16, GameMakeColor(0, 255, 0, 200));
   }
 
   drawCursorText();
