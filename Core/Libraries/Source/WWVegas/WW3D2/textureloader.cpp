@@ -71,7 +71,7 @@ int TextureLoader::TextureInactiveOverrideTime = 0;
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-TextureLoadTaskListClass::TextureLoadTaskListClass(void)
+TextureLoadTaskListClass::TextureLoadTaskListClass()
 : Root()
 {
 	Root.Next = Root.Prev = &Root;
@@ -107,7 +107,7 @@ void TextureLoadTaskListClass::Push_Back(TextureLoadTaskClass *task)
 	Root.Prev			= task;
 }
 
-TextureLoadTaskClass *TextureLoadTaskListClass::Pop_Front(void)
+TextureLoadTaskClass *TextureLoadTaskListClass::Pop_Front()
 {
 	// exit early if list is empty
 	if (Is_Empty()) {
@@ -121,7 +121,7 @@ TextureLoadTaskClass *TextureLoadTaskListClass::Pop_Front(void)
 
 }
 
-TextureLoadTaskClass *TextureLoadTaskListClass::Pop_Back(void)
+TextureLoadTaskClass *TextureLoadTaskListClass::Pop_Back()
 {
 	// exit early if list is empty
 	if (Is_Empty()) {
@@ -158,7 +158,7 @@ void TextureLoadTaskListClass::Remove(TextureLoadTaskClass *task)
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-SynchronizedTextureLoadTaskListClass::SynchronizedTextureLoadTaskListClass(void)
+SynchronizedTextureLoadTaskListClass::SynchronizedTextureLoadTaskListClass()
 :	TextureLoadTaskListClass(),
 	CriticalSection()
 {
@@ -176,7 +176,7 @@ void SynchronizedTextureLoadTaskListClass::Push_Back(TextureLoadTaskClass *task)
 	TextureLoadTaskListClass::Push_Back(task);
 }
 
-TextureLoadTaskClass *SynchronizedTextureLoadTaskListClass::Pop_Front(void)
+TextureLoadTaskClass *SynchronizedTextureLoadTaskListClass::Pop_Front()
 {
 	// this duplicates code inside base class, but saves us an unnecessary lock.
 	if (Is_Empty()) {
@@ -188,7 +188,7 @@ TextureLoadTaskClass *SynchronizedTextureLoadTaskListClass::Pop_Front(void)
 
 }
 
-TextureLoadTaskClass *SynchronizedTextureLoadTaskListClass::Pop_Back(void)
+TextureLoadTaskClass *SynchronizedTextureLoadTaskListClass::Pop_Back()
 {
 	// this duplicates code inside base class, but saves us an unnecessary lock.
 	if (Is_Empty()) {
@@ -339,7 +339,7 @@ void TextureLoader::Deinit()
 }
 
 
-bool TextureLoader::Is_DX8_Thread(void)
+bool TextureLoader::Is_DX8_Thread()
 {
 	return (ThreadClass::_Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
 }
@@ -792,7 +792,7 @@ void TextureLoader::Request_Foreground_Loading(TextureBaseClass *tc)
 }
 
 
-void TextureLoader::Flush_Pending_Load_Tasks(void)
+void TextureLoader::Flush_Pending_Load_Tasks()
 {
 	// This function can only be called from the main thread.
 	// (Only the main thread can make the DX8 calls necessary
@@ -845,7 +845,7 @@ void TextureLoader::Flush_Pending_Load_Tasks(void)
 	}                                                  \
 
 
-void TextureLoader::Update(void (*network_callback)(void))
+void TextureLoader::Update(void (*network_callback)())
 {
 	static int s_updateEntryCount = 0;
 	s_updateEntryCount++;
@@ -993,7 +993,7 @@ void TextureLoader::Load_Thumbnail(TextureBaseClass *tc)
 }
 
 
-void LoaderThreadClass::Thread_Function(void)
+void LoaderThreadClass::Thread_Function()
 {
 	while (running) {
 		// if there are no tasks on the background queue, no need to grab background lock.
@@ -1052,7 +1052,7 @@ TextureLoadTaskClass::TextureLoadTaskClass()
 }
 
 
-TextureLoadTaskClass::~TextureLoadTaskClass(void)
+TextureLoadTaskClass::~TextureLoadTaskClass()
 {
 	Deinit();
 }
@@ -1089,7 +1089,7 @@ TextureLoadTaskClass *TextureLoadTaskClass::Create(TextureBaseClass *tc, TaskTyp
 }
 
 
-void TextureLoadTaskClass::Destroy(void)
+void TextureLoadTaskClass::Destroy()
 {
 	// detach the task from its texture, and return to free pool.
 	Deinit();
@@ -1097,7 +1097,7 @@ void TextureLoadTaskClass::Destroy(void)
 }
 
 
-void TextureLoadTaskClass::Delete_Free_Pool(void)
+void TextureLoadTaskClass::Delete_Free_Pool()
 {
 	// (gth) We should probably just MEMPool these task objects...
 	while (TextureLoadTaskClass *task = _TexLoadFreeList.Pop_Front()) {
@@ -1200,7 +1200,7 @@ void TextureLoadTaskClass::Deinit()
 }
 
 
-bool TextureLoadTaskClass::Begin_Load(void)
+bool TextureLoadTaskClass::Begin_Load()
 {
 	WWASSERT(TextureLoader::Is_DX8_Thread());
 
@@ -1237,7 +1237,7 @@ bool TextureLoadTaskClass::Begin_Load(void)
 // that fails try a TGA.
 //
 // ----------------------------------------------------------------------------
-bool TextureLoadTaskClass::Load(void)
+bool TextureLoadTaskClass::Load()
 {
 	WWMEMLOG(MEM_TEXTURE);
 	WWASSERT(Peek_D3D_Texture());
@@ -1260,7 +1260,7 @@ bool TextureLoadTaskClass::Load(void)
 }
 
 
-void TextureLoadTaskClass::End_Load(void)
+void TextureLoadTaskClass::End_Load()
 {
 	WWASSERT(TextureLoader::Is_DX8_Thread());
 
@@ -1271,7 +1271,7 @@ void TextureLoadTaskClass::End_Load(void)
 }
 
 
-void TextureLoadTaskClass::Finish_Load(void)
+void TextureLoadTaskClass::Finish_Load()
 {
 	static int s_finishCount = 0;
 	if (++s_finishCount <= 30) {
@@ -1324,7 +1324,7 @@ void TextureLoadTaskClass::Finish_Load(void)
 }
 
 
-void TextureLoadTaskClass::Apply_Missing_Texture(void)
+void TextureLoadTaskClass::Apply_Missing_Texture()
 {
 	WWASSERT(TextureLoader::Is_DX8_Thread());
 	WWASSERT(!D3DTexture);
@@ -1457,7 +1457,7 @@ static bool	Get_Texture_Information
 }
 
 
-bool TextureLoadTaskClass::Begin_Compressed_Load(void)
+bool TextureLoadTaskClass::Begin_Compressed_Load()
 {
 	unsigned orig_w,orig_h,orig_d,orig_mip_count,reduction;
 	WW3DFormat orig_format;
@@ -1588,7 +1588,7 @@ bool TextureLoadTaskClass::Begin_Compressed_Load(void)
 	return true;
 }
 
-bool TextureLoadTaskClass::Begin_Uncompressed_Load(void)
+bool TextureLoadTaskClass::Begin_Uncompressed_Load()
 {
 	unsigned width,height,depth,orig_mip_count,reduction;
 	WW3DFormat orig_format;
@@ -1682,7 +1682,7 @@ bool TextureLoadTaskClass::Begin_Uncompressed_Load(void)
 }
 
 /*
-bool TextureLoadTaskClass::Begin_Compressed_Load(void)
+bool TextureLoadTaskClass::Begin_Compressed_Load()
 {
 	DDSFileClass dds_file(Texture->Get_Full_Path(), Get_Reduction());
 	if (!dds_file.Is_Available()) {
@@ -1756,7 +1756,7 @@ bool TextureLoadTaskClass::Begin_Compressed_Load(void)
 }
 
 
-bool TextureLoadTaskClass::Begin_Uncompressed_Load(void)
+bool TextureLoadTaskClass::Begin_Uncompressed_Load()
 {
 	Targa targa;
 	if (TARGA_ERROR_HANDLER(targa.Open(Texture->Get_Full_Path(), TGA_READMODE), Texture->Get_Full_Path())) {
@@ -1826,7 +1826,7 @@ bool TextureLoadTaskClass::Begin_Uncompressed_Load(void)
 }
 */
 
-void TextureLoadTaskClass::Lock_Surfaces(void)
+void TextureLoadTaskClass::Lock_Surfaces()
 {
 	MipLevelCount = D3DTexture->GetLevelCount();
 
@@ -1849,7 +1849,7 @@ void TextureLoadTaskClass::Lock_Surfaces(void)
 }
 
 
-void TextureLoadTaskClass::Unlock_Surfaces(void)
+void TextureLoadTaskClass::Unlock_Surfaces()
 {
 	for (unsigned int i = 0; i < MipLevelCount; ++i)
 	{
@@ -1872,7 +1872,7 @@ void TextureLoadTaskClass::Unlock_Surfaces(void)
 }
 
 
-bool TextureLoadTaskClass::Load_Compressed_Mipmap(void)
+bool TextureLoadTaskClass::Load_Compressed_Mipmap()
 {
 	DDSFileClass dds_file(Texture->Get_Full_Path(), Get_Reduction());
 
@@ -1915,7 +1915,7 @@ bool TextureLoadTaskClass::Load_Compressed_Mipmap(void)
 }
 
 
-bool TextureLoadTaskClass::Load_Uncompressed_Mipmap(void)
+bool TextureLoadTaskClass::Load_Uncompressed_Mipmap()
 {
 	if (!Get_Mip_Level_Count())
 	{
@@ -2101,7 +2101,7 @@ CubeTextureLoadTaskClass::CubeTextureLoadTaskClass()
 	}
 }
 
-void CubeTextureLoadTaskClass::Destroy(void)
+void CubeTextureLoadTaskClass::Destroy()
 {
 	// detach the task from its texture, and return to free pool.
 	Deinit();
@@ -2205,7 +2205,7 @@ void CubeTextureLoadTaskClass::Deinit()
 	}
 }
 
-void CubeTextureLoadTaskClass::Lock_Surfaces(void)
+void CubeTextureLoadTaskClass::Lock_Surfaces()
 {
 	for (unsigned int f=0; f<6; f++)
 	{
@@ -2229,7 +2229,7 @@ void CubeTextureLoadTaskClass::Lock_Surfaces(void)
 	}
 }
 
-void CubeTextureLoadTaskClass::Unlock_Surfaces(void)
+void CubeTextureLoadTaskClass::Unlock_Surfaces()
 {
 	for (unsigned int f=0; f<6; f++)
 	{
@@ -2368,7 +2368,7 @@ bool CubeTextureLoadTaskClass::Begin_Compressed_Load()
 	return true;
 }
 
-bool CubeTextureLoadTaskClass::Begin_Uncompressed_Load(void)
+bool CubeTextureLoadTaskClass::Begin_Uncompressed_Load()
 {
 	unsigned width,height,depth,orig_mip_count,reduction;
 	WW3DFormat orig_format;
@@ -2436,7 +2436,7 @@ bool CubeTextureLoadTaskClass::Begin_Uncompressed_Load(void)
 	return true;
 }
 
-bool CubeTextureLoadTaskClass::Load_Compressed_Mipmap(void)
+bool CubeTextureLoadTaskClass::Load_Compressed_Mipmap()
 {
 	DDSFileClass dds_file(Texture->Get_Full_Path(), Get_Reduction());
 
@@ -2513,7 +2513,7 @@ VolumeTextureLoadTaskClass::VolumeTextureLoadTaskClass()
 	}
 }
 
-void VolumeTextureLoadTaskClass::Destroy(void)
+void VolumeTextureLoadTaskClass::Destroy()
 {
 	// detach the task from its texture, and return to free pool.
 	Deinit();
@@ -2734,7 +2734,7 @@ bool VolumeTextureLoadTaskClass::Begin_Compressed_Load()
 	return true;
 }
 
-bool VolumeTextureLoadTaskClass::Begin_Uncompressed_Load(void)
+bool VolumeTextureLoadTaskClass::Begin_Uncompressed_Load()
 {
 	unsigned width,height,depth,orig_mip_count,reduction;
 	WW3DFormat orig_format;
@@ -2805,7 +2805,7 @@ bool VolumeTextureLoadTaskClass::Begin_Uncompressed_Load(void)
 	return true;
 }
 
-bool VolumeTextureLoadTaskClass::Load_Compressed_Mipmap(void)
+bool VolumeTextureLoadTaskClass::Load_Compressed_Mipmap()
 {
 	DDSFileClass dds_file(Texture->Get_Full_Path(), Get_Reduction());
 

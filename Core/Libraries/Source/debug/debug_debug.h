@@ -34,7 +34,8 @@
 
   \brief Debug module main class (singleton).
 */
-class Debug {
+class Debug
+{
   // necessary because all debug commands operate directly on this class
   friend class DebugCmdInterfaceDebug;
 
@@ -42,9 +43,10 @@ class Debug {
   friend class DebugExceptionhandler;
 
 public:
-  enum {
+  enum
+  {
     /// maximum number of times a check can be hit before it is turned off
-    MAX_CHECK_HITS = 20
+    MAX_CHECK_HITS  =   20
   };
 
   /**
@@ -70,28 +72,25 @@ public:
 DLOG( "This is 16 bytes of memory:\n" << Debug::MemDump::Raw(&somePointer,16) );
     \endcode
   */
-  class MemDump {
+  class MemDump
+  {
     // necessary because Debug needs access to the following private members
     friend Debug;
 
-    const unsigned char *m_startPtr; ///< start dumping with this address
-    unsigned m_numItems;             ///< dump the given number of items
-    unsigned
-        m_bytePerItem; ///< determines the number of bytes per item (1. 2 or 4)
-    bool m_absAddr;    ///< show absolute addresses (true) or relative addresses
-                       ///< (false)
-    bool m_withChars;  ///< show printable characters on right side of dump
-                       ///< (true) or not (false)
+    const unsigned char *m_startPtr;  ///< start dumping with this address
+    unsigned m_numItems;              ///< dump the given number of items
+    unsigned m_bytePerItem;           ///< determines the number of bytes per item (1. 2 or 4)
+    bool m_absAddr;                   ///< show absolute addresses (true) or relative addresses (false)
+    bool m_withChars;                 ///< show printable characters on right side of dump (true) or not (false)
 
     // constructor is private on purpose so that nobody can
     // create instances of this class except the static functions
     // provided herein
-    MemDump(const void *ptr, unsigned num, unsigned bpi, bool absAddr,
-            bool withChars)
-        : m_startPtr((const unsigned char *)ptr), m_numItems(num),
-          m_bytePerItem(bpi), m_absAddr(absAddr), m_withChars(withChars) {}
-
+    MemDump(const void *ptr, unsigned num, unsigned bpi, bool absAddr, bool withChars):
+      m_startPtr((const unsigned char *)ptr), m_numItems(num),
+      m_bytePerItem(bpi), m_absAddr(absAddr), m_withChars(withChars) {}
   public:
+
     /**
       Creates a memory dump descriptor.
 
@@ -99,9 +98,9 @@ DLOG( "This is 16 bytes of memory:\n" << Debug::MemDump::Raw(&somePointer,16) );
       \param numItems number of items (usually bytes) to dump
       \param bytePerItem number of bytes per item (usually 1)
     */
-    static MemDump Raw(const void *startPtr, unsigned numItems,
-                       unsigned bytePerItem = 1) {
-      return MemDump(startPtr, numItems, bytePerItem, true, false);
+    static MemDump Raw(const void *startPtr, unsigned numItems, unsigned bytePerItem=1)
+    {
+      return MemDump(startPtr,numItems,bytePerItem,true,false);
     }
 
     /**
@@ -111,9 +110,9 @@ DLOG( "This is 16 bytes of memory:\n" << Debug::MemDump::Raw(&somePointer,16) );
       \param numItems number of items (usually bytes) to dump
       \param bytePerItem number of bytes per item (usually 1)
     */
-    static MemDump RawRel(const void *startPtr, unsigned numItems,
-                          unsigned bytePerItem = 1) {
-      return MemDump(startPtr, numItems, bytePerItem, false, false);
+    static MemDump RawRel(const void *startPtr, unsigned numItems, unsigned bytePerItem=1)
+    {
+      return MemDump(startPtr,numItems,bytePerItem,false,false);
     }
 
     /**
@@ -123,22 +122,21 @@ DLOG( "This is 16 bytes of memory:\n" << Debug::MemDump::Raw(&somePointer,16) );
       \param numItems number of items (usually bytes) to dump
       \param bytePerItem number of bytes per item (usually 1)
     */
-    static MemDump Char(const void *startPtr, unsigned numItems,
-                        unsigned bytePerItem = 1) {
-      return MemDump(startPtr, numItems, bytePerItem, true, true);
+    static MemDump Char(const void *startPtr, unsigned numItems, unsigned bytePerItem=1)
+    {
+      return MemDump(startPtr,numItems,bytePerItem,true,true);
     }
 
     /**
-      Creates a memory dump descriptor with relative addresses that dumps out
-      ASCII chars as well.
+      Creates a memory dump descriptor with relative addresses that dumps out ASCII chars as well.
 
       \param startPtr address to start dump from
       \param numItems number of items (usually bytes) to dump
       \param bytePerItem number of bytes per item (usually 1)
     */
-    static MemDump CharRel(const void *startPtr, unsigned numItems,
-                           unsigned bytePerItem = 1) {
-      return MemDump(startPtr, numItems, bytePerItem, false, true);
+    static MemDump CharRel(const void *startPtr, unsigned numItems, unsigned bytePerItem=1)
+    {
+      return MemDump(startPtr,numItems,bytePerItem,false,true);
     }
   };
 
@@ -153,23 +151,24 @@ DLOG( "My HResult is: " << Debug::HResult(SomeHRESULTValue) << "\n" );
     \endcode
 
     The most interesting thing about HRESULTs is that custom HRESULT translators
-    can be added or removed during runtime, see \ref Debug::AddHResultTranslator
-for more information.
+    can be added or removed during runtime, see \ref Debug::AddHResultTranslator for more
+    information.
   */
-  class HResult {
+  class HResult
+  {
     // necessary because Debug needs access to the following private members
     friend Debug;
 
-    long m_hresult; ///< HRESULT value
+    long m_hresult;                   ///< HRESULT value
 
   public:
+
     /**
       Creates a HRESULT descriptor.
 
-      \param hresult HRESULT value (checked, Windows declares HRESULT as typedef
-      long)
+      \param hresult HRESULT value (checked, Windows declares HRESULT as typedef long)
     */
-    explicit HResult(long hresult) : m_hresult(hresult) {}
+    explicit HResult(long hresult): m_hresult(hresult) {}
   };
 
   /** \internal
@@ -177,12 +176,14 @@ for more information.
     \brief Helper class for adding log group descriptions.
 
   */
-  class LogDescription {
+  class LogDescription
+  {
     // sorry, no copies or assignments
-    LogDescription(const LogDescription &);
-    LogDescription &operator=(const LogDescription &);
+    LogDescription(const LogDescription&);
+    LogDescription& operator=(const LogDescription&);
 
   public:
+
     /** \internal
 
       Adds a description for a logging file/group.
@@ -199,8 +200,9 @@ for more information.
   class Hex {};
 
   /// \internal Performs actual switch to hexadecimal format.
-  Debug &operator<<(const Hex) {
-    SetPrefixAndRadix("0x", 16);
+  Debug& operator<<(const Hex)
+  {
+    SetPrefixAndRadix("0x",16);
     return *this;
   }
 
@@ -210,8 +212,9 @@ for more information.
   class Dec {};
 
   /// \internal Performs actuals switch to decimal format
-  Debug &operator<<(const Dec) {
-    SetPrefixAndRadix("", 10);
+  Debug& operator<<(const Dec)
+  {
+    SetPrefixAndRadix("",10);
     return *this;
   }
 
@@ -221,68 +224,74 @@ for more information.
   class Bin {};
 
   /// \internal Performs actuals switch to binary format
-  Debug &operator<<(const Bin) {
-    SetPrefixAndRadix("%", 2);
+  Debug& operator<<(const Bin)
+  {
+    SetPrefixAndRadix("%",2);
     return *this;
   }
 
   /**
     \brief Sets output width for the next insertion.
   */
-  class Width {
+  class Width
+  {
     // necessary because Debug needs access to the following private members
     friend Debug;
 
-    int m_width; ///< output width
+    int m_width;  ///< output width
 
   public:
     /// \brief Sets new output width (next insertion only).
-    explicit Width(int width) : m_width(width) {}
+    explicit Width(int width): m_width(width) {}
   };
 
   /// \internal Performs actuals width switch
-  Debug &operator<<(const Width w) {
-    m_width = w.m_width;
+  Debug& operator<<(const Width w)
+  {
+    m_width=w.m_width;
     return *this;
   }
 
   /**
     \brief Sets new fill character.
   */
-  class FillChar {
+  class FillChar
+  {
     // necessary because Debug needs access to the following private members
     friend Debug;
 
-    char m_fill; ///< fill character
+    char m_fill;  ///< fill character
 
   public:
     /// \brief Sets new fill character.
-    explicit FillChar(char ch = ' ') : m_fill(ch) {}
+    explicit FillChar(char ch=' '): m_fill(ch) {}
   };
 
   /// \internal Performs actuals setting of fill char
-  Debug &operator<<(const FillChar c) {
-    m_fillChar = c.m_fill;
+  Debug& operator<<(const FillChar c)
+  {
+    m_fillChar=c.m_fill;
     return *this;
   }
 
   /**
     \brief Repeats a given character N times.
   */
-  class RepeatChar {
+  class RepeatChar
+  {
     // necessary because Debug needs access to the following private members
     friend Debug;
 
-    char m_char; ///< character
-    int m_count; ///< repeat count
+    char m_char;  ///< character
+    int m_count;  ///< repeat count
 
   public:
     /// \brief Repeats a given character N times
-    explicit RepeatChar(char ch, int count) : m_char(ch), m_count(count) {}
+    explicit RepeatChar(char ch, int count): m_char(ch), m_count(count) {}
   };
 
   /// \internal Performs actuals repeating of char
-  Debug &operator<<(RepeatChar c);
+  Debug& operator<<(RepeatChar c);
 
   /**
     \brief Old printf style formatting.
@@ -290,16 +299,16 @@ for more information.
     \note Do not use this helper class for new code. It is mainly here
     to get the old code base adapted to the new debug module more quickly.
   */
-  class Format {
+  class Format
+  {
     // necessary because Debug needs access to the following private members
     friend Debug;
 
     // no CC, AOp
     Format(const Format &);
-    Format &operator=(const Format &);
+    Format& operator=(const Format&);
 
-    char m_buffer[512]; ///< this contains the string to write \note Fixed size
-                        ///< buffer!
+    char m_buffer[512]; ///< this contains the string to write \note Fixed size buffer!
 
   public:
     /// \brief Old printf style formatting.
@@ -307,7 +316,8 @@ for more information.
   };
 
   /// \internal Writes printf style formatted string to debug log.
-  Debug &operator<<(const Format &f) {
+  Debug& operator<<(const Format &f)
+  {
     operator<<(f.m_buffer);
     return *this;
   }
@@ -327,7 +337,7 @@ for more information.
     For the main thread this is already done, but for any additional
     threads being created this function must be called.
   */
-  static void InstallExceptionHandler(void);
+  static void InstallExceptionHandler();
 
   /** \internal
 
@@ -342,7 +352,7 @@ for more information.
 
     \return true if next assert/log should be skipped, false otherwise
   */
-  static bool SkipNext(void);
+  static bool SkipNext();
 
   /** \internal
 
@@ -355,8 +365,7 @@ for more information.
 
     \param file file that contains DASSERT or DASSERT_MSG macro
     \param line line where assert macro can be found
-    \param expr expression that triggered the assertion, nullptr for 'general
-    failure' (\ref DFAIL)
+    \param expr expression that triggered the assertion, nullptr for 'general failure' (\ref DFAIL)
     \return reference to Debug instance
   */
   static Debug &AssertBegin(const char *file, int line, const char *expr);
@@ -371,7 +380,7 @@ for more information.
 
     \return false (always)
   */
-  bool AssertDone(void);
+  bool AssertDone();
 
   /** \internal
 
@@ -397,7 +406,7 @@ for more information.
 
     \return false (always)
   */
-  bool CheckDone(void);
+  bool CheckDone();
 
   /** \internal
 
@@ -421,7 +430,7 @@ for more information.
 
     \return false (always)
   */
-  bool LogDone(void);
+  bool LogDone();
 
   /** \internal
 
@@ -458,7 +467,7 @@ for more information.
     \param str string to write
     \return *this
   */
-  Debug &operator<<(const char *str);
+  Debug& operator<<(const char *str);
 
   /** \internal
 
@@ -476,7 +485,7 @@ for more information.
     \param val signed integer
     \return *this
   */
-  Debug &operator<<(int val);
+  Debug& operator<<(int val);
 
   /** \internal
 
@@ -485,7 +494,7 @@ for more information.
     \param val unsigned integer
     \return *this
   */
-  Debug &operator<<(unsigned val);
+  Debug& operator<<(unsigned val);
 
   /** \internal
 
@@ -494,7 +503,7 @@ for more information.
     \param val signed long
     \return *this
   */
-  Debug &operator<<(long val);
+  Debug& operator<<(long val);
 
   /** \internal
 
@@ -503,7 +512,7 @@ for more information.
     \param val unsigned long
     \return *this
   */
-  Debug &operator<<(unsigned long val);
+  Debug& operator<<(unsigned long val);
 
   /** \internal
 
@@ -512,7 +521,7 @@ for more information.
     \param val bool
     \return *this
   */
-  Debug &operator<<(bool val);
+  Debug& operator<<(bool val);
 
   /** \internal
 
@@ -521,7 +530,7 @@ for more information.
     \param val float
     \return *this
   */
-  Debug &operator<<(float val);
+  Debug& operator<<(float val);
 
   /** \internal
 
@@ -530,7 +539,7 @@ for more information.
     \param val double
     \return *this
   */
-  Debug &operator<<(double val);
+  Debug& operator<<(double val);
 
   /** \internal
 
@@ -539,7 +548,7 @@ for more information.
     \param val signed short integer
     \return *this
   */
-  Debug &operator<<(short val);
+  Debug& operator<<(short val);
 
   /** \internal
 
@@ -548,7 +557,7 @@ for more information.
     \param val unsigned short integer
     \return *this
   */
-  Debug &operator<<(unsigned short val);
+  Debug& operator<<(unsigned short val);
 
   /** \internal
 
@@ -557,7 +566,7 @@ for more information.
     \param val signed 64 bit integer
     \return *this
   */
-  Debug &operator<<(long long val);
+  Debug& operator<<(__int64 val);
 
   /** \internal
 
@@ -566,7 +575,7 @@ for more information.
     \param val unsigned 64 bit integer
     \return *this
   */
-  Debug &operator<<(unsigned long long val);
+  Debug& operator<<(unsigned __int64 val);
 
   /** \internal
 
@@ -575,7 +584,7 @@ for more information.
     \param ptr pointer address
     \return *this
   */
-  Debug &operator<<(const void *ptr);
+  Debug& operator<<(const void *ptr);
 
   /** \internal
 
@@ -584,7 +593,7 @@ for more information.
     \param dump MemDump descriptor, defines what range of memory to dump
     \return *this
   */
-  Debug &operator<<(const MemDump &dump);
+  Debug& operator<<(const MemDump &dump);
 
   /** \internal
 
@@ -593,7 +602,7 @@ for more information.
     \param hres HResult descriptor
     \return *this
   */
-  Debug &operator<<(HResult hres);
+  Debug& operator<<(HResult hres);
 
   /** \internal
     \brief Determines if a log file/group is active or not.
@@ -601,8 +610,8 @@ for more information.
     \param fileOrGroup Name of source file or group to check for. If the
                        string contains any forward or backslashes then anything
                        before them is ignored. If the then remaining string
-                       contains any dots anything beyond the first dot is
-    ignored as well.
+                       contains any dots anything beyond the first dot is ignored
+                       as well.
     \return true if logging is enabled, false if not
   */
   static bool IsLogEnabled(const char *fileOrGroup);
@@ -614,18 +623,15 @@ for more information.
     the Debug log stream. Such a translator can translate the numeric value
     into something more meaningful.
 
-    Translators are differentiated by both function address and user pointer.
-    There is however no harm in adding the same translator/user pointer pair
-    twice.
+    Translators are differentiated by both function address and user pointer. There
+    is however no harm in adding the same translator/user pointer pair twice.
 
     \param prio priority, translators with a higher priority get called first
     \param func translator address
-    \param user optional user pointer which will be passed to the given
-    translator
+    \param user optional user pointer which will be passed to the given translator
     \see RemoveHResultTranslator
   */
-  static void AddHResultTranslator(unsigned prio, HResultTranslator func,
-                                   void *user = 0);
+  static void AddHResultTranslator(unsigned prio, HResultTranslator func, void *user=0);
 
   /**
     \brief Removes a HRESULT translator.
@@ -636,7 +642,7 @@ for more information.
     \param user optional user pointer
     \see AddHResultTranslator
   */
-  static void RemoveHResultTranslator(HResultTranslator func, void *user = 0);
+  static void RemoveHResultTranslator(HResultTranslator func, void *user=0);
 
   /**
     \brief Registers a new I/O class factory function.
@@ -651,7 +657,7 @@ for more information.
     \return true (so function can be used in static initializers)
   */
   static bool AddIOFactory(const char *io_id, const char *descr,
-                           DebugIOInterface *(*func)(void));
+                           DebugIOInterface* (*func)());
 
   /**
     \brief Adds a new command group.
@@ -694,7 +700,7 @@ for more information.
 
     Scans I/O classes for new command input and processes it.
   */
-  static void Update(void);
+  static void Update();
 
   /** \internal
 
@@ -715,25 +721,25 @@ for more information.
     \param internalVersion internal version
     \param buildDate build date & time
   */
-  static void SetBuildInfo(const char *version, const char *internalVersion,
+  static void SetBuildInfo(const char *version,
+                           const char *internalVersion,
                            const char *buildDate);
 
   /**
     \brief Write build information into log.
   */
-  void WriteBuildInfo(void);
+  void WriteBuildInfo();
 
 private:
 #if defined(__GNUC__) && defined(_WIN32)
-  // For GCC/MinGW-w64 targeting Windows, allow constructor functions to call
-  // init methods
+  // For GCC/MinGW-w64 targeting Windows, allow constructor functions to call init methods
   friend void GccPreStaticInit();
   friend void GccPostStaticInit();
 #endif
 
   // no assignment, no copy constructor
-  Debug(const Debug &);
-  Debug &operator=(const Debug &);
+  Debug(const Debug&);
+  Debug& operator=(const Debug&);
 
   /** \internal
 
@@ -743,7 +749,7 @@ private:
     initialization is rather performed by PreStaticInit() and
     PostStaticInit().
   */
-  Debug(void);
+  Debug();
 
   /** \internal
 
@@ -751,14 +757,14 @@ private:
     initialized. Code herein must be extremely careful because all
     global C++ instances are not initialized yet.
   */
-  static void PreStaticInit(void);
+  static void PreStaticInit();
 
   /** \internal
 
     This function gets called after all static C++ symbols have
     been initialized.
   */
-  static void PostStaticInit(void);
+  static void PostStaticInit();
 
   /** \internal
 
@@ -766,7 +772,7 @@ private:
     function for any cleanup purposes (not the destructor, it
     might get called too early).
   */
-  static void StaticExit(void);
+  static void StaticExit();
 
   /** \internal
 
@@ -790,7 +796,8 @@ private:
   static void *PostStatic;
 
   /// \internal HResult translator vector entry
-  struct HResultTranslatorEntry {
+  struct HResultTranslatorEntry
+  {
     /// priority
     unsigned prio;
 
@@ -808,7 +815,8 @@ private:
   unsigned numHrTranslators;
 
   /// \internal I/O class/factory list entry
-  struct IOFactoryListEntry {
+  struct IOFactoryListEntry
+  {
     /// pointer to next entry in list
     IOFactoryListEntry *next;
 
@@ -819,7 +827,7 @@ private:
     const char *descr;
 
     /// factory function
-    DebugIOInterface *(*factory)(void);
+    DebugIOInterface* (*factory)();
 
     /// I/O interface (may be null)
     DebugIOInterface *io;
@@ -843,7 +851,8 @@ private:
   IOFactoryListEntry *firstIOFactory;
 
   /// \internal command interface list entry
-  struct CmdInterfaceListEntry {
+  struct CmdInterfaceListEntry
+  {
     /// pointer to next entry in list
     CmdInterfaceListEntry *next;
 
@@ -872,22 +881,24 @@ private:
     list where a single pattern can apply to more than
     one type.
   */
-  enum {
+  enum
+  {
     /// assert
     FrameTypeAssert = 0x00000001,
 
     /// check
-    FrameTypeCheck = 0x00000002,
+    FrameTypeCheck  = 0x00000002,
 
     /// log
-    FrameTypeLog = 0x00000004
+    FrameTypeLog    = 0x00000004
   };
 
   /** \internal
 
     List of possible statuses for a frame hash entry.
   */
-  enum FrameStatus {
+  enum FrameStatus
+  {
     /// unknown, must check
     Unknown = 0,
 
@@ -903,7 +914,8 @@ private:
     \brief Hash table entry for mapping stack frame addresses to
     asserts/checks/logs.
   */
-  struct FrameHashEntry {
+  struct FrameHashEntry
+  {
     /// pointer to next entry with same hash
     FrameHashEntry *next;
 
@@ -948,9 +960,10 @@ private:
     \param addr frame address
     \return FrameHashEntry found or 0 if nothing found
   */
-  __forceinline FrameHashEntry *LookupFrame(unsigned addr) {
-    for (FrameHashEntry *e = frameHash[addr % FRAME_HASH_SIZE]; e; e = e->next)
-      if (e->frameAddr == addr)
+  __forceinline FrameHashEntry *LookupFrame(unsigned addr)
+  {
+    for (FrameHashEntry *e=frameHash[addr%FRAME_HASH_SIZE];e;e=e->next)
+      if (e->frameAddr==addr)
         return e;
     return 0;
   }
@@ -990,11 +1003,12 @@ private:
     \return the entry just added (or the already existing entry)
   */
   FrameHashEntry *GetFrameEntry(unsigned addr, unsigned type,
-                                const char *fileOrGroup, int line) {
-    FrameHashEntry *e = LookupFrame(addr);
+                                const char *fileOrGroup, int line)
+  {
+    FrameHashEntry *e=LookupFrame(addr);
     if (!e)
-      e = AddFrameEntry(addr, type, fileOrGroup, line);
-    if (e->status == Unknown)
+      e=AddFrameEntry(addr,type,fileOrGroup,line);
+    if (e->status==Unknown)
       UpdateFrameStatus(*e);
     return e;
   }
@@ -1008,7 +1022,8 @@ private:
     if a new stack frame entry is added (which happens only
     once for each log command).
   */
-  struct KnownLogGroupList {
+  struct KnownLogGroupList
+  {
     /// next entry
     KnownLogGroupList *next;
 
@@ -1037,7 +1052,8 @@ private:
   const char *AddLogGroup(const char *fileOrGroup, const char *descr);
 
   /// \internal I/O buffers for all I/O string types
-  struct {
+  struct
+  {
     /// buffer
     char *buffer;
 
@@ -1085,13 +1101,14 @@ private:
     \param defaultLog if true and no I/O class is active then data
            is written to default.log
   */
-  void FlushOutput(bool defaultLog = true);
+  void FlushOutput(bool defaultLog=true);
 
   /// \internal pointer to currently active frame
   FrameHashEntry *curFrameEntry;
 
   /// \internal pattern list entry
-  struct PatternListEntry {
+  struct PatternListEntry
+  {
     /// next entry
     PatternListEntry *next;
 
@@ -1144,7 +1161,7 @@ private:
 
     \return true if windowed, false if full screen
   */
-  bool IsWindowed(void);
+  bool IsWindowed();
 
   /// \internal name of current command group
   char curCommandGroup[100];
@@ -1209,9 +1226,8 @@ private:
   \endcode
 
   \return list of commands, separated by \\n
-  \note This function is executed after all static variables have been
-initialized.
+  \note This function is executed after all static variables have been initialized.
 */
-const char *DebugGetDefaultCommands(void);
+const char *DebugGetDefaultCommands();
 
 ///@} end of debug_fn group

@@ -141,10 +141,10 @@ class GameTextManager : public GameTextInterface
 		GameTextManager();
 		virtual ~GameTextManager();
 
-		virtual void					init( void );						///< Initializes the text system
-		virtual void					deinit( void );					///< Shuts down the text system
-		virtual void					update( void ) {};			///< update text manager
-		virtual void					reset( void );					///< Resets the text system
+		virtual void					init();						///< Initializes the text system
+		virtual void					deinit();					///< Shuts down the text system
+		virtual void					update() {};			///< update text manager
+		virtual void					reset();					///< Resets the text system
 
 		virtual UnicodeString fetch( const Char *label, Bool *exists = nullptr );		///< Returns the associated labeled unicode text
 		virtual UnicodeString fetch( AsciiString label, Bool *exists = nullptr );		///< Returns the associated labeled unicode text
@@ -233,7 +233,7 @@ GameTextInterface *TheGameText = nullptr;
 // CreateGameTextInterface
 //============================================================================
 
-GameTextInterface* CreateGameTextInterface( void )
+GameTextInterface* CreateGameTextInterface()
 {
 	return NEW GameTextManager;
 }
@@ -285,7 +285,7 @@ GameTextManager::~GameTextManager()
 extern const Char *g_strFile;
 extern const Char *g_csfFile;
 
-void GameTextManager::init( void )
+void GameTextManager::init()
 {
 	AsciiString csfFile;
 	csfFile.format(g_csfFile, GetRegistryLanguage().str());
@@ -378,7 +378,7 @@ void GameTextManager::init( void )
 // GameTextManager::deinit
 //============================================================================
 
-void GameTextManager::deinit( void )
+void GameTextManager::deinit()
 {
 
 	delete [] m_stringInfo;
@@ -412,7 +412,7 @@ void GameTextManager::deinit( void )
 // GameTextManager::reset
 //============================================================================
 
-void GameTextManager::reset( void )
+void GameTextManager::reset()
 {
 	delete [] m_mapStringInfo;
 	m_mapStringInfo = nullptr;
@@ -1045,7 +1045,7 @@ Bool GameTextManager::parseStringFile( const char *filename )
 		{
 			if ( stricmp ( m_stringInfo[i].label.str(), m_buffer ) == 0)
 			{
-				DEBUG_ASSERTCRASH ( FALSE, ("String label '%s' multiply defined!", m_buffer ));
+				DEBUG_CRASH ( ("String label '%s' multiply defined!", m_buffer ));
 			}
 		}
 
@@ -1063,7 +1063,7 @@ Bool GameTextManager::parseStringFile( const char *filename )
 		{
 			if (!readLine ( m_buffer, sizeof(m_buffer)-1, file ))
 			{
-				DEBUG_ASSERTCRASH (FALSE, ("Unexpected end of string file"));
+				DEBUG_CRASH (("Unexpected end of string file"));
 				ok = FALSE;
 				goto quit;
 			}
@@ -1081,7 +1081,7 @@ Bool GameTextManager::parseStringFile( const char *filename )
 				if ( readString )
 				{
 					// only one string per label allows
-						DEBUG_ASSERTCRASH ( FALSE, ("String label '%s' has more than one string defined!", m_stringInfo[listCount].label.str()));
+						DEBUG_CRASH ( ("String label '%s' has more than one string defined!", m_stringInfo[listCount].label.str()));
 				}
 				else
 				{
@@ -1176,7 +1176,7 @@ Bool GameTextManager::parseMapStringFile( const char *filename )
 		{
 			if ( stricmp ( m_mapStringInfo[i].label.str(), m_buffer ) == 0)
 			{
-				DEBUG_ASSERTCRASH ( FALSE, ("String label '%s' multiply defined!", m_buffer ));
+				DEBUG_CRASH ( ("String label '%s' multiply defined!", m_buffer ));
 			}
 		}
 
@@ -1194,7 +1194,7 @@ Bool GameTextManager::parseMapStringFile( const char *filename )
 		{
 			if (!readLine ( m_buffer, sizeof(m_buffer)-1, file ))
 			{
-				DEBUG_ASSERTCRASH (FALSE, ("Unexpected end of string file"));
+				DEBUG_CRASH (("Unexpected end of string file"));
 				ok = FALSE;
 				goto quit;
 			}
@@ -1212,7 +1212,7 @@ Bool GameTextManager::parseMapStringFile( const char *filename )
 				if ( readString )
 				{
 					// only one string per label allowed
-						DEBUG_ASSERTCRASH ( FALSE, ("String label '%s' has more than one string defined!", m_stringInfo[listCount].label.str()));
+						DEBUG_CRASH ( ("String label '%s' has more than one string defined!", m_stringInfo[listCount].label.str()));
 				}
 				else
 				{
