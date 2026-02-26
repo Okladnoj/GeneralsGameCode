@@ -75,13 +75,31 @@ MetalDevice8::MetalDevice8()
   // Create frame semaphore for GPU-CPU sync (like DirectX's Present VSync)
   m_FrameSemaphore = (__bridge_retained void *)dispatch_semaphore_create(MAX_FRAMES_IN_FLIGHT);
   memset(m_RenderStates, 0, sizeof(m_RenderStates));
+  // Initial DirectX 8 state defaults
   memset(m_TextureStageStates, 0, sizeof(m_TextureStageStates));
+  for (int s = 0; s < 8; ++s) {
+    m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] = s;
+    if (s == 0) {
+      m_TextureStageStates[s][D3DTSS_COLOROP] = D3DTOP_MODULATE;
+      m_TextureStageStates[s][D3DTSS_COLORARG1] = D3DTA_TEXTURE;
+      m_TextureStageStates[s][D3DTSS_COLORARG2] = D3DTA_CURRENT;
+      m_TextureStageStates[s][D3DTSS_ALPHAOP] = D3DTOP_SELECTARG1;
+      m_TextureStageStates[s][D3DTSS_ALPHAARG1] = D3DTA_TEXTURE;
+      m_TextureStageStates[s][D3DTSS_ALPHAARG2] = D3DTA_CURRENT;
+    } else {
+      m_TextureStageStates[s][D3DTSS_COLOROP] = D3DTOP_DISABLE;
+      m_TextureStageStates[s][D3DTSS_ALPHAOP] = D3DTOP_DISABLE;
+    }
+  }
+  
   memset(m_Textures, 0, sizeof(m_Textures));
   memset(m_Transforms, 0, sizeof(m_Transforms));
   memset(&m_Viewport, 0, sizeof(m_Viewport));
   memset(&m_Material, 0, sizeof(m_Material));
   memset(m_Lights, 0, sizeof(m_Lights));
   memset(m_LightEnabled, 0, sizeof(m_LightEnabled));
+  memset(m_VSConstants, 0, sizeof(m_VSConstants));
+  memset(m_PSConstants, 0, sizeof(m_PSConstants));
 
   auto setIdentity = [](D3DMATRIX &m) {
     memset(&m, 0, sizeof(m));
@@ -269,7 +287,7 @@ struct FragmentUniforms {
   uint32_t hasTexture[4];
   uint32_t specularEnable;
   uint32_t texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX per stage
-  uint32_t texIsLuminance[4]; // 1 for L8/P8 formats that need .r replicated to RGB
+  uint32_t texFormatType[4]; // 0=Default, 1=Luminance(r,r,r,1), 2=Luminance+Alpha(r,r,r,g)
 };
 
 // Stage 8: LightData (matches MacOSShaders.metal)
@@ -312,6 +330,14 @@ struct LightingUniforms {
   float fogEnd;
   float fogDensity;
   uint32_t fogMode; // 0=NONE, 1=EXP, 2=EXP2, 3=LINEAR
+};
+
+// Custom Vertex Shader Uniforms (buffer 4)
+// Passed to Metal vertex shader when a custom DX8 vertex shader is active
+struct CustomVSUniforms {
+  uint32_t shaderType;    // 0=none, 1=trees, 2=water wave
+  uint32_t _pad[3];       // alignment
+  simd::float4 c[34];     // VS constant registers c0..c33 (covers all used registers)
 };
 
 // FVF bit definitions: see d3d8_stub.h (D3DFVF_XYZ, D3DFVF_XYZRHW, etc.)
@@ -704,27 +730,24 @@ static MTLCullMode MapD3DCullToMTL(DWORD cull) {
 // ─────────────────────────────────────────────────────
 //  Stage 6: Build 64-bit PSO cache key
 //  Layout:  [FVF 20 bits | blendEn 1 | srcBlend 4 | dstBlend 4 | cwMask 4 |
-//            srcAlpha 4 | dstAlpha 4 | unused 23]
-// ─────────────────────────────────────────────────────
-uint64_t MetalDevice8::BuildPSOKey(DWORD fvf) {
+//            srcAlpha 4 | dstAlpha// Build a unique key from FVF, blend state, and stride
+uint64_t MetalDevice8::BuildPSOKey(DWORD fvf, UINT stride) {
+  uint64_t key = fvf;
+  
+  // Blend state bits (approx 16 bits)
   DWORD blendEn = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
-  DWORD srcBlend = m_RenderStates[D3DRS_SRCBLEND] & 0xF;
-  DWORD dstBlend = m_RenderStates[D3DRS_DESTBLEND] & 0xF;
+  DWORD srcBlend = m_RenderStates[D3DRS_SRCBLEND] & 0x1F;
+  DWORD dstBlend = m_RenderStates[D3DRS_DESTBLEND] & 0x1F;
+  DWORD dwAlphaEn = m_RenderStates[D3DRS_ALPHATESTENABLE] ? 1 : 0;
   DWORD cwMask = m_RenderStates[D3DRS_COLORWRITEENABLE] & 0xF;
-  if (cwMask == 0)
-    cwMask = 0xF; // default: write all channels
-  // For separate alpha blend (DX8 doesn't have it, use same)
-  DWORD srcAlpha = srcBlend;
-  DWORD dstAlpha = dstBlend;
-
-  uint64_t key = 0;
-  key |= (uint64_t)(fvf & 0xFFFFF);  // bits 0-19: FVF
-  key |= (uint64_t)(blendEn) << 20;  // bit 20: blend enable
-  key |= (uint64_t)(srcBlend) << 21; // bits 21-24: src blend
-  key |= (uint64_t)(dstBlend) << 25; // bits 25-28: dst blend
-  key |= (uint64_t)(cwMask) << 29;   // bits 29-32: color write
-  key |= (uint64_t)(srcAlpha) << 33; // bits 33-36: src alpha
-  key |= (uint64_t)(dstAlpha) << 37; // bits 37-40: dst alpha
+  if (cwMask == 0) cwMask = 0xF;
+  
+  key |= (uint64_t)(blendEn) << 32;
+  key |= (uint64_t)(srcBlend) << 33;
+  key |= (uint64_t)(dstBlend) << 38;
+  key |= (uint64_t)(cwMask) << 43;
+  key |= (uint64_t)(dwAlphaEn) << 47;
+  key |= (uint64_t)(stride) << 48; // Up to 65535 stride
   return key;
 }
 
@@ -1489,9 +1512,9 @@ STDMETHODIMP MetalDevice8::ValidateDevice(DWORD *pNumPasses) {
 // ─────────────────────────────────────────────────────
 
 // Helper: Get or Create PSO for FVF + current blend state
-void *MetalDevice8::GetPSO(DWORD fvf) {
+void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
   // 1. Build key from FVF + blend state
-  uint64_t key = BuildPSOKey(fvf);
+  uint64_t key = BuildPSOKey(fvf, stride);
   auto it = m_PsoCache.find(key);
   if (it != m_PsoCache.end()) {
     return it->second;
@@ -1615,8 +1638,15 @@ void *MetalDevice8::GetPSO(DWORD fvf) {
     currentOffset += 8;
     hasTexCoord1 = true;
   }
-  vd.layouts[0].stride = currentOffset;
-  vd.layouts[0].stepFunction = MTLVertexStepFunctionPerVertex;
+  
+  // Use the ACTUAL stride provided by the caller (which accounts for structure padding
+  // defined in the game engine's C++ structs), NOT the currentOffset which is just 
+  // the tightly-packed sum of the attributes.
+  // E.g. game uses 32-byte 2D vertices, but currentOffset is 28. Using 28 scrambles array!
+  if (currentOffset > 0) {
+    vd.layouts[0].stride = stride;
+    vd.layouts[0].stepFunction = MTLVertexStepFunctionPerVertex;
+  }
 
   bool needDefaultBuffer = !hasPosition || !hasDiffuse || !hasTexCoord0 ||
                            !hasNormal || !hasSpecular || !hasTexCoord1;
@@ -1697,7 +1727,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   // 1. Get FVF and PSO
   DWORD fvf = GetBufferFVF(m_StreamSource);
   id<MTLRenderPipelineState> pso =
-      (__bridge id<MTLRenderPipelineState>)GetPSO(fvf);
+      (__bridge id<MTLRenderPipelineState>)GetPSO(fvf, m_StreamStride);
   if (!pso)
     return D3D_OK;
 
@@ -1797,14 +1827,16 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
-    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] & 0x3; // low 2 bits = coord set index
-    fu.texIsLuminance[s] = 0;
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value: bits 0-1=UV set, bits 16-17=TCI mode
+    fu.texFormatType[s] = 0;
     if (m_Textures[s]) {
       D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
       if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
-        fu.texIsLuminance[s] = 1;
+        fu.texFormatType[s] = 1; // RGB = r, A = 1.0 (from R8Unorm)
+      } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
+        fu.texFormatType[s] = 2; // RGB = r, A = g (from RG8Unorm)
       }
-    }
+    } 
   }
 
   // Diagnostic: log first textured 3D draw calls to debug white models
@@ -2031,7 +2063,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   frameDrawCount++;
 
   id<MTLRenderPipelineState> pso =
-      (__bridge id<MTLRenderPipelineState>)GetPSO(fvf);
+      (__bridge id<MTLRenderPipelineState>)GetPSO(fvf, m_StreamStride);
   if (!pso) {
     DLOG_RFLOW(15, "DrawIndexedPrimitive NO PSO for fvf=0x%x", (unsigned)fvf);
     return D3D_OK;
@@ -2191,12 +2223,14 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
-    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] & 0x3;
-    fu.texIsLuminance[s] = 0;
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value incl TCI bits
+    fu.texFormatType[s] = 0;
     if (m_Textures[s]) {
       D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
       if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
-        fu.texIsLuminance[s] = 1;
+        fu.texFormatType[s] = 1; // RGB = r, A = 1.0 (from R8Unorm)
+      } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
+        fu.texFormatType[s] = 2; // RGB = r, A = g (from RG8Unorm)
       }
     }
   }
@@ -2327,7 +2361,48 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
 
   [MTL_ENCODER setVertexBytes:&lu length:sizeof(lu) atIndex:3];
 
-  // 6. Bind Textures and Samplers
+  // 6b. Bind Custom VS Uniforms (buffer 4) — when custom vertex shader is active
+  {
+    CustomVSUniforms cvu;
+    memset(&cvu, 0, sizeof(cvu));
+    if (m_VertexShader & 0x80000000) {
+      auto it = m_VSHandleMap.find(m_VertexShader);
+      if (it != m_VSHandleMap.end()) {
+        cvu.shaderType = it->second.shaderType;
+      }
+      // Copy VS constant registers c0..c33
+      for (int r = 0; r < 34; ++r) {
+        cvu.c[r] = simd::float4{m_VSConstants[r][0], m_VSConstants[r][1],
+                                m_VSConstants[r][2], m_VSConstants[r][3]};
+      }
+    }
+    [MTL_ENCODER setVertexBytes:&cvu length:sizeof(cvu) atIndex:4];
+  }
+
+  // 6c. Bind Custom PS Uniforms (buffer 5) — when custom pixel shader is active
+  {
+    struct {
+      uint32_t psType;
+      uint32_t _pad[3];
+      simd::float4 c[8];
+    } psu;
+    memset(&psu, 0, sizeof(psu));
+
+    if (m_PixelShader != 0) {
+      auto it = m_PSHandleMap.find(m_PixelShader);
+      if (it != m_PSHandleMap.end()) {
+        psu.psType = it->second.psType;
+      }
+      // Copy PS constant registers c0..c7
+      for (int r = 0; r < MAX_PS_CONSTANTS; ++r) {
+        psu.c[r] = simd::float4{m_PSConstants[r][0], m_PSConstants[r][1],
+                                m_PSConstants[r][2], m_PSConstants[r][3]};
+      }
+    }
+    [MTL_ENCODER setFragmentBytes:&psu length:sizeof(psu) atIndex:5];
+  }
+
+  // 7. Bind Textures and Samplers
   for (int s = 0; s < 4; s++) {
     if (m_Textures[s]) {
       MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
@@ -2425,17 +2500,16 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   // Use current FVF (from SetVertexShader or stream source)
   DWORD fvf = m_VertexShader;
   // If top bit is set, it's a custom vertex shader handle, not an FVF.
-  // Fall back to the FVF from the stream source or a sensible default.
+  // Use the FVF from the VS handle info if available, else fall back.
   if (fvf & 0x80000000) {
-    fvf = m_StreamSource ? GetBufferFVF(m_StreamSource) : 0;
-    if (fvf == 0) {
-      fvf = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE | D3DFVF_TEX1; // 0x112
-    }
-    static int s_vsHandleFallbackLog = 0;
-    if (++s_vsHandleFallbackLog <= 5) {
-      printf("[METAL] DrawPrimitiveUP: VS handle 0x%x detected, falling back to FVF 0x%x\n",
-             (unsigned)m_VertexShader, (unsigned)fvf);
-      fflush(stdout);
+    auto it = m_VSHandleMap.find(fvf);
+    if (it != m_VSHandleMap.end()) {
+      fvf = it->second.fvf;
+    } else {
+      fvf = m_StreamSource ? GetBufferFVF(m_StreamSource) : 0;
+      if (fvf == 0) {
+        fvf = D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1; // 0x142
+      }
     }
   }
   if (fvf == 0 && m_StreamSource) {
@@ -2446,7 +2520,14 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   }
 
   static int drawUpLogCount = 0;
-  if ((fvf == 0x144 || fvf == 0x252 || fvf == 0x140) && drawUpLogCount++ < 500) {
+  if (drawUpLogCount++ % 500 == 0) {
+    printf("[METAL-DEBUG] DrawPrimitiveUP pt=%u fvf=0x%x pc=%u tex0=%p\n",
+           (unsigned)pt, (unsigned)fvf, pc, m_Textures[0]);
+    fflush(stdout);
+  }
+
+  // Draw primitive uses the implicit vertex buffer supplied as raw pointer data
+  if ((fvf == 0x144 || fvf == 0x252 || fvf == 0x140) && drawUpLogCount < 500) { // Note: drawUpLogCount already incremented above
     if (fvf == 0x144 || drawUpLogCount % 10 == 0 || fvf == 0x252) {
       printf("RFLOW_UP[%d] DrawPrimitiveUP pt=%u fvf=0x%x pc=%u tex0=%p "
              "screenW=%.0f screenH=%.0f ZEn=%u ZWrite=%u ZFunc=%u "
@@ -2500,7 +2581,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   // (already evaluated above)
 
   id<MTLRenderPipelineState> pso =
-      (__bridge id<MTLRenderPipelineState>)GetPSO(fvf);
+      (__bridge id<MTLRenderPipelineState>)GetPSO(fvf, stride);
   if (!pso)
     return D3D_OK;
 
@@ -2616,12 +2697,14 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
-    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] & 0x3;
-    fu.texIsLuminance[s] = 0;
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value incl TCI bits
+    fu.texFormatType[s] = 0;
     if (m_Textures[s]) {
       D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
       if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
-        fu.texIsLuminance[s] = 1;
+        fu.texFormatType[s] = 1; // RGB = r, A = 1.0 (from R8Unorm)
+      } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
+        fu.texFormatType[s] = 2; // RGB = r, A = g (from RG8Unorm)
       }
     }
   }
@@ -2647,6 +2730,45 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
     memcpy(&lu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
   }
   [MTL_ENCODER setVertexBytes:&lu length:sizeof(lu) atIndex:3];
+
+  // Custom VS Uniforms (buffer 4) — same as DrawIndexedPrimitive
+  {
+    CustomVSUniforms cvu;
+    memset(&cvu, 0, sizeof(cvu));
+    if (m_VertexShader & 0x80000000) {
+      auto it = m_VSHandleMap.find(m_VertexShader);
+      if (it != m_VSHandleMap.end()) {
+        cvu.shaderType = it->second.shaderType;
+      }
+      for (int r = 0; r < 34; ++r) {
+        cvu.c[r] = simd::float4{m_VSConstants[r][0], m_VSConstants[r][1],
+                                m_VSConstants[r][2], m_VSConstants[r][3]};
+      }
+    }
+    [MTL_ENCODER setVertexBytes:&cvu length:sizeof(cvu) atIndex:4];
+  }
+
+  // Bind Custom PS Uniforms (buffer 5)
+  {
+    struct {
+      uint32_t psType;
+      uint32_t _pad[3];
+      simd::float4 c[8];
+    } psu;
+    memset(&psu, 0, sizeof(psu));
+
+    if (m_PixelShader != 0) {
+      auto it = m_PSHandleMap.find(m_PixelShader);
+      if (it != m_PSHandleMap.end()) {
+        psu.psType = it->second.psType;
+      }
+      for (int r = 0; r < MAX_PS_CONSTANTS; ++r) {
+        psu.c[r] = simd::float4{m_PSConstants[r][0], m_PSConstants[r][1],
+                                m_PSConstants[r][2], m_PSConstants[r][3]};
+      }
+    }
+    [MTL_ENCODER setFragmentBytes:&psu length:sizeof(psu) atIndex:5];
+  }
 
   // Bind textures
   for (int s = 0; s < 2; s++) {
@@ -2698,7 +2820,74 @@ STDMETHODIMP MetalDevice8::CreateVertexShader(const DWORD *decl,
   static DWORD s_nextVS = 1;
   if (handle) {
     // Top bit set means it's a shader handle, not an FVF
-    *handle = (1 << 31) | s_nextVS++;
+    DWORD h = (1 << 31) | s_nextVS++;
+    *handle = h;
+
+    // Parse the vertex declaration to extract FVF
+    // D3DVSD tokens: stream 0, position, normal, diffuse, tex coords
+    // We detect shader type by the handle ordinal:
+    //   handle 1 (0x80000001) = Trees.vso (first shader created)
+    //   handle 2 (0x80000002) = Trees.pso (pixel shader, ignored)
+    //   handle 3+ = water wave etc.
+    // Better approach: count how many VS handles (not PS) we've created
+    VSHandleInfo info;
+    info.handle = h;
+    info.fvf = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE | D3DFVF_TEX1; // default
+    info.shaderType = 0; // unknown
+    
+    // Tree VS uses declaration: stream 0, XYZ, NORMAL, DIFFUSE, TEX(2 floats)
+    // which is effectively FVF 0x152 = XYZ|NORMAL|DIFFUSE|TEX1
+    // Water wave VS: XYZ, DIFFUSE, TEX(2 floats) = 0x142 = XYZ|DIFFUSE|TEX1
+    //
+    // We determine shader type from the declaration structure:
+    // Parse D3DVSD tokens to determine what vertex elements are declared
+    if (decl) {
+      bool hasPosition = false;
+      bool hasNormal = false;
+      bool hasDiffuse = false;
+      int texCount = 0;
+      for (int i = 0; decl[i] != 0xFFFFFFFF && i < 64; i++) {
+        DWORD token = decl[i];
+        // D3DVSD_STREAM(s) has bit 31 set — skip stream tokens
+        if (token & 0x80000000) continue;
+        // D3DVSD_REG(r, t) = r | (t << 16), bit 31 clear
+        DWORD dataType = (token >> 16) & 0xF;
+        // dataType: 0=float1, 1=float2, 2=float3, 3=float4, 4=D3DCOLOR
+        if (dataType == 2) { // float3 = position or normal
+          if (!hasPosition) {
+            hasPosition = true;
+          } else {
+            hasNormal = true;
+          }
+        } else if (dataType == 4) { // D3DCOLOR = diffuse
+          hasDiffuse = true;
+        } else if (dataType == 1) { // float2 = texcoord
+          texCount++;
+        }
+      }
+      // Build FVF from parsed declaration
+      DWORD parsedFVF = D3DFVF_XYZ;
+      if (hasNormal) parsedFVF |= D3DFVF_NORMAL;
+      if (hasDiffuse) parsedFVF |= D3DFVF_DIFFUSE;
+      if (texCount >= 1) parsedFVF |= D3DFVF_TEX1;
+      if (texCount >= 2) parsedFVF |= D3DFVF_TEX2;
+      info.fvf = parsedFVF;
+      
+      // Shader type heuristic:
+      // Trees: XYZ + NORMAL + DIFFUSE + TEX1 (FVF 0x152)
+      // Water: XYZ + DIFFUSE + TEX1 (FVF 0x142)
+      if (hasNormal && hasDiffuse && texCount >= 1) {
+        info.shaderType = 1; // Trees
+      } else if (!hasNormal && hasDiffuse && texCount >= 1) {
+        info.shaderType = 2; // Water wave
+      }
+    }
+    
+    m_VSHandleMap[h] = info;
+    
+    printf("[VS] CreateVertexShader: handle=0x%08x fvf=0x%x type=%u\n",
+           (unsigned)h, (unsigned)info.fvf, info.shaderType);
+    fflush(stdout);
   }
   return D3D_OK;
 }
@@ -2712,6 +2901,13 @@ STDMETHODIMP MetalDevice8::DeleteVertexShader(DWORD h) { return D3D_OK; }
 
 STDMETHODIMP MetalDevice8::SetVertexShaderConstant(DWORD r, const void *d,
                                                    DWORD c) {
+  if (d && r < MAX_VS_CONSTANTS) {
+    DWORD count = c;
+    if (r + count > MAX_VS_CONSTANTS) {
+      count = MAX_VS_CONSTANTS - r;
+    }
+    memcpy(&m_VSConstants[r], d, count * 4 * sizeof(float));
+  }
   return D3D_OK;
 }
 
@@ -2761,9 +2957,83 @@ HRESULT MetalDevice8::GetIndices(IDirect3DIndexBuffer8 **ib, UINT *base) {
 
 STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
   static DWORD s_nextPS = 1;
-  if (handle) {
-    *handle = (1 << 31) | s_nextPS++;
+  if (!handle) return D3D_OK;
+
+  DWORD h = 0xC0000000 | s_nextPS++;
+  *handle = h;
+
+  PSHandleInfo info;
+  info.handle = h;
+  info.psType = PS_NONE;
+  info.numTexStages = 0;
+  info.numArithOps = 0;
+
+  if (func) {
+    DWORD version = func[0];
+    if ((version & 0xFFFF0000) == 0xFFFF0000) {
+      uint32_t numTex = 0;
+      uint32_t numArith = 0;
+      bool hasDp3 = false;
+      bool hasLrp = false;
+      bool hasMad = false;
+      bool hasTexbem = false;
+
+      for (int i = 1; i < 256; i++) {
+        DWORD token = func[i];
+        if (token == 0x0000FFFF) break;
+        if (token & 0x80000000) continue;
+
+        uint32_t opcode = token & 0xFFFF;
+        uint32_t skip = 0;
+
+        if (opcode >= 0x40 && opcode <= 0x5F) {
+          numTex++;
+          if (opcode == 0x41) hasTexbem = true;
+          skip = (opcode == 0x40) ? 1 : 2;
+        } else if (opcode >= 0x02 && opcode <= 0x3F) {
+          numArith++;
+          if (opcode == 0x09) hasDp3 = true;
+          if (opcode == 0x12) hasLrp = true;
+          if (opcode == 0x05) hasMad = true;
+          if (opcode == 0x05 || opcode == 0x12 || opcode == 0x32)
+            skip = 4;
+          else if (opcode == 0x02)
+            skip = 2;
+          else
+            skip = 3;
+        }
+        i += skip;
+      }
+
+      info.numTexStages = numTex;
+      info.numArithOps = numArith;
+
+      if (numTex == 1 && hasDp3) {
+        info.psType = PS_MONOCHROME;
+      } else if (hasTexbem) {
+        info.psType = PS_WAVE;
+      } else if (numTex == 2 && hasLrp) {
+        info.psType = PS_TERRAIN;
+      } else if (numTex == 3 && hasLrp) {
+        info.psType = PS_TERRAIN_NOISE1;
+      } else if (numTex == 4 && hasLrp) {
+        info.psType = PS_TERRAIN_NOISE2;
+      } else if (numTex == 3 && !hasLrp) {
+        info.psType = PS_ROAD_NOISE2;
+      } else if (numTex == 2 && !hasLrp && !hasDp3) {
+        info.psType = PS_FLAT_TERRAIN;
+      } else if (numTex == 4 && !hasLrp) {
+        info.psType = PS_FLAT_TERRAIN_NOISE2;
+      } else {
+        info.psType = PS_TERRAIN;
+      }
+
+      fprintf(stderr, "[PS] CreatePixelShader: handle=0x%x tex=%u arith=%u dp3=%d lrp=%d mad=%d texbem=%d -> type=%u\n",
+             h, numTex, numArith, hasDp3, hasLrp, hasMad, hasTexbem, info.psType);
+    }
   }
+
+  m_PSHandleMap[h] = info;
   return D3D_OK;
 }
 
@@ -2772,12 +3042,24 @@ STDMETHODIMP MetalDevice8::SetPixelShader(DWORD h) {
   return D3D_OK;
 }
 
-STDMETHODIMP MetalDevice8::DeletePixelShader(DWORD h) { return D3D_OK; }
-
-STDMETHODIMP MetalDevice8::SetPixelShaderConstant(DWORD r, const void *d,
-                                                  DWORD c) {
+STDMETHODIMP MetalDevice8::DeletePixelShader(DWORD h) {
+  m_PSHandleMap.erase(h);
   return D3D_OK;
 }
+
+STDMETHODIMP MetalDevice8::SetPixelShaderConstant(DWORD r, const void *d,
+                                                   DWORD c) {
+  if (!d) return D3D_OK;
+  const float *src = (const float *)d;
+  for (DWORD i = 0; i < c && (r + i) < MAX_PS_CONSTANTS; i++) {
+    m_PSConstants[r + i][0] = src[i * 4 + 0];
+    m_PSConstants[r + i][1] = src[i * 4 + 1];
+    m_PSConstants[r + i][2] = src[i * 4 + 2];
+    m_PSConstants[r + i][3] = src[i * 4 + 3];
+  }
+  return D3D_OK;
+}
+
 
 // ─────────────────────────────────────────────────────
 //  Non-override helpers

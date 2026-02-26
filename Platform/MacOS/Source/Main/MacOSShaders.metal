@@ -86,7 +86,7 @@ struct FragmentUniforms {
     uint   hasTexture[4];
     uint   specularEnable;
     uint   texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX: which UV set each stage uses
-    uint   texIsLuminance[4]; // 1 for L8/P8 formats: replicate .r to RGB
+    uint   texFormatType[4]; // 0=Default, 1=Luminance(L8/P8), 2=Luminance+Alpha(A4L4/A8L8)
 };
 
 // ─────────────────────────────────────────────────────
@@ -148,6 +148,26 @@ struct LightingUniforms {
 };
 
 // ─────────────────────────────────────────────────────
+//  Custom Vertex Shader Uniforms (buffer 4)
+//  Passed from CPU when a DX8 custom vertex shader is active
+// ─────────────────────────────────────────────────────
+struct CustomVSUniforms {
+    uint  shaderType;    // 0=none, 1=trees, 2=water wave
+    uint  _pad[3];
+    float4 c[34];         // VS constant registers c0..c33
+};
+
+// ─────────────────────────────────────────────────────
+//  Custom Pixel Shader Uniforms (buffer 5)
+//  Passed from CPU when a DX8 custom pixel shader is active
+// ─────────────────────────────────────────────────────
+struct CustomPSUniforms {
+    uint  psType;        // PSType enum: 0=none, 1=terrain, 2=terrain+noise, etc.
+    uint  _pad[3];
+    float4 c[8];          // PS constant registers c0..c7
+};
+
+// ─────────────────────────────────────────────────────
 //  Vertex I/O
 // ─────────────────────────────────────────────────────
 
@@ -181,11 +201,131 @@ struct VertexOut {
 
 vertex VertexOut vertex_main(VertexIn in [[stage_in]],
                             constant Uniforms &uniforms [[buffer(1)]],
-                            constant LightingUniforms &lighting [[buffer(3)]]) {
+                            constant LightingUniforms &lighting [[buffer(3)]],
+                            constant CustomVSUniforms &customVS [[buffer(4)]]) {
     VertexOut out;
     
     float4 pos = float4(in.position.xyz, 1.0);
     
+    // ─── Custom Vertex Shader: Trees (shaderType == 1) ───
+    // Implements Trees.vso: WVP transform, sway displacement, shroud UV generation
+    if (customVS.shaderType == 1) {
+        // c4-c7: Transposed World-View-Projection matrix (row-major in constants)
+        float4x4 wvpT = float4x4(customVS.c[4], customVS.c[5], customVS.c[6], customVS.c[7]);
+        
+        // Sway displacement:
+        // The tree vertex shader encodes swayType in the diffuse alpha channel.
+        // The vertex normal.z (height above ground) weights the sway amount.
+        // c8 = no-sway sentinel (always 0,0,0,0)
+        // c9..c9+MAX_SWAY_TYPES = sway vectors per type
+        // SwayType is encoded in vertex data during tree buffer construction.
+        // In the original shader: swayType stored in vertex diffuse alpha as 1-based index.
+        //
+        // Extract sway type from diffuse alpha (packed as 0..MAX_SWAY_TYPES normalized)
+        // In W3DTreeBuffer, swayType is stored as diffuse alpha = swayType (1..MAX_SWAY_TYPES)
+        // encoded as integer in the alpha byte of the diffuse DWORD.
+        // The diffuse color arrives in in.color as normalized BGRA.
+        // Alpha = in.color.a contains swayType / 255.0
+        // So swayType = round(in.color.a * 255.0)
+        uint swayType = (uint)(in.color.a * 255.0 + 0.5);
+        if (swayType < 1) swayType = 1;
+        if (swayType > 8) swayType = 8;
+        
+        // Sway vector for this tree's sway type is in c[8 + swayType]
+        float3 swayVec = customVS.c[8 + swayType].xyz;
+        
+        // Weight sway by vertex height: normal.z carries the height factor.
+        // In Trees.vso, the vertex normal is repurposed to carry sway weight.
+        // Specifically, vertices near the top of the tree have larger normal.z.
+        float swayWeight = in.normal.z;
+        
+        // Apply sway displacement to position
+        float4 swayedPos = pos;
+        swayedPos.xyz += swayVec * swayWeight;
+        
+        // Transform: WVP matrix is transposed, so multiply as pos * wvpT
+        out.position = swayedPos * wvpT;
+        
+        // Texture coordinates: pass through UV0
+        out.texCoord = in.texCoord;
+        
+        // Shroud UV generation from c32 (offset) and c33 (scale)
+        // shroudUV.x = (worldPos.x + c32.x) * c33.x
+        // shroudUV.y = (worldPos.y + c32.y) * c33.y
+        float2 shroudOffset = customVS.c[32].xy;
+        float2 shroudScale = customVS.c[33].xy;
+        out.texCoord2 = float2((swayedPos.x + shroudOffset.x) * shroudScale.x,
+                               (swayedPos.y + shroudOffset.y) * shroudScale.y);
+        
+        // Diffuse color: pass through but restore alpha to 1.0
+        // (alpha channel was used to encode swayType, not actual alpha)
+        out.color = float4(in.color.rgb, 1.0);
+        out.specularColor = float4(0.0);
+        
+        // Camera-space position for TCI
+        float4 csPos = uniforms.view * uniforms.world * swayedPos;
+        out.camPosX = csPos.x;
+        out.camPosY = csPos.y;
+        out.camPosZ = csPos.z;
+        
+        // Fog
+        float dist = length(csPos.xyz);
+        if (lighting.fogMode == D3DFOG_LINEAR) {
+            float fogRange = lighting.fogEnd - lighting.fogStart;
+            out.fogFactor = (fogRange > 0.0001) ? clamp((lighting.fogEnd - dist) / fogRange, 0.0, 1.0) : 1.0;
+        } else if (lighting.fogMode == D3DFOG_EXP) {
+            out.fogFactor = clamp(exp(-lighting.fogDensity * dist), 0.0, 1.0);
+        } else if (lighting.fogMode == D3DFOG_EXP2) {
+            float e = lighting.fogDensity * dist;
+            out.fogFactor = clamp(exp(-(e * e)), 0.0, 1.0);
+        } else {
+            out.fogFactor = 1.0;
+        }
+        
+        return out;
+    }
+    
+    // ─── Custom Vertex Shader: Water Wave (shaderType == 2) ───
+    // Implements wave.vso: WVP transform, texture projection for reflection
+    if (customVS.shaderType == 2) {
+        // c2-c5: Transposed World-View-Projection matrix
+        float4x4 wvpT = float4x4(customVS.c[2], customVS.c[3], customVS.c[4], customVS.c[5]);
+        
+        // Transform position
+        out.position = pos * wvpT;
+        
+        // UV0: pass through
+        out.texCoord = in.texCoord;
+        
+        // UV1: texture projection for reflection
+        // c6-c9: Transposed texture projection matrix
+        float4x4 texProjT = float4x4(customVS.c[6], customVS.c[7], customVS.c[8], customVS.c[9]);
+        float4 projUV = pos * texProjT;
+        out.texCoord2 = projUV.xy;
+        
+        // Diffuse color
+        out.color = in.color;
+        out.specularColor = float4(0.0);
+        
+        // Camera space
+        out.camPosX = 0.0;
+        out.camPosY = 0.0;
+        out.camPosZ = 0.0;
+        
+        // Fog
+        float4 viewPos = uniforms.view * uniforms.world * pos;
+        float dist = length(viewPos.xyz);
+        if (lighting.fogMode == D3DFOG_LINEAR) {
+            float fogRange = lighting.fogEnd - lighting.fogStart;
+            out.fogFactor = (fogRange > 0.0001) ? clamp((lighting.fogEnd - dist) / fogRange, 0.0, 1.0) : 1.0;
+        } else {
+            out.fogFactor = 1.0;
+        }
+        
+        return out;
+    }
+    
+    // ─── Standard vertex shader (no custom VS) ───
     if (uniforms.useProjection == 1) {
         // 3D Mode
         out.position = uniforms.projection * uniforms.view * uniforms.world * pos;
@@ -465,7 +605,7 @@ float4 evaluateOp(uint op, float4 arg1, float4 arg2) {
 //  For BLENDDIFFUSEALPHA, BLENDTEXTUREALPHA, etc.
 // ─────────────────────────────────────────────────────
 float4 evaluateBlendOp(uint op, float4 arg1, float4 arg2,
-                       float4 diffuse, float4 texColor0, float4 tFactor,
+                       float4 diffuse, float4 stageTexColor, float4 tFactor,
                        float4 current) {
     float alpha;
     switch (op) {
@@ -474,7 +614,7 @@ float4 evaluateBlendOp(uint op, float4 arg1, float4 arg2,
             return float4(mix(arg2.rgb, arg1.rgb, alpha),
                          mix(arg2.a, arg1.a, alpha));
         case D3DTOP_BLENDTEXTUREALPHA:
-            alpha = texColor0.a;
+            alpha = stageTexColor.a;
             return float4(mix(arg2.rgb, arg1.rgb, alpha),
                          mix(arg2.a, arg1.a, alpha));
         case D3DTOP_BLENDFACTORALPHA:
@@ -513,6 +653,7 @@ bool alphaTestPass(uint func, float alphaVal, float ref) {
 fragment float4 fragment_main(VertexOut in [[stage_in]],
                              constant Uniforms &uniforms [[buffer(1)]],
                              constant FragmentUniforms &fragUniforms [[buffer(2)]],
+                             constant CustomPSUniforms &psUniforms [[buffer(5)]],
                              texture2d<float> tex0 [[texture(0)]],
                              texture2d<float> tex1 [[texture(1)]],
                              texture2d<float> tex2 [[texture(2)]],
@@ -521,6 +662,134 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                              sampler sampler1 [[sampler(1)]],
                              sampler sampler2 [[sampler(2)]],
                              sampler sampler3 [[sampler(3)]]) {
+
+    // ════════════════════════════════════════════════════
+    //  Custom Pixel Shader path — bypasses TSS completely
+    //  When a DX8 pixel shader is active, the engine does NOT set TSS states.
+    //  Instead, we execute the equivalent PS logic here.
+    // ════════════════════════════════════════════════════
+    if (psUniforms.psType != 0) {
+        // Select UV coordinates (PS uses tex coord index from TSS states)
+        float2 uv0 = in.texCoord;
+        float2 uv1 = in.texCoord2;
+
+        // Apply texture coordinate transforms for camera-space projection stages
+        // (Used by noise/cloud stages that set TCI_CAMERASPACEPOSITION)
+        auto computeUVPS = [&](uint tci, uint stage) -> float2 {
+            uint tciMode = (tci >> 16) & 0x3;
+            uint uvIndex = tci & 0x3;
+            if (tciMode == 1 && uniforms.useProjection == 1) {
+                if (uniforms.texTransformFlags[stage] != 0) {
+                    float4 tc = uniforms.texMatrix[stage] * float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
+                    return tc.xy;
+                }
+                return float2(in.camPosX, in.camPosY);
+            }
+            return (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+        };
+
+        float2 psUV0 = computeUVPS(fragUniforms.texCoordIndex[0], 0);
+        float2 psUV1 = computeUVPS(fragUniforms.texCoordIndex[1], 1);
+        float2 psUV2 = computeUVPS(fragUniforms.texCoordIndex[2], 2);
+        float2 psUV3 = computeUVPS(fragUniforms.texCoordIndex[3], 3);
+
+        float4 t0 = (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, psUV0) : float4(1.0);
+        float4 t1 = (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, psUV1) : float4(1.0);
+        float4 t2 = (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, psUV2) : float4(1.0);
+        float4 t3 = (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, psUV3) : float4(1.0);
+
+        float4 diffuse = in.color;
+        float4 result = float4(0.0);
+
+        uint psType = psUniforms.psType;
+
+        if (psType == 1) {
+            // PS_TERRAIN: lrp r0, v0.a, t0, t1  =>  lerp from t1 to t0 by vertex alpha
+            // Then modulate by diffuse RGB
+            float a = diffuse.a;
+            result.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb;
+            result.a = 1.0;
+        }
+        else if (psType == 2) {
+            // PS_TERRAIN_NOISE1: terrain + cloud texture on stage 2
+            float a = diffuse.a;
+            float4 terrainBlend;
+            terrainBlend.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb;
+            terrainBlend.a = 1.0;
+            // Multiply by cloud/noise texture
+            result.rgb = terrainBlend.rgb * t2.rgb;
+            result.a = 1.0;
+        }
+        else if (psType == 3) {
+            // PS_TERRAIN_NOISE2: terrain + cloud + noise
+            float a = diffuse.a;
+            float4 terrainBlend;
+            terrainBlend.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb;
+            terrainBlend.a = 1.0;
+            // Multiply by cloud * noise
+            result.rgb = terrainBlend.rgb * t2.rgb * t3.rgb;
+            result.a = 1.0;
+        }
+        else if (psType == 4) {
+            // PS_ROAD_NOISE2: road + cloud + noise
+            result.rgb = t0.rgb * t1.rgb * t2.rgb;
+            result.a = t0.a;
+        }
+        else if (psType == 5) {
+            // PS_MONOCHROME: luminance = dot(color, weights) from c0
+            float4 weights = psUniforms.c[0]; // typically (0.3, 0.59, 0.11, 1.0)
+            float lum = dot(t0.rgb, weights.rgb);
+            // Apply fade from c1 (mulColor) and c2 (fade)
+            float4 mulColor = psUniforms.c[1];
+            float4 fade = psUniforms.c[2];
+            result.rgb = float3(lum) * mulColor.rgb * fade.rgb;
+            result.a = t0.a;
+        }
+        else if (psType == 6) {
+            // PS_WAVE: bump-mapped water with PS constant c0 (reflection factor)
+            float4 reflFactor = psUniforms.c[0];
+            result.rgb = t1.rgb * reflFactor.rgb;
+            result.a = 1.0;
+        }
+        else if (psType == 7 || psType == 8) {
+            // PS_FLAT_TERRAIN / PS_FLAT_TERRAIN0: similar to terrain
+            float a = diffuse.a;
+            result.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb;
+            result.a = 1.0;
+        }
+        else if (psType == 9) {
+            // PS_FLAT_TERRAIN_NOISE1
+            float a = diffuse.a;
+            result.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb * t2.rgb;
+            result.a = 1.0;
+        }
+        else if (psType == 10) {
+            // PS_FLAT_TERRAIN_NOISE2
+            float a = diffuse.a;
+            result.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb * t2.rgb * t3.rgb;
+            result.a = 1.0;
+        }
+        else {
+            // Unknown PS: fallthrough to basic texturing
+            result = t0 * diffuse;
+        }
+
+        // Alpha test
+        if (fragUniforms.alphaTestEnable != 0) {
+            if (!alphaTestPass(fragUniforms.alphaFunc, result.a, fragUniforms.alphaRef)) {
+                discard_fragment();
+            }
+        }
+        // Fog
+        if (fragUniforms.fogMode != 0) {
+            result.rgb = mix(fragUniforms.fogColor.rgb, result.rgb, in.fogFactor);
+        }
+        return result;
+    }
+
+    // ════════════════════════════════════════════════════
+    //  TSS (Texture Stage State) path — fallback when no PS active
+    // ════════════════════════════════════════════════════
     
     // Select UV and apply texture coordinate transforms per stage.
     // D3DTSS_TEXCOORDINDEX combines two fields:
@@ -565,13 +834,19 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     float4 texColor2 = (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, uv2) : float4(1.0);
     float4 texColor3 = (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, uv3) : float4(1.0);
     
-    // L8/P8 luminance replication: Metal maps L8 → R8Unorm which samples as (r,0,0,1).
-    // DX8 FFP replicates luminance to all RGB channels: (L,L,L,1).
-    if (fragUniforms.texIsLuminance[0] != 0) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, texColor0.a);
-    if (fragUniforms.texIsLuminance[1] != 0) texColor1 = float4(texColor1.r, texColor1.r, texColor1.r, texColor1.a);
-    if (fragUniforms.texIsLuminance[2] != 0) texColor2 = float4(texColor2.r, texColor2.r, texColor2.r, texColor2.a);
-    if (fragUniforms.texIsLuminance[3] != 0) texColor3 = float4(texColor3.r, texColor3.r, texColor3.r, texColor3.a);
+    // Apply texture format data unpacking
+    if (fragUniforms.texFormatType[0] == 1) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, 1.0);
+    else if (fragUniforms.texFormatType[0] == 2) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, texColor0.g);
     
+    if (fragUniforms.texFormatType[1] == 1) texColor1 = float4(texColor1.r, texColor1.r, texColor1.r, 1.0);
+    else if (fragUniforms.texFormatType[1] == 2) texColor1 = float4(texColor1.r, texColor1.r, texColor1.r, texColor1.g);
+    
+    if (fragUniforms.texFormatType[2] == 1) texColor2 = float4(texColor2.r, texColor2.r, texColor2.r, 1.0);
+    else if (fragUniforms.texFormatType[2] == 2) texColor2 = float4(texColor2.r, texColor2.r, texColor2.r, texColor2.g);
+    
+    if (fragUniforms.texFormatType[3] == 1) texColor3 = float4(texColor3.r, texColor3.r, texColor3.r, 1.0);
+    else if (fragUniforms.texFormatType[3] == 2) texColor3 = float4(texColor3.r, texColor3.r, texColor3.r, texColor3.g);
+
     float4 diffuse = in.color;
     
 
@@ -605,7 +880,7 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         
         current = float4(colorResult.rgb, alphaVal);
     }
-
+    
     // --- Alpha Test ---
     if (fragUniforms.alphaTestEnable != 0) {
         if (!alphaTestPass(fragUniforms.alphaFunc, current.a, fragUniforms.alphaRef)) {
