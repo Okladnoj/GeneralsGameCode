@@ -31,6 +31,46 @@ typedef void *id;
 #endif
 
 #include <map>
+#include <vector>
+
+// Maximum vertex shader constant registers (DX8 spec: 96 for vs_1_1)
+static const int MAX_VS_CONSTANTS = 96;
+
+// Metadata for a custom vertex shader created via CreateVertexShader
+struct VSHandleInfo {
+  DWORD handle;     // The returned handle (bit 31 set)
+  DWORD fvf;        // FVF derived from the vertex declaration
+  // Shader identification: which shader program this handle represents
+  // 0 = unknown, 1 = trees, 2 = water wave
+  uint32_t shaderType;
+};
+
+// Maximum pixel shader constant registers (PS 1.1: 8 float4 constants c0-c7)
+static const int MAX_PS_CONSTANTS = 8;
+
+// Pixel shader types — identified by bytecode analysis in CreatePixelShader
+// These enum values are passed to the Metal fragment shader via CustomPSUniforms
+enum PSType {
+  PS_NONE = 0,
+  PS_TERRAIN = 1,           // terrain.pso: blend 2 textures by diffuse alpha
+  PS_TERRAIN_NOISE1 = 2,    // terrainnoise.pso: terrain + cloud tex
+  PS_TERRAIN_NOISE2 = 3,    // terrainnoise2.pso: terrain + cloud + noise
+  PS_ROAD_NOISE2 = 4,       // roadnoise2.pso: road + cloud + noise
+  PS_MONOCHROME = 5,        // monochrome.pso: luminance BW effect
+  PS_WAVE = 6,              // wave.pso: bump-mapped water
+  PS_FLAT_TERRAIN = 7,      // fterrain.pso: flat terrain blend
+  PS_FLAT_TERRAIN0 = 8,     // fterrain0.pso: flat terrain base only
+  PS_FLAT_TERRAIN_NOISE1 = 9,  // fterrainnoise.pso
+  PS_FLAT_TERRAIN_NOISE2 = 10, // fterrainnoise2.pso
+};
+
+// Metadata for a pixel shader created via CreatePixelShader
+struct PSHandleInfo {
+  DWORD handle;
+  uint32_t psType;       // PSType enum
+  uint32_t numTexStages; // number of tex instructions in bytecode
+  uint32_t numArithOps;  // number of arithmetic instructions
+};
 
 class MetalSurface8;
 
@@ -235,13 +275,25 @@ private:
   DWORD m_PixelShader;
   D3DGAMMARAMP m_GammaRamp;
 
+  // --- Vertex Shader Constants (96 float4 registers) ---
+  float m_VSConstants[MAX_VS_CONSTANTS][4]; // c0..c95, each is float4
+
+  // --- Custom Vertex Shader Registry ---
+  std::map<DWORD, VSHandleInfo> m_VSHandleMap; // handle -> shader info
+
+  // --- Pixel Shader Constants (8 float4 registers for PS 1.1) ---
+  float m_PSConstants[MAX_PS_CONSTANTS][4]; // c0..c7, each is float4
+
+  // --- Custom Pixel Shader Registry ---
+  std::map<DWORD, PSHandleInfo> m_PSHandleMap; // handle -> shader info
+
   void *m_HWND;
   float m_ScreenWidth;
   float m_ScreenHeight;
 
   // --- Helper ---
-  void *GetPSO(DWORD fvf);         // builds 64-bit key from fvf + blend state
-  uint64_t BuildPSOKey(DWORD fvf); // computes PSO cache key
+  void *GetPSO(DWORD fvf, UINT stride);         // builds 64-bit key from fvf + blend state + stride
+  uint64_t BuildPSOKey(DWORD fvf, UINT stride); // computes PSO cache key
   void *GetDepthStencilState();
   void CreateDepthTexture(UINT width, UINT height);
   void ApplyPerDrawState();           // cull mode, depth/stencil
