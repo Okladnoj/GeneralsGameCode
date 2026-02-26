@@ -167,7 +167,12 @@ struct VertexOut {
     float2 texCoord;
     float2 texCoord2;
     float fogFactor;
-    float3 cameraPosUV; // camera-space position for TCI_CAMERASPACEPOSITION
+    // Camera-space position for TCI_CAMERASPACEPOSITION.
+    // Using 3 separate floats instead of float3 to avoid 16-byte alignment
+    // padding that corrupts fogFactor interpolation in Metal rasterizer.
+    float camPosX;
+    float camPosY;
+    float camPosZ;
 };
 
 // ─────────────────────────────────────────────────────
@@ -201,7 +206,9 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     // Compute camera-space position for D3DTSS_TCI_CAMERASPACEPOSITION
     float4 worldPos = uniforms.world * pos;
     float4 camPos = uniforms.view * worldPos;
-    out.cameraPosUV = camPos.xyz;
+    out.camPosX = camPos.x;
+    out.camPosY = camPos.y;
+    out.camPosZ = camPos.z;
     
     out.specularColor = float4(0.0, 0.0, 0.0, 0.0);
     
@@ -530,10 +537,10 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         if (tciMode == 1 && uniforms.useProjection == 1) {
             // D3DTSS_TCI_CAMERASPACEPOSITION: full 3D position through texture matrix
             if (uniforms.texTransformFlags[stage] != 0) {
-                float4 tc = uniforms.texMatrix[stage] * float4(in.cameraPosUV, 1.0);
+                float4 tc = uniforms.texMatrix[stage] * float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
                 return tc.xy;
             }
-            return in.cameraPosUV.xy;
+            return float2(in.camPosX, in.camPosY);
         }
         
         // D3DTSS_TCI_PASSTHRU: use vertex UV set directly.
