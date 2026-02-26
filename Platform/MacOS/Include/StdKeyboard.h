@@ -34,4 +34,5 @@ protected:
 
 public:
   void addEvent(unsigned char keyCode, bool isDown, unsigned int time);
+  void setModifiers(unsigned long flags, unsigned int time);
 };

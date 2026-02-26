@@ -183,6 +183,7 @@ static unsigned char MacOSVirtualKeyToDIK(unsigned short keyCode) {
 StdKeyboard::StdKeyboard(void) {
   m_nextFreeIndex = 0;
   m_nextGetIndex = 0;
+  m_lastFlags = 0;
 }
 
 StdKeyboard::~StdKeyboard(void) {}
@@ -248,4 +249,33 @@ void StdKeyboard::addEvent(unsigned char keyCode, bool isDown,
   ev.time = time;
 
   m_nextFreeIndex = nextIndex;
+}
+
+void StdKeyboard::setModifiers(unsigned long flags, unsigned int time) {
+  // Translate macOS modifier flags to Keyboard m_modifiers mask
+  UnsignedShort newModifiers = 0;
+  
+  // NX_SHIFTMASK (1 << 17)
+  if (flags & (1 << 17)) newModifiers |= KEY_STATE_SHIFT;
+  // NX_CONTROLMASK (1 << 18)
+  if (flags & (1 << 18)) newModifiers |= KEY_STATE_CONTROL;
+  // NX_ALTERNATEMASK (1 << 19)
+  if (flags & (1 << 19)) newModifiers |= KEY_STATE_ALT;
+
+  m_modifiers = newModifiers;
+
+  // Track differences to trigger simulated KeyDown / KeyUp events
+  unsigned long changed = flags ^ m_lastFlags;
+  
+  if (changed & (1 << 17)) { // Shift
+    addEvent(56, (flags & (1 << 17)) != 0, time); // 56 is macOS virtual key code for Left Shift
+  }
+  if (changed & (1 << 18)) { // Control
+    addEvent(59, (flags & (1 << 18)) != 0, time); // 59 is macOS virtual key code for Left Control
+  }
+  if (changed & (1 << 19)) { // Alternate (Option/Alt)
+    addEvent(58, (flags & (1 << 19)) != 0, time); // 58 is macOS virtual key code for Left Option
+  }
+
+  m_lastFlags = flags;
 }

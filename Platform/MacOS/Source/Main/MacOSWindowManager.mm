@@ -124,6 +124,7 @@ int MacOS_Main(int argc, char *argv[]) {
   installSigHandler(SIGSEGV, "SIGSEGV");
   installSigHandler(SIGBUS, "SIGBUS");
   installSigHandler(SIGABRT, "SIGABRT");
+  installSigHandler(SIGTERM, "SIGTERM");
 
   @autoreleasepool {
     TheVersion = new Version();
@@ -255,11 +256,9 @@ void *MacOS_CreateWindow(int width, int height, const char *title) {
 void MacOS_PumpEvents() {
   static int pumpCount = 0;
   BOOL isActive = [NSApp isActive];
-  if (pumpCount++ % 50 == 0) {
+  if (pumpCount++ % 500 == 0) {
     NSWindow *keyWin = [NSApp keyWindow];
-    printf("DEBUG: Pump heartbeat #%d, isActive=%d, keyWin=%p\n", pumpCount,
-           (int)isActive, (__bridge void *)keyWin);
-    fflush(stdout);
+    // Heartbeat reduced to once per 500
   }
 
   if (pumpCount % 100 == 0 && !isActive) {
@@ -292,27 +291,18 @@ void MacOS_PumpEvents() {
       case NSEventTypeKeyDown:
         if (TheKeyboard) {
           unsigned char keyCode = [event keyCode];
-          printf("INPUT: KeyDown raw=%d\n", keyCode);
-          fflush(stdout);
           ((StdKeyboard *)TheKeyboard)->addEvent(keyCode, true, timestamp);
-        } else {
-          printf("INPUT: KeyDown %d IGNORED (TheKeyboard is null)\n",
-                 [event keyCode]);
-          fflush(stdout);
         }
         break;
       case NSEventTypeKeyUp:
         if (TheKeyboard) {
           unsigned char keyCode = [event keyCode];
-          printf("INPUT: KeyUp raw=%d\n", keyCode);
-          fflush(stdout);
           ((StdKeyboard *)TheKeyboard)->addEvent(keyCode, false, timestamp);
         }
         break;
 
       case NSEventTypeMouseMoved:
       case NSEventTypeLeftMouseDragged:
-      case NSEventTypeRightMouseDragged:
       case NSEventTypeOtherMouseDragged:
       case NSEventTypeLeftMouseDown:
       case NSEventTypeLeftMouseUp: {
@@ -332,20 +322,37 @@ void MacOS_PumpEvents() {
 
             NSEventType type = [event type];
             if (type == NSEventTypeLeftMouseDown) {
-              printf("COCOA: DOWN x=%d y=%d (rawY=%.1f WinH=%.1f)\n", x, y,
-                     loc.y, h);
-              fflush(stdout);
-              ((StdMouse *)TheMouse)
-                  ->addEvent(MACOS_MOUSE_LBUTTON_DOWN, x, y, 0, 0, timestamp);
+              if ([event clickCount] >= 2) {
+                ((StdMouse *)TheMouse)->addEvent(MACOS_MOUSE_LBUTTON_DBLCLK, x, y, 0, 0, timestamp);
+              } else {
+                ((StdMouse *)TheMouse)->addEvent(MACOS_MOUSE_LBUTTON_DOWN, x, y, 0, 0, timestamp);
+              }
             } else if (type == NSEventTypeLeftMouseUp) {
-              printf("COCOA: UP x=%d y=%d\n", x, y);
-              fflush(stdout);
-              ((StdMouse *)TheMouse)
-                  ->addEvent(MACOS_MOUSE_LBUTTON_UP, x, y, 0, 0, timestamp);
+              ((StdMouse *)TheMouse)->addEvent(MACOS_MOUSE_LBUTTON_UP, x, y, 0, 0, timestamp);
+            } else if (type == NSEventTypeLeftMouseDragged) {
+              ((StdMouse *)TheMouse)->addEvent(MACOS_MOUSE_MOVE, x, y, 0, 0, timestamp); // StdMouse handles keeping it down
             } else {
-              ((StdMouse *)TheMouse)
-                  ->addEvent(MACOS_MOUSE_MOVE, x, y, 0, 0, timestamp);
+              ((StdMouse *)TheMouse)->addEvent(MACOS_MOUSE_MOVE, x, y, 0, 0, timestamp);
             }
+          }
+        }
+        break;
+      }
+      case NSEventTypeRightMouseDragged: {
+        if (TheMouse) {
+          NSPoint loc = [event locationInWindow];
+          NSWindow *win = [event window];
+          if (!win)
+            win = [NSApp keyWindow];
+          if (!win)
+            win = [[NSApp windows] firstObject];
+            
+          if (win) {
+            NSView *cv = [win contentView];
+            float h = [cv bounds].size.height;
+            int x = (int)loc.x;
+            int y = (int)(h - loc.y);
+            ((StdMouse *)TheMouse)->addEvent(MACOS_MOUSE_MOVE, x, y, 0, 0, timestamp);
           }
         }
         break;
@@ -360,8 +367,11 @@ void MacOS_PumpEvents() {
             float h = [cv bounds].size.height;
             int x = (int)loc.x;
             int y = (int)(h - loc.y);
-            ((StdMouse *)TheMouse)
-                ->addEvent(MACOS_MOUSE_RBUTTON_DOWN, x, y, 0, 0, timestamp);
+            if ([event clickCount] >= 2) {
+              ((StdMouse *)TheMouse)->addEvent(MACOS_MOUSE_RBUTTON_DBLCLK, x, y, 0, 0, timestamp);
+            } else {
+              ((StdMouse *)TheMouse)->addEvent(MACOS_MOUSE_RBUTTON_DOWN, x, y, 0, 0, timestamp);
+            }
           }
         }
         break;
@@ -374,8 +384,7 @@ void MacOS_PumpEvents() {
             float h = [cv bounds].size.height;
             int x = (int)loc.x;
             int y = (int)(h - loc.y);
-            ((StdMouse *)TheMouse)
-                ->addEvent(MACOS_MOUSE_RBUTTON_UP, x, y, 0, 0, timestamp);
+            ((StdMouse *)TheMouse)->addEvent(MACOS_MOUSE_RBUTTON_UP, x, y, 0, 0, timestamp);
           }
         }
         break;
@@ -392,7 +401,7 @@ void MacOS_PumpEvents() {
         // Handle modifier keys (Shift, Ctrl, Alt)
         if (TheKeyboard) {
           unsigned long flags = [event modifierFlags];
-          // We could translate flags to key events here if needed
+          ((StdKeyboard *)TheKeyboard)->setModifiers(flags, timestamp);
         }
         break;
 

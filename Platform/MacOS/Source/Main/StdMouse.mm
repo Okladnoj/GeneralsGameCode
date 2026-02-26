@@ -6,16 +6,32 @@
 #include "GameClient/InGameUI.h"
 #include "always.h"
 #include "W3DDevice/GameClient/W3DAssetManager.h"
+#include "W3DDevice/GameClient/W3DDisplay.h"
+#include "W3DDevice/GameClient/W3DScene.h"
+#include "W3DDevice/Common/W3DConvert.h"
 #include "WW3D2/render2d.h"
 #include "WW3D2/texture.h"
+#include "WW3D2/hanim.h"
+#include "WW3D2/camera.h"
+#include "WW3D2/ww3d.h"
+#include "WW3D2/rendobj.h"
 #import <AppKit/AppKit.h>
 
 StdMouse::StdMouse(void) {
   m_nextFreeIndex = 0;
   m_nextGetIndex = 0;
+  m_w3dCamera = nullptr;
+  m_currentW3DCursor = NONE;
+  m_w3dAssetsLoaded = false;
+  for (int i = 0; i < NUM_MOUSE_CURSORS; i++) {
+    m_cursorModels[i] = nullptr;
+    m_cursorAnims[i] = nullptr;
+  }
 }
 
-StdMouse::~StdMouse(void) {}
+StdMouse::~StdMouse(void) {
+  freeW3DAssets();
+}
 
 void StdMouse::init(void) {
   Mouse::init();
@@ -36,7 +52,98 @@ void StdMouse::initCursorResources(void) {
   // macOS system cursors are usually fine, but we could load custom ones here
 }
 
+void StdMouse::initW3DAssets() {
+  if (m_w3dAssetsLoaded || !W3DDisplay::m_assetManager) return;
+
+  for (int i = 1; i < NUM_MOUSE_CURSORS; i++) {
+    if (!m_cursorInfo[i].W3DModelName.isEmpty()) {
+      if (m_orthoCamera) {
+        m_cursorModels[i] = W3DDisplay::m_assetManager->Create_Render_Obj(m_cursorInfo[i].W3DModelName.str(), m_cursorInfo[i].W3DScale * m_orthoZoom, 0);
+      } else {
+        m_cursorModels[i] = W3DDisplay::m_assetManager->Create_Render_Obj(m_cursorInfo[i].W3DModelName.str(), m_cursorInfo[i].W3DScale, 0);
+      }
+      if (m_cursorModels[i]) {
+        m_cursorModels[i]->Set_Position(Vector3(0.0f, 0.0f, -1.0f));
+      }
+    }
+  }
+
+  for (int i = 1; i < NUM_MOUSE_CURSORS; i++) {
+    if (!m_cursorInfo[i].W3DAnimName.isEmpty()) {
+      m_cursorAnims[i] = W3DDisplay::m_assetManager->Get_HAnim(m_cursorInfo[i].W3DAnimName.str());
+      if (m_cursorAnims[i] && m_cursorModels[i]) {
+        m_cursorModels[i]->Set_Animation(m_cursorAnims[i], 0, (m_cursorInfo[i].loop) ? RenderObjClass::ANIM_MODE_LOOP : RenderObjClass::ANIM_MODE_ONCE);
+      }
+    }
+  }
+
+  m_w3dCamera = new CameraClass();
+  m_w3dCamera->Set_Position(Vector3(0, 1, 1));
+  Vector2 min = Vector2(-1, -1);
+  Vector2 max = Vector2(+1, +1);
+  m_w3dCamera->Set_View_Plane(min, max);
+  m_w3dCamera->Set_Clip_Planes(0.995f, 20.0f);
+  if (m_orthoCamera) {
+    m_w3dCamera->Set_Projection_Type(CameraClass::ORTHO);
+  }
+
+  m_w3dAssetsLoaded = true;
+}
+
+void StdMouse::freeW3DAssets() {
+  for (int i = 0; i < NUM_MOUSE_CURSORS; i++) {
+    if (W3DDisplay::m_3DInterfaceScene && m_cursorModels[i]) {
+      W3DDisplay::m_3DInterfaceScene->Remove_Render_Object(m_cursorModels[i]);
+    }
+    REF_PTR_RELEASE(m_cursorModels[i]);
+    REF_PTR_RELEASE(m_cursorAnims[i]);
+  }
+  REF_PTR_RELEASE(m_w3dCamera);
+  m_w3dAssetsLoaded = false;
+  m_currentW3DCursor = NONE;
+}
+
+void StdMouse::setRedrawMode(RedrawMode mode) {
+  MouseCursor cursor = getMouseCursor();
+  setCursor(NONE);
+  m_currentRedrawMode = mode;
+  if (mode == RM_W3D) {
+    initW3DAssets();
+  } else {
+    freeW3DAssets();
+  }
+  setCursor(cursor);
+}
+
 void StdMouse::setCursor(MouseCursor cursor) {
+  Mouse::setCursor(cursor);
+
+  if (m_currentCursor == cursor && m_currentW3DCursor == cursor) {
+    return;
+  }
+
+  if (m_currentRedrawMode == RM_W3D) {
+    if (cursor != m_currentW3DCursor) {
+      if (!m_w3dAssetsLoaded) {
+        initW3DAssets();
+      }
+      if (m_currentW3DCursor != NONE && m_cursorModels[m_currentW3DCursor] && W3DDisplay::m_3DInterfaceScene) {
+        W3DDisplay::m_3DInterfaceScene->Remove_Render_Object(m_cursorModels[m_currentW3DCursor]);
+      }
+      m_currentW3DCursor = cursor;
+      if (m_currentW3DCursor != NONE && m_cursorModels[m_currentW3DCursor] && W3DDisplay::m_3DInterfaceScene) {
+        W3DDisplay::m_3DInterfaceScene->Add_Render_Object(m_cursorModels[m_currentW3DCursor]);
+        if (m_cursorInfo[m_currentW3DCursor].loop == FALSE && m_cursorAnims[m_currentW3DCursor]) {
+          m_cursorModels[m_currentW3DCursor]->Set_Animation(m_cursorAnims[m_currentW3DCursor], 0, RenderObjClass::ANIM_MODE_ONCE);
+        }
+      }
+    } else {
+      m_currentW3DCursor = cursor;
+    }
+  }
+
+  m_currentCursor = cursor;
+
   // Map engine cursors to macOS cursors
 #if defined(__APPLE__) && defined(__OBJC__)
   @autoreleasepool {
@@ -61,16 +168,12 @@ void StdMouse::setCursor(MouseCursor cursor) {
 
 void StdMouse::setVisibility(Bool visible) {
   m_visible = visible;
-  printf("DEBUG: StdMouse::setVisibility(%s) -> m_visible is now %d\n",
-         visible ? "TRUE" : "FALSE", (int)m_visible);
-  fflush(stdout);
 #if defined(__APPLE__) && defined(__OBJC__)
   @autoreleasepool {
     if (visible) {
       [NSCursor unhide];
     } else {
-      // Force unhide for now to help debugging
-      [NSCursor unhide];
+      [NSCursor hide];
     }
   }
 #endif
@@ -80,10 +183,60 @@ void StdMouse::draw(void) {
   // NOTE: do NOT check m_visible here — that flag controls the OS cursor.
   // W3DMouse::draw() also doesn't check m_visible for DX8/POLYGON modes.
 
+  setCursor(m_currentCursor);
+
+  if (m_currentRedrawMode == RM_W3D) {
+    if (W3DDisplay::m_3DInterfaceScene && m_w3dCamera && m_visible) {
+      if (m_currentW3DCursor != NONE && m_cursorModels[m_currentW3DCursor]) {
+        Real xPercent = (1.0f - (TheDisplay->getWidth() - m_currMouse.pos.x) / (Real)TheDisplay->getWidth());
+        Real yPercent = ((TheDisplay->getHeight() - m_currMouse.pos.y) / (Real)TheDisplay->getHeight());
+
+        Real x, y, z = -1.0f;
+
+        if (m_orthoCamera) {
+          x = xPercent * 2 - 1;
+          y = yPercent * 2;
+        } else {
+          Real logX, logY;
+          PixelScreenToW3DLogicalScreen(m_currMouse.pos.x, m_currMouse.pos.y, &logX, &logY, TheDisplay->getWidth(), TheDisplay->getHeight());
+
+          Vector3 rayStart;
+          Vector3 rayEnd;
+          rayStart = m_w3dCamera->Get_Position();
+          m_w3dCamera->Un_Project(rayEnd, Vector2(logX, logY));
+          rayEnd -= rayStart;
+          rayEnd.Normalize();
+          rayEnd *= m_w3dCamera->Get_Depth();
+          rayEnd += rayStart;
+
+          x = Vector3::Find_X_At_Z(z, rayStart, rayEnd);
+          y = Vector3::Find_Y_At_Z(z, rayStart, rayEnd);
+        }
+
+        Matrix3D tm(1);
+        tm.Set_Translation(Vector3(x, y, z));
+        Coord2D offset = {0, 0};
+        if (TheInGameUI && TheInGameUI->isScrolling()) {
+          offset = TheInGameUI->getScrollAmount();
+          offset.normalize();
+          Real theta = atan2(-offset.y, offset.x);
+          theta -= (Real)M_PI / 2;
+          tm.Rotate_Z(theta);
+        }
+        m_cursorModels[m_currentW3DCursor]->Set_Transform(tm);
+
+        WW3D::Render(W3DDisplay::m_3DInterfaceScene, m_w3dCamera);
+      }
+    }
+    
+    drawCursorText();
+    if (m_visible) {
+      drawTooltip();
+    }
+    return;
+  }
+
   // --- Full W3DMouse-equivalent cursor rendering (2D texture mode) ---
-  // TODO: RM_W3D mode not implemented — 3D model cursors (green targeting
-  //   crosshairs, red attack circles, move arrows) are rendered as 2D fallback.
-  //   Needs: W3D model loading, ortho camera, WW3D::Render() per-frame.
   // Load multi-frame TGA textures via WW3DAssetManager, animate per FPS,
   // handle directional cursors (8 scroll directions).
 
@@ -232,34 +385,27 @@ void StdMouse::loseFocus() {
 }
 
 UnsignedByte StdMouse::getMouseEvent(MouseIO *result, Bool flush) {
-  static int pollCount = 0;
-  if (pollCount++ % 500 == 0) {
-    // printf("DEBUG: StdMouse::getMouseEvent polled %d times, buffer
-    // size=%d\n",
-    //        pollCount, (m_nextFreeIndex - m_nextGetIndex + MAX_EVENTS) %
-    //        MAX_EVENTS);
-    // fflush(stdout);
-  }
+  // Match Win32Mouse::getMouseEvent behavior exactly:
+  // When buffer is empty, return MOUSE_NONE without touching result.
+  // This is critical because updateMouseData() increments index after this call,
+  // and if we write zeroed button states into result, the engine processes them
+  // as MBS_Up events which immediately kill any ongoing drag.
 
   if (m_nextGetIndex == m_nextFreeIndex) {
-    if (result) {
-      memset(result, 0, sizeof(MouseIO));
-      result->pos = m_currMouse.pos;
-      result->leftState = m_currMouse.leftState;
-      result->rightState = m_currMouse.rightState;
-      result->middleState = m_currMouse.middleState;
-    }
-    return 0;
+    return MOUSE_NONE;
   }
 
   MacOSMouseEvent &ev = m_eventBuffer[m_nextGetIndex];
   m_nextGetIndex = (m_nextGetIndex + 1) % MAX_EVENTS;
 
-  memset(result, 0, sizeof(MouseIO));
+  // Zero everything first, same as Win32Mouse::translateEvent
+  result->leftState = result->middleState = result->rightState = MBS_None;
+  result->pos.x = result->pos.y = result->wheelPos = 0;
+  result->time = ev.time;
+
+  // Set position for all events
   result->pos.x = ev.x;
   result->pos.y = ev.y;
-  result->time = ev.time;
-  result->wheelPos = ev.wheelDelta;
 
   switch (ev.type) {
   case MACOS_MOUSE_LBUTTON_DOWN:
@@ -268,11 +414,17 @@ UnsignedByte StdMouse::getMouseEvent(MouseIO *result, Bool flush) {
   case MACOS_MOUSE_LBUTTON_UP:
     result->leftState = MBS_Up;
     break;
+  case MACOS_MOUSE_LBUTTON_DBLCLK:
+    result->leftState = MBS_DoubleClick;
+    break;
   case MACOS_MOUSE_RBUTTON_DOWN:
     result->rightState = MBS_Down;
     break;
   case MACOS_MOUSE_RBUTTON_UP:
     result->rightState = MBS_Up;
+    break;
+  case MACOS_MOUSE_RBUTTON_DBLCLK:
+    result->rightState = MBS_DoubleClick;
     break;
   case MACOS_MOUSE_MBUTTON_DOWN:
     result->middleState = MBS_Down;
@@ -280,17 +432,15 @@ UnsignedByte StdMouse::getMouseEvent(MouseIO *result, Bool flush) {
   case MACOS_MOUSE_MBUTTON_UP:
     result->middleState = MBS_Up;
     break;
+  case MACOS_MOUSE_WHEEL:
+    result->wheelPos = ev.wheelDelta;
+    break;
   default:
+    // MACOS_MOUSE_MOVE: just position, all button states stay MBS_None
     break;
   }
 
-  if (ev.type != MACOS_MOUSE_MOVE) {
-    printf("INPUT: Mouse Event type=%d pos=(%d,%d) L-State=%d\n", ev.type, ev.x,
-           ev.y, (int)result->leftState);
-    fflush(stdout);
-  }
-
-  return 1;
+  return MOUSE_OK;
 }
 
 void StdMouse::addEvent(int type, int x, int y, int button, int wheelDelta,
@@ -303,16 +453,6 @@ void StdMouse::addEvent(int type, int x, int y, int button, int wheelDelta,
   if (type == MACOS_MOUSE_MOVE) {
     lastX = x;
     lastY = y;
-  }
-
-  // Update position immediately so 'draw' stays in sync
-  m_currMouse.pos.x = x;
-  m_currMouse.pos.y = y;
-
-  // LOG ALL BUTTON EVENTS
-  if (type != MACOS_MOUSE_MOVE) {
-    printf("QUEUE: addEvent type=%d at (%d, %d)\n", type, x, y);
-    fflush(stdout);
   }
 
   unsigned int nextIndex = (m_nextFreeIndex + 1) % MAX_EVENTS;
