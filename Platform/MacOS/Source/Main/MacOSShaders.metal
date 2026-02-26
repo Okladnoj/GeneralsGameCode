@@ -167,7 +167,12 @@ struct VertexOut {
     float2 texCoord;
     float2 texCoord2;
     float fogFactor;
-    float3 cameraPosUV; // camera-space position for TCI_CAMERASPACEPOSITION
+    // Camera-space position for TCI_CAMERASPACEPOSITION.
+    // Using 3 separate floats instead of float3 to avoid 16-byte alignment
+    // padding that corrupts fogFactor interpolation in Metal rasterizer.
+    float camPosX;
+    float camPosY;
+    float camPosZ;
 };
 
 // ─────────────────────────────────────────────────────
@@ -197,6 +202,13 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     
     out.texCoord = in.texCoord;
     out.texCoord2 = in.texCoord2;
+    
+    // Compute camera-space position for D3DTSS_TCI_CAMERASPACEPOSITION
+    float4 worldPos = uniforms.world * pos;
+    float4 camPos = uniforms.view * worldPos;
+    out.camPosX = camPos.x;
+    out.camPosY = camPos.y;
+    out.camPosZ = camPos.z;
     
     out.specularColor = float4(0.0, 0.0, 0.0, 0.0);
     
@@ -510,19 +522,42 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                              sampler sampler2 [[sampler(2)]],
                              sampler sampler3 [[sampler(3)]]) {
     
-    // Select UV coordinates based on D3DTSS_TEXCOORDINDEX per stage
-    float2 uv0 = (fragUniforms.texCoordIndex[0] == 1) ? in.texCoord2 : in.texCoord;
-    float2 uv1 = (fragUniforms.texCoordIndex[1] == 0) ? in.texCoord  : in.texCoord2;
-    float2 uv2 = (fragUniforms.texCoordIndex[2] == 1) ? in.texCoord2 : in.texCoord;
-    float2 uv3 = (fragUniforms.texCoordIndex[3] == 1) ? in.texCoord2 : in.texCoord;
+    // Select UV and apply texture coordinate transforms per stage.
+    // D3DTSS_TEXCOORDINDEX combines two fields:
+    //   Bits 16-17: TCI mode (0=PASSTHRU, 1=CAMERASPACEPOSITION, 2=CAMERASPACENORMAL)
+    //   Bits 0-1: which UV set to use (for PASSTHRU mode)
+    //
+    // For TCI_CAMERASPACEPOSITION: the texture matrix expects the FULL 3D camera-space
+    // position (x,y,z,1), not just the 2D UV. The matrix projects 3D → 2D UV.
+    // For PASSTHRU: the texture matrix transforms 2D UV as (u,v,0,1).
+    auto computeUV = [&](uint tci, uint stage) -> float2 {
+        uint tciMode = (tci >> 16) & 0x3;
+        uint uvIndex = tci & 0x3;
+        
+        if (tciMode == 1 && uniforms.useProjection == 1) {
+            // D3DTSS_TCI_CAMERASPACEPOSITION: full 3D position through texture matrix
+            if (uniforms.texTransformFlags[stage] != 0) {
+                float4 tc = uniforms.texMatrix[stage] * float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
+                return tc.xy;
+            }
+            return float2(in.camPosX, in.camPosY);
+        }
+        
+        // D3DTSS_TCI_PASSTHRU: use vertex UV set.
+        // TODO(PS_PATH): This workaround skips texTransformFlags for PASSTHRU to prevent
+        // stale state from cloud/noise TSS passes causing black terrain. Once PS path is
+        // active (terrain renders via pixel shader, not TSS), restore proper transform:
+        //   float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+        //   if (uniforms.texTransformFlags[stage] != 0)
+        //       uv = (uniforms.texMatrix[stage] * float4(uv, 0.0, 1.0)).xy;
+        //   return uv;
+        return (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+    };
     
-    // Apply per-stage texture coordinate transforms (D3DTS_TEXTURE0..3)
-    // Done in fragment shader so each stage gets its own transform independent of UV set.
-    // Linear transform commutes with linear interpolation, so result is identical to vertex-side.
-    if (uniforms.texTransformFlags[0] != 0) uv0 = (uniforms.texMatrix[0] * float4(uv0, 0.0, 1.0)).xy;
-    if (uniforms.texTransformFlags[1] != 0) uv1 = (uniforms.texMatrix[1] * float4(uv1, 0.0, 1.0)).xy;
-    if (uniforms.texTransformFlags[2] != 0) uv2 = (uniforms.texMatrix[2] * float4(uv2, 0.0, 1.0)).xy;
-    if (uniforms.texTransformFlags[3] != 0) uv3 = (uniforms.texMatrix[3] * float4(uv3, 0.0, 1.0)).xy;
+    float2 uv0 = computeUV(fragUniforms.texCoordIndex[0], 0);
+    float2 uv1 = computeUV(fragUniforms.texCoordIndex[1], 1);
+    float2 uv2 = computeUV(fragUniforms.texCoordIndex[2], 2);
+    float2 uv3 = computeUV(fragUniforms.texCoordIndex[3], 3);
     
     // Sample textures using their respective UV coordinates
     float4 texColor0 = (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, uv0) : float4(1.0);
