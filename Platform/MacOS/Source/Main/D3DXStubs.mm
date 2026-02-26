@@ -127,6 +127,59 @@ static void DecompressDXT1(int w, int h, const uint8_t *src, uint8_t *dst) {
   }
 }
 
+static void DecompressDXT3(int w, int h, const uint8_t *src, uint8_t *dst) {
+  int bw = (w + 3) / 4, bh = (h + 3) / 4;
+  for (int by = 0; by < bh; by++) {
+    for (int bx = 0; bx < bw; bx++) {
+      // DXT3 Alpha Block: 64 bits (4 bits per pixel * 16 pixels)
+      uint16_t alphaRow[4];
+      for (int i = 0; i < 4; i++) {
+        alphaRow[i] = src[i*2] | (src[i*2 + 1] << 8);
+      }
+      src += 8;
+      
+      // DXT1/3/5 Color Block: 64 bits
+      uint16_t c0 = src[0] | (src[1] << 8);
+      uint16_t c1 = src[2] | (src[3] << 8);
+      uint32_t bits = src[4] | (src[5] << 8) | (src[6] << 16) | (src[7] << 24);
+      src += 8;
+      
+      uint8_t colors[4][3];
+      colors[0][0] = ((c0 >> 11) & 0x1F) * 255 / 31;
+      colors[0][1] = ((c0 >> 5) & 0x3F) * 255 / 63;
+      colors[0][2] = (c0 & 0x1F) * 255 / 31;
+      colors[1][0] = ((c1 >> 11) & 0x1F) * 255 / 31;
+      colors[1][1] = ((c1 >> 5) & 0x3F) * 255 / 63;
+      colors[1][2] = (c1 & 0x1F) * 255 / 31;
+      for (int i = 0; i < 3; i++) {
+        colors[2][i] = (2 * colors[0][i] + colors[1][i]) / 3;
+        colors[3][i] = (colors[0][i] + 2 * colors[1][i]) / 3;
+      }
+      
+      for (int py = 0; py < 4; py++) {
+        for (int px = 0; px < 4; px++) {
+          int x = bx * 4 + px, y = by * 4 + py;
+          if (x >= w || y >= h) {
+            bits >>= 2;
+            continue;
+          }
+          int ci = bits & 3;
+          bits >>= 2;
+          
+          uint8_t a = (alphaRow[py] >> (px * 4)) & 0xF;
+          a = a | (a << 4); // scale to 255
+          
+          int off = (y * w + x) * 4;
+          dst[off + 0] = colors[ci][2]; // B
+          dst[off + 1] = colors[ci][1]; // G
+          dst[off + 2] = colors[ci][0]; // R
+          dst[off + 3] = a;             // A
+        }
+      }
+    }
+  }
+}
+
 static void DecompressDXT5(int w, int h, const uint8_t *src, uint8_t *dst) {
   int bw = (w + 3) / 4, bh = (h + 3) / 4;
   for (int by = 0; by < bh; by++) {
@@ -305,12 +358,10 @@ HRESULT WINAPI D3DXCreateTextureFromFileExA(
       const uint8_t *src = (const uint8_t *)(dh + 1);
       if (fourcc == FOURCC_DXT1)
         DecompressDXT1(dw, dh_h, src, rgba.data());
+      else if (fourcc == FOURCC_DXT3)
+        DecompressDXT3(dw, dh_h, src, rgba.data());
       else if (fourcc == FOURCC_DXT5)
         DecompressDXT5(dw, dh_h, src, rgba.data());
-      else {
-        // DXT3 — use DXT5 path as approximation for now
-        DecompressDXT5(dw, dh_h, src, rgba.data());
-      }
 
       IDirect3DTexture8 *tex = nullptr;
       HRESULT hr = pDevice->CreateTexture(dw, dh_h, 1, 0, D3DFMT_A8R8G8B8,
@@ -350,10 +401,21 @@ HRESULT WINAPI D3DXCreateTextureFromFileExA(
           const uint8_t *sline = src + y * dw2 * bpp;
           uint8_t *dline = (uint8_t *)lr.pBits + y * lr.Pitch;
           for (int x = 0; x < dw2; x++) {
-            dline[x * 4 + 0] = sline[x * bpp + 0]; // B
-            dline[x * 4 + 1] = sline[x * bpp + 1]; // G
-            dline[x * 4 + 2] = sline[x * bpp + 2]; // R
-            dline[x * 4 + 3] = (bpp >= 4) ? sline[x * bpp + 3] : 255;
+            uint8_t b = sline[x * bpp + 0];
+            uint8_t g = sline[x * bpp + 1];
+            uint8_t r = sline[x * bpp + 2];
+            uint8_t a = (bpp >= 4) ? sline[x * bpp + 3] : 255;
+            if (ColorKey != 0) {
+              uint32_t px_rgb = (r << 16) | (g << 8) | b;
+              uint32_t ck_rgb = ColorKey & 0xFFFFFF;
+              if (px_rgb == ck_rgb) {
+                r = g = b = a = 0;
+              }
+            }
+            dline[x * 4 + 0] = b;
+            dline[x * 4 + 1] = g;
+            dline[x * 4 + 2] = r;
+            dline[x * 4 + 3] = a;
           }
         }
         tex->UnlockRect(0);
@@ -441,10 +503,21 @@ HRESULT WINAPI D3DXCreateTextureFromFileExA(
         dline[x * 4 + 2] = palette[idx].r;
         dline[x * 4 + 3] = palette[idx].a;
       } else {
-        dline[x * 4 + 0] = sline[x * bv + 0]; // B
-        dline[x * 4 + 1] = sline[x * bv + 1]; // G
-        dline[x * 4 + 2] = sline[x * bv + 2]; // R
-        dline[x * 4 + 3] = (bv == 4) ? sline[x * bv + 3] : 255;
+        uint8_t b = sline[x * bv + 0];
+        uint8_t g = sline[x * bv + 1];
+        uint8_t r = sline[x * bv + 2];
+        uint8_t a = (bv == 4) ? sline[x * bv + 3] : 255;
+        if (ColorKey != 0) {
+          uint32_t px_rgb = (r << 16) | (g << 8) | b;
+          uint32_t ck_rgb = ColorKey & 0xFFFFFF;
+          if (px_rgb == ck_rgb) {
+            r = g = b = a = 0;
+          }
+        }
+        dline[x * 4 + 0] = b; // B
+        dline[x * 4 + 1] = g; // G
+        dline[x * 4 + 2] = r; // R
+        dline[x * 4 + 3] = a;
       }
     }
   }

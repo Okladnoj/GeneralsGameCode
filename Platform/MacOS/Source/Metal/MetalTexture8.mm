@@ -143,20 +143,39 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
         bytesPerRow = blocksWide * bpp;
         dataSize = bytesPerRow * blocksHigh;
       } else {
-        bytesPerRow = w * bpp;
+        UINT mtlBpp = bpp;
+        if (desc.pixelFormat == MTLPixelFormatBGRA8Unorm || desc.pixelFormat == MTLPixelFormatRGBA8Unorm) {
+          mtlBpp = 4;
+        }
+        bytesPerRow = w * mtlBpp;
         dataSize = bytesPerRow * h;
       }
-      void *zeros = calloc(1, dataSize);
-      if (zeros) {
+      
+      void *initData = malloc(dataSize);
+      if (initData) {
+        if (usage & D3DUSAGE_RENDERTARGET) {
+          memset(initData, 0xFF, dataSize);
+        } else if (format == D3DFMT_DXT1) {
+          // 0x00 creates opaque black for DXT1. We need transparent (code 3).
+          // 00 00 (c0) 00 00 (c1) FF FF FF FF (indices)
+          uint8_t *p = (uint8_t *)initData;
+          for (UINT i = 0; i < dataSize; i += 8) {
+            p[i+0] = 0; p[i+1] = 0; p[i+2] = 0; p[i+3] = 0;
+            p[i+4] = 0xFF; p[i+5] = 0xFF; p[i+6] = 0xFF; p[i+7] = 0xFF;
+          }
+        } else {
+          memset(initData, 0, dataSize);
+        }
+        
         MTLRegion region = MTLRegionMake2D(0, 0, w, h);
         if (isCompressed) {
           UINT blocksHigh = std::max(1u, (h + 3) / 4);
           [tex replaceRegion:region mipmapLevel:lvl slice:0
-                   withBytes:zeros bytesPerRow:bytesPerRow bytesPerImage:bytesPerRow * blocksHigh];
+                   withBytes:initData bytesPerRow:bytesPerRow bytesPerImage:bytesPerRow * blocksHigh];
         } else {
-          [tex replaceRegion:region mipmapLevel:lvl withBytes:zeros bytesPerRow:bytesPerRow];
+          [tex replaceRegion:region mipmapLevel:lvl withBytes:initData bytesPerRow:bytesPerRow];
         }
-        free(zeros);
+        free(initData);
       }
     }
   }
@@ -335,7 +354,7 @@ STDMETHODIMP MetalTexture8::LockRect(UINT Level, D3DLOCKED_RECT *pLockedRect,
     dataSize = pitch * height;
   }
 
-  void *data = malloc(dataSize);
+  void *data = calloc(1, dataSize);
   if (!data)
     return D3DERR_OUTOFVIDEOMEMORY;
 
@@ -345,10 +364,11 @@ STDMETHODIMP MetalTexture8::LockRect(UINT Level, D3DLOCKED_RECT *pLockedRect,
   if (m_Texture && !(Flags & D3DLOCK_DISCARD) && !isCompressed && m_HasBeenWritten) {
     id<MTLTexture> mtlTex = (__bridge id<MTLTexture>)m_Texture;
     MTLRegion region = MTLRegionMake2D(0, 0, width, height);
-    [mtlTex getBytes:data bytesPerRow:pitch fromRegion:region mipmapLevel:Level];
-  } else {
-    // Zero-fill for fresh textures or compressed formats
-    memset(data, 0, dataSize);
+    bool is16Bit = (m_Format == D3DFMT_R5G6B5 || m_Format == D3DFMT_X1R5G5B5 ||
+                    m_Format == D3DFMT_A1R5G5B5 || m_Format == D3DFMT_A4R4G4B4);
+    if (!is16Bit) {
+      [mtlTex getBytes:data bytesPerRow:pitch fromRegion:region mipmapLevel:Level];
+    }
   }
 
   uint8_t *pBits = (uint8_t *)data;
