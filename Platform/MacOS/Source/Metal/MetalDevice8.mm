@@ -90,6 +90,9 @@ MetalDevice8::MetalDevice8()
   setIdentity(m_Transforms[D3DTS_VIEW]);
   setIdentity(m_Transforms[D3DTS_PROJECTION]);
   setIdentity(m_Transforms[D3DTS_WORLD]);
+  for (int i = 0; i < 4; ++i) {
+    setIdentity(m_Transforms[D3DTS_TEXTURE0 + i]);
+  }
 
   // DX8 default render states (per spec)
   m_RenderStates[D3DRS_ZENABLE] = TRUE;           // Depth testing on
@@ -232,9 +235,11 @@ struct MetalUniforms {
   simd::float4x4 world;
   simd::float4x4 view;
   simd::float4x4 projection;
+  simd::float4x4 texMatrix[4];  // D3DTS_TEXTURE0..3 — UV transform matrices
   simd::float2 screenSize;
   int useProjection; // 0=None, 1=3D, 2=2D(ScreenSpace)
   uint32_t shaderSettings;
+  uint32_t texTransformFlags[4]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
 };
 
 // Stage 7: TextureStageConfig (matches MacOSShaders.metal)
@@ -1725,6 +1730,12 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
   u.shaderSettings = 0; // legacy (unused by new shader)
 
+  // Texture transform matrices and flags
+  for (int s = 0; s < 4; ++s) {
+    memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
+    u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
+  }
+
   [MTL_ENCODER setVertexBytes:&u length:sizeof(u) atIndex:1];
   [MTL_ENCODER setFragmentBytes:&u length:sizeof(u) atIndex:1];
 
@@ -2054,6 +2065,12 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   u.screenSize.y = m_ScreenHeight;
   u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
   u.shaderSettings = 0; // legacy
+
+  // Texture transform matrices and flags
+  for (int s = 0; s < 4; ++s) {
+    memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
+    u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
+  }
 
   // --- Diagnostic: dump matrices for 3D draw calls ---
   static int diagLog3D = 0;
@@ -2546,6 +2563,12 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   u.screenSize.y = m_ScreenHeight;
   u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
   u.shaderSettings = 0;
+
+  // Texture transform matrices and flags
+  for (int s = 0; s < 4; ++s) {
+    memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
+    u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
+  }
   [MTL_ENCODER setVertexBytes:&u length:sizeof(u) atIndex:1];
   [MTL_ENCODER setFragmentBytes:&u length:sizeof(u) atIndex:1];
 

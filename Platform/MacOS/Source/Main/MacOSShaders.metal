@@ -8,9 +8,11 @@ struct Uniforms {
     float4x4 world;
     float4x4 view;
     float4x4 projection;
+    float4x4 texMatrix[4];  // D3DTS_TEXTURE0..3 — UV transform matrices
     float2 screenSize;
     int useProjection;      // 0=passthrough, 1=3D, 2=2D screen space
     uint shaderSettings;    // legacy bitfield (texturing bit etc.)
+    uint texTransformFlags[4]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
 };
 
 // ─────────────────────────────────────────────────────
@@ -194,6 +196,18 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     
     out.texCoord = in.texCoord;
     out.texCoord2 = in.texCoord2;
+    
+    // Apply texture coordinate transforms (D3DTS_TEXTURE0..1)
+    // D3DTTFF_COUNT2 = 2: transform UV as 2D coordinates through the texture matrix
+    if (uniforms.texTransformFlags[0] != 0) {
+        float4 tc = uniforms.texMatrix[0] * float4(out.texCoord, 0.0, 1.0);
+        out.texCoord = tc.xy;
+    }
+    if (uniforms.texTransformFlags[1] != 0) {
+        float4 tc = uniforms.texMatrix[1] * float4(out.texCoord2, 0.0, 1.0);
+        out.texCoord2 = tc.xy;
+    }
+    
     out.specularColor = float4(0.0, 0.0, 0.0, 0.0);
     
     // For 2D/screen-space vertices (XYZRHW), skip fog entirely.
