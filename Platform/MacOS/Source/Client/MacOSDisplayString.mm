@@ -322,6 +322,7 @@ public:
     return s;
   }
   virtual void freeDisplayString(DisplayString *string) override {
+    if (!string) return;
     unLink(string);
     deleteInstance(string);
   }
