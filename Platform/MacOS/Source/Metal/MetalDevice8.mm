@@ -2760,6 +2760,9 @@ HRESULT MetalDevice8::GetIndices(IDirect3DIndexBuffer8 **ib, UINT *base) {
 // ─────────────────────────────────────────────────────
 
 STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
+  // Return a dummy handle so callers don't crash, but pixel shaders won't actually execute.
+  // The TSS-based fallback shaders are selected by reporting PixelShaderVersion = 0x0000
+  // in GetDeviceCaps, which makes getChipset() return below DC_GENERIC_PIXEL_SHADER_1_1.
   static DWORD s_nextPS = 1;
   if (handle) {
     *handle = (1 << 31) | s_nextPS++;
