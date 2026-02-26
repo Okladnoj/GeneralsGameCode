@@ -166,8 +166,8 @@ struct VertexOut {
     float4 specularColor;
     float2 texCoord;
     float2 texCoord2;
-    float3 cameraPosUV; // camera-space position for TCI_CAMERASPACEPOSITION
     float fogFactor;
+    float3 cameraPosUV; // camera-space position for TCI_CAMERASPACEPOSITION
 };
 
 // ─────────────────────────────────────────────────────
@@ -618,9 +618,6 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
 
     // Discard fully opaque black fragments from 3D textured geometry.
     // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
-    // Only discard when the RAW texture sample is black and fully opaque.
-    // This check uses the raw texture color (before TSS), not the final result,
-    // to avoid discarding intentionally dark fragments (shadows, dark materials).
     if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
         dot(texColor0.rgb, float3(1.0)) < 0.001 && texColor0.a > 0.99) {
         discard_fragment();
