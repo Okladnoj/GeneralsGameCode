@@ -197,17 +197,6 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     out.texCoord = in.texCoord;
     out.texCoord2 = in.texCoord2;
     
-    // Apply texture coordinate transforms (D3DTS_TEXTURE0..1)
-    // D3DTTFF_COUNT2 = 2: transform UV as 2D coordinates through the texture matrix
-    if (uniforms.texTransformFlags[0] != 0) {
-        float4 tc = uniforms.texMatrix[0] * float4(out.texCoord, 0.0, 1.0);
-        out.texCoord = tc.xy;
-    }
-    if (uniforms.texTransformFlags[1] != 0) {
-        float4 tc = uniforms.texMatrix[1] * float4(out.texCoord2, 0.0, 1.0);
-        out.texCoord2 = tc.xy;
-    }
-    
     out.specularColor = float4(0.0, 0.0, 0.0, 0.0);
     
     // For 2D/screen-space vertices (XYZRHW), skip fog entirely.
@@ -525,6 +514,14 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     float2 uv1 = (fragUniforms.texCoordIndex[1] == 0) ? in.texCoord  : in.texCoord2;
     float2 uv2 = (fragUniforms.texCoordIndex[2] == 1) ? in.texCoord2 : in.texCoord;
     float2 uv3 = (fragUniforms.texCoordIndex[3] == 1) ? in.texCoord2 : in.texCoord;
+    
+    // Apply per-stage texture coordinate transforms (D3DTS_TEXTURE0..3)
+    // Done in fragment shader so each stage gets its own transform independent of UV set.
+    // Linear transform commutes with linear interpolation, so result is identical to vertex-side.
+    if (uniforms.texTransformFlags[0] != 0) uv0 = (uniforms.texMatrix[0] * float4(uv0, 0.0, 1.0)).xy;
+    if (uniforms.texTransformFlags[1] != 0) uv1 = (uniforms.texMatrix[1] * float4(uv1, 0.0, 1.0)).xy;
+    if (uniforms.texTransformFlags[2] != 0) uv2 = (uniforms.texMatrix[2] * float4(uv2, 0.0, 1.0)).xy;
+    if (uniforms.texTransformFlags[3] != 0) uv3 = (uniforms.texMatrix[3] * float4(uv3, 0.0, 1.0)).xy;
     
     // Sample textures using their respective UV coordinates
     float4 texColor0 = (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, uv0) : float4(1.0);
