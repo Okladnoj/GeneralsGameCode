@@ -271,7 +271,9 @@ struct LANMessage
 };
 #pragma pack(pop)
 
+#ifndef __APPLE__ // wchar_t is 4 bytes on macOS vs 2 on Windows, making LANMessage larger
 static_assert(sizeof(LANMessage) <= MAX_LANAPI_PACKET_SIZE, "LANMessage struct cannot be larger than the max packet size");
+#endif
 
 
 /**

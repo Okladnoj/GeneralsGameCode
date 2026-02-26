@@ -20,16 +20,16 @@ UINT BytesPerPixelFromD3D(D3DFORMAT fmt) {
   case D3DFMT_A4R4G4B4:
   case D3DFMT_V8U8:
   case D3DFMT_L6V5U5:
+  case D3DFMT_A8L8:
+  case D3DFMT_A8P8:
     return 2;
   case D3DFMT_R8G8B8:
     return 3;
   case D3DFMT_A8:
   case D3DFMT_L8:
   case D3DFMT_P8:
+  case D3DFMT_A4L4:
     return 1;
-  case D3DFMT_A8L8:
-  case D3DFMT_A8P8:
-    return 2;
   case D3DFMT_DXT1:
     return 8; // Per 4x4 block (8 bytes)
   case D3DFMT_DXT2:
@@ -47,6 +47,7 @@ MTLPixelFormat MetalFormatFromD3D(D3DFORMAT fmt) {
   switch (fmt) {
   case D3DFMT_A8R8G8B8:
   case D3DFMT_X8R8G8B8:
+  case D3DFMT_R8G8B8:     // 24-bit → promoted to 32-bit BGRA in UnlockRect
     return MTLPixelFormatBGRA8Unorm;
 
   // 16-bit formats → BGRA8Unorm (CPU conversion in UnlockRect)
@@ -69,8 +70,10 @@ MTLPixelFormat MetalFormatFromD3D(D3DFORMAT fmt) {
 
   case D3DFMT_A8L8:
   case D3DFMT_A8P8:
-  case D3DFMT_A4L4:
     return MTLPixelFormatRG8Unorm;
+
+  case D3DFMT_A4L4:
+    return MTLPixelFormatRG8Unorm; // CPU conversion: 4+4 bits → 8+8 bits
 
   // macOS Metal supports BC compression
   case D3DFMT_DXT1:
@@ -515,6 +518,50 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
              withBytes:lvl.ptr
            bytesPerRow:bytesPerRow
          bytesPerImage:bytesPerImage];
+  } else if (m_Format == D3DFMT_R8G8B8) {
+    // Convert 24-bit BGR to 32-bit BGRA (add alpha=255)
+    UINT dstPitch = width * 4;
+    uint8_t *converted = (uint8_t *)malloc(dstPitch * height);
+    if (converted) {
+      const uint8_t *src = (const uint8_t *)lvl.ptr;
+      for (UINT y = 0; y < height; y++) {
+        const uint8_t *srow = src + y * lvl.pitch;
+        uint8_t *drow = converted + y * dstPitch;
+        for (UINT x = 0; x < width; x++) {
+          drow[x * 4 + 0] = srow[x * 3 + 0]; // B
+          drow[x * 4 + 1] = srow[x * 3 + 1]; // G
+          drow[x * 4 + 2] = srow[x * 3 + 2]; // R
+          drow[x * 4 + 3] = 255;              // A
+        }
+      }
+      [tex replaceRegion:region
+             mipmapLevel:Level
+               withBytes:converted
+             bytesPerRow:dstPitch];
+      free(converted);
+    }
+  } else if (m_Format == D3DFMT_A4L4) {
+    // Convert A4L4 (8-bit) to RG8Unorm (16-bit)
+    // Low 4 bits = luminance → R, high 4 bits = alpha → G
+    UINT dstPitch = width * 2;
+    uint8_t *converted = (uint8_t *)malloc(dstPitch * height);
+    if (converted) {
+      const uint8_t *src = (const uint8_t *)lvl.ptr;
+      for (UINT y = 0; y < height; y++) {
+        const uint8_t *srow = src + y * lvl.pitch;
+        uint8_t *drow = converted + y * dstPitch;
+        for (UINT x = 0; x < width; x++) {
+          uint8_t px = srow[x];
+          drow[x * 2 + 0] = (uint8_t)(((px     ) & 0x0F) * 255 / 15); // luminance
+          drow[x * 2 + 1] = (uint8_t)(((px >> 4) & 0x0F) * 255 / 15); // alpha
+        }
+      }
+      [tex replaceRegion:region
+             mipmapLevel:Level
+               withBytes:converted
+             bytesPerRow:dstPitch];
+      free(converted);
+    }
   } else if (Is16BitFormat(m_Format)) {
     // Convert 16-bit source data to 32-bit BGRA8 before uploading to Metal
     UINT dstPitch = 0;

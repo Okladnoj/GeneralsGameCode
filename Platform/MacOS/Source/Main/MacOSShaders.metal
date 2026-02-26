@@ -84,6 +84,7 @@ struct FragmentUniforms {
     uint   hasTexture[4];
     uint   specularEnable;
     uint   texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX: which UV set each stage uses
+    uint   texIsLuminance[4]; // 1 for L8/P8 formats: replicate .r to RGB
 };
 
 // ─────────────────────────────────────────────────────
@@ -516,6 +517,13 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     float4 texColor1 = (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, uv1) : float4(1.0);
     float4 texColor2 = (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, uv2) : float4(1.0);
     float4 texColor3 = (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, uv3) : float4(1.0);
+    
+    // L8/P8 luminance replication: Metal maps L8 → R8Unorm which samples as (r,0,0,1).
+    // DX8 FFP replicates luminance to all RGB channels: (L,L,L,1).
+    if (fragUniforms.texIsLuminance[0] != 0) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, texColor0.a);
+    if (fragUniforms.texIsLuminance[1] != 0) texColor1 = float4(texColor1.r, texColor1.r, texColor1.r, texColor1.a);
+    if (fragUniforms.texIsLuminance[2] != 0) texColor2 = float4(texColor2.r, texColor2.r, texColor2.r, texColor2.a);
+    if (fragUniforms.texIsLuminance[3] != 0) texColor3 = float4(texColor3.r, texColor3.r, texColor3.r, texColor3.a);
     
     float4 diffuse = in.color;
     

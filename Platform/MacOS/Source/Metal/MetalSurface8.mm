@@ -117,15 +117,23 @@ STDMETHODIMP MetalSurface8::LockRect(D3DLOCKED_RECT *pLockedRect,
   case D3DFMT_X8R8G8B8:
     bpp = 4;
     break;
+  case D3DFMT_R8G8B8:
+    bpp = 3;
+    break;
   case D3DFMT_R5G6B5:
   case D3DFMT_A1R5G5B5:
   case D3DFMT_A4R4G4B4:
   case D3DFMT_X1R5G5B5:
   case D3DFMT_V8U8:
   case D3DFMT_L6V5U5:
+  case D3DFMT_A8L8:
+  case D3DFMT_A8P8:
     bpp = 2;
     break;
   case D3DFMT_A8:
+  case D3DFMT_L8:
+  case D3DFMT_P8:
+  case D3DFMT_A4L4:
     bpp = 1;
     break;
   case D3DFMT_DXT1:
@@ -178,6 +186,8 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
     // Calculate bytes per pixel matching the surface format
     UINT bpp = 4;
     bool is16bit = false;
+    bool is24bit = false;
+    bool isA4L4 = false;
     switch (m_Format) {
     case D3DFMT_A1R5G5B5:
     case D3DFMT_X1R5G5B5:
@@ -188,11 +198,23 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
       break;
     case D3DFMT_V8U8:
     case D3DFMT_L6V5U5:
+    case D3DFMT_A8L8:
+    case D3DFMT_A8P8:
       bpp = 2;
       is16bit = false;
       break;
+    case D3DFMT_R8G8B8:
+      bpp = 3;
+      is24bit = true;
+      break;
     case D3DFMT_A8:
+    case D3DFMT_L8:
+    case D3DFMT_P8:
       bpp = 1;
+      break;
+    case D3DFMT_A4L4:
+      bpp = 1;
+      isA4L4 = true;
       break;
     default:
       bpp = 4;
@@ -233,7 +255,49 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
                          mtlFmt == MTLPixelFormatBC2_RGBA ||
                          mtlFmt == MTLPixelFormatBC3_RGBA);
 
-    if (is16bit && mtlBpp == 4) {
+    if (is24bit && mtlBpp == 4) {
+      // Convert R8G8B8 (24-bit BGR) to BGRA8 (32-bit)
+      UINT pixelCount = m_Width * m_Height;
+      uint8_t *converted = (uint8_t *)malloc(pixelCount * 4);
+      if (!converted) return E_FAIL;
+      const uint8_t *src = (const uint8_t *)m_LockedData;
+      for (UINT i = 0; i < pixelCount; i++) {
+        converted[i * 4 + 0] = src[i * 3 + 0]; // B
+        converted[i * 4 + 1] = src[i * 3 + 1]; // G
+        converted[i * 4 + 2] = src[i * 3 + 2]; // R
+        converted[i * 4 + 3] = 255;             // A (opaque)
+      }
+      MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
+      [tex replaceRegion:region
+             mipmapLevel:m_MipLevel
+                   slice:0
+               withBytes:converted
+             bytesPerRow:m_Width * 4
+           bytesPerImage:m_Width * m_Height * 4];
+      free(converted);
+    } else if (isA4L4 && mtlBpp == 2) {
+      // Convert A4L4 (8-bit: high=alpha, low=luminance) to RG8Unorm
+      // R = luminance (expanded 4→8 bit), G = alpha (expanded 4→8 bit)
+      UINT pixelCount = m_Width * m_Height;
+      uint8_t *converted = (uint8_t *)malloc(pixelCount * 2);
+      if (!converted) return E_FAIL;
+      const uint8_t *src = (const uint8_t *)m_LockedData;
+      for (UINT i = 0; i < pixelCount; i++) {
+        uint8_t px = src[i];
+        uint8_t lum   = (uint8_t)(((px     ) & 0x0F) * 255 / 15);
+        uint8_t alpha = (uint8_t)(((px >> 4) & 0x0F) * 255 / 15);
+        converted[i * 2 + 0] = lum;   // R channel = luminance
+        converted[i * 2 + 1] = alpha; // G channel = alpha
+      }
+      MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
+      [tex replaceRegion:region
+             mipmapLevel:m_MipLevel
+                   slice:0
+               withBytes:converted
+             bytesPerRow:m_Width * 2
+           bytesPerImage:m_Width * m_Height * 2];
+      free(converted);
+    } else if (is16bit && mtlBpp == 4) {
       // Convert ALL 16-bit formats to BGRA8
       UINT pixelCount = m_Width * m_Height;
       uint8_t *converted = (uint8_t *)malloc(pixelCount * 4);

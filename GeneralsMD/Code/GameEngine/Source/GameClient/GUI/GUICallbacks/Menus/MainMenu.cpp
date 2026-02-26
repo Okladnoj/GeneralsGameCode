@@ -42,6 +42,7 @@
 #include "Common/NameKeyGenerator.h"
 #include "Common/RandomValue.h"
 #include "Common/UserPreferences.h"
+#include "Common/OptionPreferences.h"
 #include "Common/version.h"
 #include "GameClient/AnimateWindowManager.h"
 #include "GameClient/CampaignManager.h"

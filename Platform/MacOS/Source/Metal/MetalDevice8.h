@@ -192,6 +192,11 @@ public:
   // Metal Accessor
   void *GetMTLDevice() const { return m_Device; }
 
+  /// Called by MacOSDisplayManager when resolution changes.
+  /// Updates m_ScreenWidth/Height, recreates depth texture,
+  /// resets viewport, and recreates default surfaces.
+  void updateScreenSize(int width, int height);
+
 private:
   ULONG m_RefCount;
 

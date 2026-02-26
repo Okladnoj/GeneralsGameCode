@@ -9,6 +9,7 @@
 #include <cstring>
 #import <AppKit/AppKit.h>
 #import <CoreGraphics/CoreGraphics.h>
+#include "MacOSDisplayManager.h"
 
 // ─── Display mode cache ───────────────────────────────────────
 struct DisplayModeEntry { UINT w, h, hz; };
@@ -21,42 +22,19 @@ static void queryDisplayModes() {
   s_modesQueried = true;
   s_modeCount = 0;
 
-  CGDirectDisplayID display = CGMainDisplayID();
-  CFArrayRef allModes = CGDisplayCopyAllDisplayModes(display, nullptr);
-  if (!allModes) {
-    // Fallback: current screen size
-    NSScreen *scr = [NSScreen mainScreen];
-    CGFloat sf = scr.backingScaleFactor;
-    s_modes[0] = { (UINT)(scr.frame.size.width * sf), (UINT)(scr.frame.size.height * sf), 60 };
-    s_modeCount = 1;
-    return;
+  // Delegate to MacOSDisplayManager for consistent mode enumeration.
+  // This ensures we use the same mode list (in points) everywhere.
+  const auto& modes = MacOSDisplayManager::instance().getAvailableModes();
+  for (const auto& mode : modes) {
+    if (s_modeCount >= 64) break;
+    s_modes[s_modeCount++] = { (UINT)mode.w, (UINT)mode.h, (UINT)mode.hz };
   }
-
-  CFIndex count = CFArrayGetCount(allModes);
-  for (CFIndex i = 0; i < count && s_modeCount < 64; i++) {
-    CGDisplayModeRef mode = (CGDisplayModeRef)CFArrayGetValueAtIndex(allModes, i);
-    size_t w = CGDisplayModeGetWidth(mode);
-    size_t h = CGDisplayModeGetHeight(mode);
-    double hz = CGDisplayModeGetRefreshRate(mode);
-    if (hz < 1.0) hz = 60.0;
-    if (w < 800 || h < 600) continue; // skip tiny modes
-
-    // Deduplicate
-    bool dup = false;
-    for (UINT j = 0; j < s_modeCount; j++) {
-      if (s_modes[j].w == (UINT)w && s_modes[j].h == (UINT)h) { dup = true; break; }
-    }
-    if (!dup) {
-      s_modes[s_modeCount++] = { (UINT)w, (UINT)h, (UINT)hz };
-    }
-  }
-  CFRelease(allModes);
 
   if (s_modeCount == 0) {
     s_modes[0] = { 800, 600, 60 };
     s_modeCount = 1;
   }
-  fprintf(stderr, "[MetalInterface8] Enumerated %u display modes\n", s_modeCount);
+  fprintf(stderr, "[MetalInterface8] Enumerated %u display modes (via MacOSDisplayManager)\n", s_modeCount);
 }
 
 MetalInterface8::MetalInterface8() : m_RefCount(1) {
@@ -129,14 +107,14 @@ STDMETHODIMP MetalInterface8::GetAdapterDisplayMode(UINT Adapter,
                                                     D3DDISPLAYMODE *pMode) {
   if (!pMode)
     return E_POINTER;
-  @autoreleasepool {
-    NSScreen *scr = [NSScreen mainScreen];
-    CGFloat sf = scr.backingScaleFactor;
-    pMode->Width = (UINT)(scr.frame.size.width * sf);
-    pMode->Height = (UINT)(scr.frame.size.height * sf);
-    pMode->RefreshRate = 60;
-    pMode->Format = D3DFMT_A8R8G8B8;
-  }
+  // Return current desktop mode in POINTS — consistent with mode enumeration.
+  // Previous code multiplied by backingScaleFactor which caused a unit mismatch
+  // between enumerated modes (points) and this function (backing pixels).
+  auto mode = MacOSDisplayManager::instance().getCurrentDesktopMode();
+  pMode->Width = (UINT)mode.w;
+  pMode->Height = (UINT)mode.h;
+  pMode->RefreshRate = (UINT)mode.hz;
+  pMode->Format = D3DFMT_A8R8G8B8;
   return D3D_OK;
 }
 

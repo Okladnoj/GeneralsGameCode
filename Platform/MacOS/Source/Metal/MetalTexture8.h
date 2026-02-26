@@ -52,6 +52,7 @@ public:
   void *GetMetalTexture() const { return m_Texture; }
   void MarkWritten() { m_HasBeenWritten = true; }
   bool HasBeenWritten() const { return m_HasBeenWritten; }
+  D3DFORMAT GetD3DFormat() const { return m_Format; }
 
 private:
   ULONG m_RefCount;

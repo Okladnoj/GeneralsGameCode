@@ -17,6 +17,7 @@ set(MAIN_SRC
     Source/Main/MacOSWindowManager.mm
     Source/Main/MacOSGameWindowManager.mm
     Source/Main/MacOSGadgetDraw.mm
+    Source/Main/MacOSDisplayManager.mm
     Source/Main/D3DXStubs.mm
     Source/Main/StdKeyboard.mm
     Source/Main/StdMouse.mm
@@ -79,6 +80,7 @@ target_include_directories(macos_platform PUBLIC
 # Private includes for implementation files
 target_include_directories(macos_platform PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Metal
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Main
     # WWVegas include paths — needed because .mm files include game engine headers
     # whose chain reaches always.h, WWCommon.h, wwdebug.h etc.
     ${CMAKE_SOURCE_DIR}/Core/Libraries/Source/WWVegas/WWLib

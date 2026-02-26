@@ -26,6 +26,10 @@
 // Set during MetalDevice8::InitMetal(), cleared in destructor.
 void *g_MetalMTLDevice = nullptr;
 
+// Global MetalDevice8 pointer — used by MacOSDisplayManager to update screen
+// size during resolution changes. Set in InitMetal(), cleared in destructor.
+MetalDevice8* g_theMetalDevice = nullptr;
+
 // D3DXGetFVFVertexSize is inline in d3dx8core.h
 #include "d3dx8core.h"
 
@@ -214,6 +218,7 @@ MetalDevice8::~MetalDevice8() {
   CLEAR_MTL(CurrentDrawable);
   CLEAR_MTL(CommandQueue);
   g_MetalMTLDevice = nullptr;
+  g_theMetalDevice = nullptr;
   CLEAR_MTL(Device);
   // MetalLayer is owned by the view, we don't release it
   m_MetalLayer = nullptr;
@@ -258,9 +263,8 @@ struct FragmentUniforms {
   float alphaRef;     // normalized 0..1
   uint32_t hasTexture[4];
   uint32_t specularEnable;
-  uint32_t _pad1;
-  uint32_t _pad2;
-  uint32_t _pad3;
+  uint32_t texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX per stage
+  uint32_t texIsLuminance[4]; // 1 for L8/P8 formats that need .r replicated to RGB
 };
 
 // Stage 8: LightData (matches MacOSShaders.metal)
@@ -329,6 +333,7 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
   }
   SET_MTL(Device, device);
   g_MetalMTLDevice = m_Device; // Global access for VB/IB
+  g_theMetalDevice = this;     // Global access for MacOSDisplayManager
 
   // Create a small zero buffer for default vertex attributes (missing FVF
   // components)
@@ -1779,6 +1784,18 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   }
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
 
+  // Texture coordinate index and luminance format flags
+  for (int s = 0; s < 4; ++s) {
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] & 0x3; // low 2 bits = coord set index
+    fu.texIsLuminance[s] = 0;
+    if (m_Textures[s]) {
+      D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
+      if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
+        fu.texIsLuminance[s] = 1;
+      }
+    }
+  }
+
   // Diagnostic: log first textured 3D draw calls to debug white models
   if (u.useProjection == 1 && fu.hasTexture[0]) {
     static int s_3dTexDrawCount = 0;
@@ -2155,6 +2172,18 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   }
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
 
+  // Texture coordinate index and luminance format flags
+  for (int s = 0; s < 4; ++s) {
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] & 0x3;
+    fu.texIsLuminance[s] = 0;
+    if (m_Textures[s]) {
+      D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
+      if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
+        fu.texIsLuminance[s] = 1;
+      }
+    }
+  }
+
   // Diagnostic: log indexed draw calls with unique texture pointers
   {
     static int s_idxDrawCount = 0;
@@ -2378,6 +2407,20 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
 
   // Use current FVF (from SetVertexShader or stream source)
   DWORD fvf = m_VertexShader;
+  // If top bit is set, it's a custom vertex shader handle, not an FVF.
+  // Fall back to the FVF from the stream source or a sensible default.
+  if (fvf & 0x80000000) {
+    fvf = m_StreamSource ? GetBufferFVF(m_StreamSource) : 0;
+    if (fvf == 0) {
+      fvf = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE | D3DFVF_TEX1; // 0x112
+    }
+    static int s_vsHandleFallbackLog = 0;
+    if (++s_vsHandleFallbackLog <= 5) {
+      printf("[METAL] DrawPrimitiveUP: VS handle 0x%x detected, falling back to FVF 0x%x\n",
+             (unsigned)m_VertexShader, (unsigned)fvf);
+      fflush(stdout);
+    }
+  }
   if (fvf == 0 && m_StreamSource) {
     fvf = GetBufferFVF(m_StreamSource);
   }
@@ -2547,6 +2590,18 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
     fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
   }
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
+
+  // Texture coordinate index and luminance format flags
+  for (int s = 0; s < 4; ++s) {
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] & 0x3;
+    fu.texIsLuminance[s] = 0;
+    if (m_Textures[s]) {
+      D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
+      if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
+        fu.texIsLuminance[s] = 1;
+      }
+    }
+  }
   [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
 
   // Lighting Uniforms
@@ -2709,6 +2764,60 @@ HRESULT MetalDevice8::GetDirect3D(IDirect3D8 **ppD3D8) {
   if (ppD3D8)
     *ppD3D8 = nullptr;
   return D3D_OK;
+}
+
+// ─────────────────────────────────────────────────────
+//  updateScreenSize — called by MacOSDisplayManager
+//  Updates screen dimensions, recreates depth texture,
+//  and resets the viewport to the new size.
+// ─────────────────────────────────────────────────────
+
+void MetalDevice8::updateScreenSize(int width, int height) {
+  fprintf(stderr, "[MetalDevice8] updateScreenSize: %gx%g -> %dx%d\n",
+          m_ScreenWidth, m_ScreenHeight, width, height);
+
+  m_ScreenWidth = (float)width;
+  m_ScreenHeight = (float)height;
+
+  // Recreate depth texture to match new size
+  if (width > 0 && height > 0) {
+    CreateDepthTexture((UINT)width, (UINT)height);
+  }
+
+  // Reset viewport to cover the entire new screen
+  D3DVIEWPORT8 vp;
+  vp.X = 0;
+  vp.Y = 0;
+  vp.Width = (DWORD)width;
+  vp.Height = (DWORD)height;
+  vp.MinZ = 0.0f;
+  vp.MaxZ = 1.0f;
+  SetViewport(&vp);
+
+  // Recreate default surfaces at new size
+  if (m_DefaultRTSurface) {
+    m_DefaultRTSurface->Release();
+    m_DefaultRTSurface = nullptr;
+  }
+  if (m_DefaultDepthSurface) {
+    m_DefaultDepthSurface->Release();
+    m_DefaultDepthSurface = nullptr;
+  }
+  m_DefaultRTSurface = W3DNEW MetalSurface8(this, MetalSurface8::kColor,
+                                            (UINT)width, (UINT)height, D3DFMT_A8R8G8B8);
+  m_DefaultDepthSurface = W3DNEW MetalSurface8(this, MetalSurface8::kDepth,
+                                               (UINT)width, (UINT)height, D3DFMT_D24S8);
+
+  fprintf(stderr, "[MetalDevice8] Screen size updated to %dx%d\n", width, height);
+}
+
+// Extern C bridge — called from MacOSDisplayManager.mm
+extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height) {
+  if (g_theMetalDevice) {
+    g_theMetalDevice->updateScreenSize(width, height);
+  } else {
+    fprintf(stderr, "[MetalDevice8] WARNING: MacOS_UpdateMetalDeviceScreenSize called but g_theMetalDevice is null\n");
+  }
 }
 
 #endif // __APPLE__
