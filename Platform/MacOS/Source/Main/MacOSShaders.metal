@@ -167,6 +167,7 @@ struct VertexOut {
     float2 texCoord;
     float2 texCoord2;
     float fogFactor;
+    float3 cameraPosUV; // camera-space position for TCI_CAMERASPACEPOSITION
 };
 
 // ─────────────────────────────────────────────────────
@@ -587,9 +588,8 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
     }
 
-    // Handle empty/unloaded textures: empty DXT1 blocks decode to exact (0,0,0,1)
-    // opaque black. Discard such fragments to reveal terrain BASE pass underneath.
-    // Threshold must be very low to avoid discarding dark but valid texture fragments.
+    // Discard fully opaque black fragments from 3D textured geometry.
+    // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
     if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
         dot(current.rgb, float3(1.0)) < 0.001) {
         discard_fragment();
