@@ -166,6 +166,7 @@ struct VertexOut {
     float4 specularColor;
     float2 texCoord;
     float2 texCoord2;
+    float3 cameraPosUV; // camera-space position for TCI_CAMERASPACEPOSITION
     float fogFactor;
 };
 
@@ -196,6 +197,11 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     
     out.texCoord = in.texCoord;
     out.texCoord2 = in.texCoord2;
+    
+    // Compute camera-space position for D3DTSS_TCI_CAMERASPACEPOSITION
+    float4 worldPos = uniforms.world * pos;
+    float4 camPos = uniforms.view * worldPos;
+    out.cameraPosUV = camPos.xyz;
     
     out.specularColor = float4(0.0, 0.0, 0.0, 0.0);
     
@@ -510,10 +516,23 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                              sampler sampler3 [[sampler(3)]]) {
     
     // Select UV coordinates based on D3DTSS_TEXCOORDINDEX per stage
-    float2 uv0 = (fragUniforms.texCoordIndex[0] == 1) ? in.texCoord2 : in.texCoord;
-    float2 uv1 = (fragUniforms.texCoordIndex[1] == 0) ? in.texCoord  : in.texCoord2;
-    float2 uv2 = (fragUniforms.texCoordIndex[2] == 1) ? in.texCoord2 : in.texCoord;
-    float2 uv3 = (fragUniforms.texCoordIndex[3] == 1) ? in.texCoord2 : in.texCoord;
+    // Bits 16-17: TCI mode (0=PASSTHRU, 1=CAMERASPACEPOSITION, 2=CAMERASPACENORMAL)
+    // Bits 0-1: which UV set to use (for PASSTHRU mode)
+    auto selectUV = [&](uint tci) -> float2 {
+        uint tciMode = (tci >> 16) & 0x3;
+        uint uvIndex = tci & 0x3;
+        if (tciMode == 1) {
+            // D3DTSS_TCI_CAMERASPACEPOSITION: use camera-space vertex position as UV
+            return in.cameraPosUV.xy;
+        }
+        // D3DTSS_TCI_PASSTHRU (and fallback): use vertex UV set
+        return (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+    };
+    
+    float2 uv0 = selectUV(fragUniforms.texCoordIndex[0]);
+    float2 uv1 = selectUV(fragUniforms.texCoordIndex[1]);
+    float2 uv2 = selectUV(fragUniforms.texCoordIndex[2]);
+    float2 uv3 = selectUV(fragUniforms.texCoordIndex[3]);
     
     // Apply per-stage texture coordinate transforms (D3DTS_TEXTURE0..3)
     // Done in fragment shader so each stage gets its own transform independent of UV set.
@@ -587,11 +606,13 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
     }
 
-    // Handle empty/unloaded textures: empty DXT1 blocks decode to exact (0,0,0,1)
-    // opaque black. Discard such fragments to reveal terrain BASE pass underneath.
-    // Threshold must be very low to avoid discarding dark but valid texture fragments.
+    // Discard fully opaque black fragments from 3D textured geometry.
+    // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
+    // Only discard when the RAW texture sample is black and fully opaque.
+    // This check uses the raw texture color (before TSS), not the final result,
+    // to avoid discarding intentionally dark fragments (shadows, dark materials).
     if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
-        dot(current.rgb, float3(1.0)) < 0.001) {
+        dot(texColor0.rgb, float3(1.0)) < 0.001 && texColor0.a > 0.99) {
         discard_fragment();
     }
 

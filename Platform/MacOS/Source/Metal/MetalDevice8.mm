@@ -1797,7 +1797,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
-    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] & 0x3; // low 2 bits = coord set index
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value: bits 0-1=UV set, bits 16-17=TCI mode
     fu.texIsLuminance[s] = 0;
     if (m_Textures[s]) {
       D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
@@ -2191,7 +2191,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
-    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] & 0x3;
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value incl TCI bits
     fu.texIsLuminance[s] = 0;
     if (m_Textures[s]) {
       D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
@@ -2616,7 +2616,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
-    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] & 0x3;
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value incl TCI bits
     fu.texIsLuminance[s] = 0;
     if (m_Textures[s]) {
       D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
