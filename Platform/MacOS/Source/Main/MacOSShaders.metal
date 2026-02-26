@@ -536,12 +536,15 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
             return in.cameraPosUV.xy;
         }
         
-        // D3DTSS_TCI_PASSTHRU: use vertex UV set
-        float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
-        if (uniforms.texTransformFlags[stage] != 0) {
-            uv = (uniforms.texMatrix[stage] * float4(uv, 0.0, 1.0)).xy;
-        }
-        return uv;
+        // D3DTSS_TCI_PASSTHRU: use vertex UV set directly.
+        // NOTE: We intentionally do NOT apply texTransformFlags here.
+        // DX8 is stateful — texTransformFlags can be stale from previous
+        // draw calls (e.g., cloud/water overlay sets stage 0 to D3DTTFF_COUNT2).
+        // Since we don't execute DX8 pixel shaders, stale transforms would
+        // corrupt PASSTHRU UVs (→ black terrain). Texture transforms for
+        // TCI_CAMERASPACEPOSITION are applied above where the shader explicitly
+        // sets both TCI mode and transform together.
+        return (uvIndex == 1) ? in.texCoord2 : in.texCoord;
     };
     
     float2 uv0 = computeUV(fragUniforms.texCoordIndex[0], 0);
