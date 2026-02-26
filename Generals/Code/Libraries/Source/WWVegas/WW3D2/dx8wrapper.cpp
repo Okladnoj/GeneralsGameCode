@@ -48,6 +48,13 @@
 #endif
 
 #include "dx8wrapper.h"
+
+#ifdef __APPLE__
+// Bridge function defined in MacOSDisplayManager.mm — synchronizes
+// NSWindow, CAMetalLayer, and MetalDevice8 with the requested resolution.
+extern "C" void MacOS_SetDisplayResolution(int w, int h);
+#endif
+
 #include "dx8webbrowser.h"
 #include "dx8fvf.h"
 #include "dx8vertexbuffer.h"
@@ -938,6 +945,12 @@ bool DX8Wrapper::Set_Render_Device(int dev, int width, int height, int bits, int
 	if (resize_window) {
 		Resize_And_Position_Window();
 	}
+#elif defined(__APPLE__)
+	// TheSuperHackers @feature macOS: Synchronize NSWindow, CAMetalLayer,
+	// and MetalDevice8 with the requested resolution.
+	if (resize_window) {
+		MacOS_SetDisplayResolution(ResolutionWidth, ResolutionHeight);
+	}
 #endif
 	//must be either resetting existing device or creating a new one.
 	WWASSERT(reset_device || D3DDevice == nullptr);
@@ -1189,6 +1202,11 @@ bool DX8Wrapper::Set_Device_Resolution(int width,int height,int bits,int windowe
 		if (resize_window)
 		{
 			Resize_And_Position_Window();
+#ifdef __APPLE__
+			// TheSuperHackers @feature macOS: Synchronize NSWindow, CAMetalLayer,
+			// and MetalDevice8 with the requested resolution.
+			MacOS_SetDisplayResolution(ResolutionWidth, ResolutionHeight);
+#endif
 		}
 #pragma message("TODO: support changing windowed status and changing the bit depth")
 		WWDEBUG_SAY(("DX8Wrapper::Set_Device_Resolution is resetting the device."));
@@ -1920,7 +1938,7 @@ void DX8Wrapper::Draw(
 
 #ifdef MESH_RENDER_SNAPSHOT_ENABLED
 	if (WW3D::Is_Snapshot_Activated()) {
-		unsigned long passes=0;
+		DWORD passes=0;
 		SNAPSHOT_SAY(("ValidateDevice:"));
 		HRESULT res=D3DDevice->ValidateDevice(&passes);
 		switch (res) {
@@ -4264,3 +4282,16 @@ WW3DFormat	DX8Wrapper::getBackBufferFormat()
 {
 	return D3DFormat_To_WW3DFormat( _PresentParameters.BackBufferFormat );
 }
+
+#ifdef __APPLE__
+// TheSuperHackers @feature macOS: Bridge function called from
+// MacOSDisplayManager::syncToWindowSize() when the user resizes the window.
+extern "C" void MacOS_UpdateDX8Resolution(int w, int h) {
+  _PresentParameters.BackBufferWidth = w;
+  _PresentParameters.BackBufferHeight = h;
+  DX8Wrapper::ResolutionWidth = w;
+  DX8Wrapper::ResolutionHeight = h;
+  Render2DClass::Set_Screen_Resolution(RectClass(0, 0, w, h));
+  fprintf(stderr, "[DX8Wrapper] Resolution set to %dx%d (via MacOS window resize)\n", w, h);
+}
+#endif

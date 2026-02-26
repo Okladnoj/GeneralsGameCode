@@ -198,6 +198,9 @@ struct RenderStateStruct
 ** an WWINLINE function so that we can add stat tracking, etc if needed.  Direct access to the
 ** D3D device will require "friend" status and should be granted only in extreme circumstances :-)
 */
+#ifdef __APPLE__
+extern "C" void MacOS_UpdateDX8Resolution(int w, int h);
+#endif
 class DX8Wrapper
 {
 	enum ChangedStates {
@@ -698,6 +701,9 @@ protected:
 	friend class WW3D;
 	friend class DX8IndexBufferClass;
 	friend class DX8VertexBufferClass;
+#ifdef __APPLE__
+	friend void MacOS_UpdateDX8Resolution(int w, int h);
+#endif
 };
 
 // shader system updates KJM v

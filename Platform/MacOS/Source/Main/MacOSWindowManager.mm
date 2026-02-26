@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <execinfo.h>
 #include <unistd.h>
+#include "MacOSDisplayManager.h"
 
 @interface MacOSWindow : NSWindow
 @end
@@ -21,6 +22,13 @@
 // Override to prevent beep on keyDown
 - (void)keyDown:(NSEvent *)event {
   // Don't call super — prevents NSBeep for unhandled key events
+}
+// TheSuperHackers @feature macOS: Disable macOS window constraint that
+// prevents the window from extending behind the menu bar. Without this
+// override, a 1920×1080 game on a 1920×1080 display gets clamped to
+// ~1920×1050, causing a vertical scale mismatch.
+- (NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen *)screen {
+  return frameRect;  // allow any position/size
 }
 @end
 
@@ -71,6 +79,14 @@ static BOOL g_ShouldQuit = NO;
   fflush(stderr);
   g_ShouldQuit = YES;
   return NSTerminateCancel;  // Don't let NSApp call exit()
+}
+
+// TheSuperHackers @feature macOS: Sync Metal/engine when the user finishes
+// resizing the window by dragging. Using windowDidEndLiveResize instead of
+// windowDidResize to avoid system-triggered auto-adjustments (Dock, menu bar)
+// that desynchronize the rendering layers.
+- (void)windowDidEndLiveResize:(NSNotification *)notification {
+  MacOSDisplayManager::instance().syncToWindowSize();
 }
 @end
 static id g_WindowDelegate = nil;
@@ -140,13 +156,15 @@ int MacOS_Main(int argc, char *argv[]) {
     // Parse command line and init global data
     CommandLine::parseCommandLineForStartup();
 
-    // Create window
+    // Create window using the game's configured resolution
     int w = 800;
     int h = 600;
     if (TheGlobalData && TheGlobalData->m_xResolution > 0) {
       w = TheGlobalData->m_xResolution;
       h = TheGlobalData->m_yResolution;
     }
+    fprintf(stderr, "[MacOS] Creating window at %dx%d\n", w, h);
+
     extern void *ApplicationHWnd;
     void *window =
         MacOS_CreateWindow(w, h, "Command & Conquer Generals (macOS)");
@@ -160,6 +178,10 @@ int MacOS_Main(int argc, char *argv[]) {
 
     // Initialize renderer
     MacOS_InitRenderer(window);
+
+    // Initialize the display manager — must come after renderer init
+    // so that the CAMetalLayer already exists on the window's contentView.
+    MacOSDisplayManager::instance().init(window);
 
     int result = GameMain();
     return result;

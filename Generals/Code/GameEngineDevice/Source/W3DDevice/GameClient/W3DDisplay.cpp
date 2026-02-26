@@ -3238,3 +3238,51 @@ static void drawFramerateBar()
 	TheDisplay->drawFillRect(1, 1, width, 15, colorToUse);
 	prevTime = now;
 }
+
+#ifdef __APPLE__
+#include "GameClient/Shell.h"
+#include "GameClient/InGameUI.h"
+#include "GameClient/HeaderTemplate.h"
+#include "Common/OptionPreferences.h"
+
+// TheSuperHackers @feature macOS: Bridge function that mirrors the Options menu
+// Accept logic (OptionsMenu.cpp). Called from MacOSDisplayManager::syncToWindowSize().
+extern "C" void MacOS_ApplyDisplayResolution(int w, int h) {
+  if (!TheDisplay) return;
+
+  fprintf(stderr, "[MacOS_ApplyDisplayResolution] Applying %dx%d\n", w, h);
+
+  int bitDepth = TheDisplay->getBitDepth();
+  Bool windowed = TheDisplay->getWindowed();
+
+  if (TheDisplay->setDisplayMode(w, h, bitDepth, windowed)) {
+    TheWritableGlobalData->m_xResolution = w;
+    TheWritableGlobalData->m_yResolution = h;
+
+    if (TheHeaderTemplateManager)
+      TheHeaderTemplateManager->onResolutionChanged();
+    if (TheMouse)
+      TheMouse->onResolutionChanged();
+
+    // Only recreate UI layouts when in the main menu, not during gameplay.
+    if (TheShell && TheShell->isShellActive()) {
+      TheShell->recreateWindowLayouts();
+      if (TheInGameUI) {
+        TheInGameUI->recreateControlBar();
+        TheInGameUI->refreshCustomUiResources();
+      }
+    }
+
+    // Persist resolution to preferences file so it survives restarts
+    OptionPreferences prefs;
+    AsciiString prefString;
+    prefString.format("%d %d", w, h);
+    prefs["Resolution"] = prefString;
+    prefs.write();
+
+    fprintf(stderr, "[MacOS_ApplyDisplayResolution] Resolution applied and saved: %dx%d\n", w, h);
+  } else {
+    fprintf(stderr, "[MacOS_ApplyDisplayResolution] setDisplayMode FAILED for %dx%d\n", w, h);
+  }
+}
+#endif
