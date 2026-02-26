@@ -391,9 +391,21 @@ void MacOS_PumpEvents() {
 
       case NSEventTypeScrollWheel:
         if (TheMouse) {
-          int delta = (int)([event scrollingDeltaY]);
-          ((StdMouse *)TheMouse)
-              ->addEvent(MACOS_MOUSE_WHEEL, 0, 0, 0, delta, timestamp);
+          // macOS scrollingDeltaY gives ±1 per notch, but the game engine
+          // divides wheelPos by 120 (Windows WHEEL_DELTA). Scale accordingly.
+          int delta = (int)([event scrollingDeltaY] * 120);
+          // Must include mouse position — the engine calls moveMouse() with
+          // the event's pos, so (0,0) would teleport the cursor.
+          NSPoint loc = [event locationInWindow];
+          NSWindow *win = [event window];
+          if (win && delta != 0) {
+            NSView *cv = [win contentView];
+            float h = [cv bounds].size.height;
+            int x = (int)loc.x;
+            int y = (int)(h - loc.y);
+            ((StdMouse *)TheMouse)
+                ->addEvent(MACOS_MOUSE_WHEEL, x, y, 0, delta, timestamp);
+          }
         }
         break;
 
