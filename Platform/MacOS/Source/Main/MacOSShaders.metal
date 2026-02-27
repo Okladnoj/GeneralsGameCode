@@ -898,8 +898,9 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
     }
 
-    // Discard fully opaque black fragments from 3D textured geometry.
+    // TODO(PS_PATH): Workaround — discard opaque black fragments from 3D textured geometry.
     // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
+    // This may be unnecessary once PS path handles terrain blending properly.
     if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
         dot(current.rgb, float3(1.0)) < 0.001) {
         discard_fragment();
