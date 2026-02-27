@@ -634,17 +634,6 @@ void Render2DClass::Render()
 	vp.MaxZ		= 1;
 	DX8Wrapper::Set_Viewport(&vp);
 	DX8Wrapper::Set_Texture(0,Texture);
-	if (Texture) {
-		static int r2dTexLog = 0;
-		if (r2dTexLog < 20) {
-			IDirect3DBaseTexture8* d3d = Texture->Peek_D3D_Base_Texture();
-			const char* tname = Texture->Get_Full_Path().Is_Empty() ? "?" : (const char*)Texture->Get_Full_Path();
-			printf("R2D_TEX[%d] tex=%p d3d=%p name='%s' init=%d\n",
-				r2dTexLog++, (void*)Texture, (void*)d3d, tname,
-				(int)Texture->Is_Initialized());
-			fflush(stdout);
-		}
-	}
 
 	VertexMaterialClass *vm=VertexMaterialClass::Get_Preset(VertexMaterialClass::PRELIT_DIFFUSE);
 	DX8Wrapper::Set_Material(vm);

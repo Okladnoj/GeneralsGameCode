@@ -994,14 +994,7 @@ void TextureClass::Apply_New_Surface
 */
 void TextureClass::Apply(unsigned int stage)
 {
-	static int s_applyLogCount = 0;
-	if (s_applyLogCount < 30) {
-		s_applyLogCount++;
-		StringClass tmpN3 = Get_Texture_Name();
-		fprintf(stderr, "[TextureClass::Apply] #%d: name='%s' init=%d hasD3D=%d stage=%u\n",
-			s_applyLogCount, tmpN3.Is_Empty() ? "(none)" : tmpN3.Peek_Buffer(),
-			(int)Initialized, (int)(Peek_D3D_Base_Texture() != nullptr), stage);
-	}
+
 	// Initialization needs to be done when texture is used if it hasn't been done before.
 	// XBOX always initializes textures at creation time.
 	if (!Initialized)

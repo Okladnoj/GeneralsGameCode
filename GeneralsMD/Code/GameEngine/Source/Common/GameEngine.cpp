@@ -826,6 +826,23 @@ void GameEngine::init() {
 
     TheSubsystemList->postProcessLoadAll();
 
+#ifdef __APPLE__
+    // macOS: default to 60 FPS render cap for smoother camera/animations on
+    // modern hardware. The game logic tick rate stays at 30 Hz.
+    // Can be overridden via GENERALS_FPS_LIMIT environment variable.
+    {
+        int macFpsLimit = 60;
+        const char *fpsEnv = getenv("GENERALS_FPS_LIMIT");
+        if (fpsEnv) {
+            macFpsLimit = atoi(fpsEnv);
+            if (macFpsLimit < 30) macFpsLimit = 30;
+        }
+        if (TheGlobalData->m_framesPerSecondLimit < macFpsLimit) {
+            TheWritableGlobalData->m_framesPerSecondLimit = macFpsLimit;
+        }
+        TheWritableGlobalData->m_useFpsLimit = TRUE;
+    }
+#endif
     TheFramePacer->setFramesPerSecondLimit(
         TheGlobalData->m_framesPerSecondLimit);
 
@@ -901,18 +918,13 @@ void GameEngine::init() {
     }
 
     //
-    fprintf(stderr, "SHELLMAP_CHECK: shellMapOn=%d shellMapName='%s' MapCache=%p\n",
-      (int)TheGlobalData->m_shellMapOn, TheGlobalData->m_shellMapName.str(), (void*)TheMapCache);
     if (TheMapCache && TheGlobalData->m_shellMapOn) {
       AsciiString lowerName = TheGlobalData->m_shellMapName;
       lowerName.toLower();
 
       MapCache::const_iterator it = TheMapCache->find(lowerName);
       if (it == TheMapCache->end()) {
-        fprintf(stderr, "SHELLMAP_CHECK: map '%s' NOT found in cache -> disabling shellMap!\n", lowerName.str());
         TheWritableGlobalData->m_shellMapOn = FALSE;
-      } else {
-        fprintf(stderr, "SHELLMAP_CHECK: map '%s' found in cache -> OK\n", lowerName.str());
       }
     }
 
@@ -1081,16 +1093,7 @@ void GameEngine::update(void) {
                                 !TheFramePacer->isTimeFrozen();
     const Bool canUpdateScript = canUpdate && !TheFramePacer->isGameHalted();
 
-    {
-      static int s_updateLogCount = 0;
-      if (s_updateLogCount < 10) {
-        printf("[GameEngine::update] canUpdate=%d canUpdateLogic=%d halted=%d frozen=%d\n",
-          (int)canUpdate, (int)canUpdateLogic,
-          (int)TheFramePacer->isGameHalted(), (int)TheFramePacer->isTimeFrozen());
-        fflush(stdout);
-        s_updateLogCount++;
-      }
-    }
+
 
     if (canUpdateLogic) {
       TheGameClient->step();

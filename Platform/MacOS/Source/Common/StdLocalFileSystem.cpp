@@ -74,30 +74,18 @@ static std::filesystem::path fixFilenameFromWindowsPath(const Char *filename,
     // Check if the component exists in currentPath case-insensitively
     if (std::filesystem::exists(currentPath, ec) &&
         std::filesystem::is_directory(currentPath, ec)) {
-      printf("DEBUG: fixPath: Iterating directory '%s' looking for '%s'\n",
-             currentPath.string().c_str(), component.string().c_str());
       for (auto const &entry :
            std::filesystem::directory_iterator(currentPath, ec)) {
         std::string filenameStr = entry.path().filename().string();
-        printf("DEBUG: fixPath:   found '%s'\n", filenameStr.c_str());
         if (strcasecmp(filenameStr.c_str(), component.string().c_str()) == 0) {
 
           currentPath /= entry.path().filename();
           found = true;
-          printf("DEBUG: fixPath:   MATCH FOUND: '%s' -> '%s'\n",
-                 component.string().c_str(), filenameStr.c_str());
           break;
         }
       }
-      if (!found) {
-        printf("DEBUG: fixPath:   NO MATCH for '%s' in '%s'\n",
-               component.string().c_str(), currentPath.string().c_str());
-      }
     } else {
-      printf("DEBUG: fixPath:   NOT A DIRECTORY or NOT EXISTS: '%s' (ec=%d)\n",
-             currentPath.string().c_str(), ec.value());
     }
-    fflush(stdout);
 
     if (!found) {
       if (access & File::WRITE) {
@@ -203,10 +191,6 @@ void StdLocalFileSystem::getFileListInDirectory(
     const AsciiString &searchName, FilenameList &filenameList,
     Bool searchSubdirectories) const {
 
-  printf("GFLD_ENTRY: cur='%s' orig='%s' search='%s' subdirs=%d\n",
-    currentDirectory.str(), originalDirectory.str(), searchName.str(),
-    (int)searchSubdirectories);
-  fflush(stdout);
 
   AsciiString asciisearch;
   asciisearch = originalDirectory;
@@ -216,27 +200,15 @@ void StdLocalFileSystem::getFileListInDirectory(
     asciisearch = ".";
   }
 
-  printf("GFLD_SEARCH: asciisearch='%s' ext='%s'\n",
-    asciisearch.str(), searchExt.c_str());
-  fflush(stdout);
-
   std::filesystem::path fixedPath =
       fixFilenameFromWindowsPath(asciisearch.str(), 0);
   if (fixedPath.empty()) {
-    printf("StdLocalFileSystem::getFileListInDirectory: path NOT found: %s\n",
-           asciisearch.str());
-    fflush(stdout);
     return;
   }
   std::string fixedDirectory = fixedPath.string();
 
   Bool done = FALSE;
   std::error_code ec;
-
-  printf("StdLocalFileSystem::getFileListInDirectory: looking for %s in %s "
-         "(fixed: %s)\n",
-         searchName.str(), originalDirectory.str(), fixedDirectory.c_str());
-  fflush(stdout);
 
   auto iter = std::filesystem::directory_iterator(fixedPath, ec);
   // The default iterator constructor creates an end iterator
@@ -246,17 +218,12 @@ void StdLocalFileSystem::getFileListInDirectory(
     DEBUG_LOG(("StdLocalFileSystem::getFileListInDirectory - Error opening "
                "directory %s (%s)",
                fixedDirectory.c_str(), ec.message().c_str()));
-    printf("StdLocalFileSystem::getFileListInDirectory ERROR: %s\n",
-           ec.message().c_str());
-    fflush(stdout);
     return;
   }
 
   while (!done) {
     std::string filenameStr = iter->path().filename().string();
     auto ext = iter->path().extension();
-    printf("  Checking file: %s (ext: %s, target: %s)\n", filenameStr.c_str(),
-           ext.c_str(), searchExt.c_str());
     bool extMatch = strcasecmp(ext.c_str(), searchExt.c_str()) == 0;
     if (!iter->is_directory() && extMatch &&
         (strcmp(filenameStr.c_str(), ".") != 0 &&

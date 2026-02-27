@@ -468,17 +468,11 @@ void Shell::showShell( Bool runInit )
 {
 	DEBUG_LOG(("Shell:showShell() - %s (%s)", TheGlobalData->m_initialFile.str(), (top())?top()->getFilename().str():"no top screen"));
 
-	printf("SHELL: showShell() called, initialFile='%s', simulateReplaysEmpty=%d, screenCount=%d, shellMapOn=%d\n",
-		TheGlobalData->m_initialFile.str(),
-		(int)TheGlobalData->m_simulateReplays.empty(),
-		m_screenCount,
-		(int)TheGlobalData->m_shellMapOn);
-	fflush(stdout);
+
 
 	if(!TheGlobalData->m_initialFile.isEmpty() || !TheGlobalData->m_simulateReplays.empty())
 	{
-		printf("SHELL: showShell() EARLY RETURN (initialFile or simulateReplays set)\n");
-		fflush(stdout);
+
 		return;
 	}
 
@@ -499,43 +493,34 @@ void Shell::showShell( Bool runInit )
 #ifdef RTS_PROFILE
     Profile::StopRange("init");
 #endif
-		printf("SHELL: pushing Menus/MainMenu.wnd\n");
-		fflush(stdout);
+
 		push( "Menus/MainMenu.wnd" );
   }
 	else
 	{
-		printf("SHELL: NOT pushing MainMenu.wnd (shellMapOn=%d, screenCount=%d)\n",
-			(int)TheGlobalData->m_shellMapOn, m_screenCount);
-		fflush(stdout);
+
 	}
 	m_isShellActive = TRUE;
 }
 
 void Shell::showShellMap(Bool useShellMap )
 {
-	printf("SHELLMAP: showShellMap(%d) shellMapOn=%d initialFile='%s' gameLogic=%p\n",
-		(int)useShellMap, (int)TheGlobalData->m_shellMapOn,
-		TheGlobalData->m_initialFile.str(), (void*)TheGameLogic);
-	fflush(stdout);
+
 
 	// we don't want any of this to show if we're loading straight into a file
 	if (TheGlobalData->m_initialFile.isNotEmpty() || !TheGameLogic || !TheGlobalData->m_simulateReplays.empty())
 	{
-		printf("SHELLMAP: early return\n"); fflush(stdout);
+
 		return;
 	}
 	if(useShellMap && TheGlobalData->m_shellMapOn)
 	{
-		printf("SHELLMAP: shellMap path, isInGame=%d gameMode=%d shellMapName='%s'\n",
-			(int)TheGameLogic->isInGame(), (int)TheGameLogic->getGameMode(),
-			TheGlobalData->m_shellMapName.str());
-		fflush(stdout);
+
 
 		// we're already in a shell game, return
 		if(TheGameLogic->isInGame() && TheGameLogic->getGameMode() == GAME_SHELL)
 		{
-			printf("SHELLMAP: already in shell game, return\n"); fflush(stdout);
+
 			return;
 		}
 		// we're in some other kind of game, clear it out foo!
@@ -547,9 +532,7 @@ void Shell::showShellMap(Bool useShellMap )
 		GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_NEW_GAME );
 		msg->appendIntegerArgument(GAME_SHELL);
 		m_shellMapOn = TRUE;
-		printf("SHELLMAP: MSG_NEW_GAME sent, pendingFile='%s'\n",
-			TheGlobalData->m_pendingFile.str());
-		fflush(stdout);
+
 	}
 	else
 	{

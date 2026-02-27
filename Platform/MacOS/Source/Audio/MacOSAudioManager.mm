@@ -384,9 +384,6 @@ void MacOSAudioManager::friend_forcePlayAudioEventRTS(
       pathStr[i] = '/';
   }
 
-  fprintf(stderr, "MACOS AUDIO: Playing '%s'\n", pathStr.c_str());
-  fflush(stderr);
-
   NSURL *fileURL = resolveAudioFileURL(pathStr);
   if (!fileURL) {
     fprintf(stderr, "MACOS AUDIO: File not found: '%s'\n", pathStr.c_str());
@@ -422,8 +419,6 @@ void MacOSAudioManager::friend_forcePlayAudioEventRTS(
     m_playingAudio.push_back(playing);
     m_activeHandles.insert(playing.handle);
 
-    fprintf(stderr, "MACOS AUDIO: 🔊 Playing: '%s' vol=%.2f\n",
-            pathStr.c_str(), player.volume);
   } @catch (NSException *e) {
     fprintf(stderr, "MACOS AUDIO: Exception playing '%s': %s\n",
             pathStr.c_str(), [[e reason] UTF8String]);

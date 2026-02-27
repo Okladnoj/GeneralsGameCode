@@ -628,10 +628,7 @@ IDirect3DSurface8* TextureLoader::Load_Surface_Immediate(
 
 void TextureLoader::Request_Thumbnail(TextureBaseClass *tc)
 {
-	if (tc) {
-		StringClass tmpN3 = tc->Get_Texture_Name();
-		fprintf(stderr, "[ReqThumb] %s\n", tmpN3.Is_Empty() ? "null" : tmpN3.Peek_Buffer());
-	}
+
 	// Grab the foreground lock. This prevents the foreground thread
 	// from retiring any tasks related to this texture. It also
 	// serializes calls to Request_Thumbnail from multiple threads.
@@ -847,12 +844,7 @@ void TextureLoader::Flush_Pending_Load_Tasks()
 
 void TextureLoader::Update(void (*network_callback)())
 {
-	static int s_updateEntryCount = 0;
-	s_updateEntryCount++;
-	if (s_updateEntryCount <= 5) {
-		printf("[TexLoader::Update::ENTRY] call#%d\n", s_updateEntryCount);
-		fflush(stdout);
-	}
+
 
 	WWASSERT_PRINT(Is_DX8_Thread(), "TextureLoader::Update must be called from the main thread!");
 
@@ -866,25 +858,9 @@ void TextureLoader::Update(void (*network_callback)())
 
 	unsigned long time = timeGetTime();
 
-	static int s_updateCallCount = 0;
-	int tasksThisUpdate = 0;
-	s_updateCallCount++;
-	if (s_updateCallCount <= 5) {
-		fprintf(stderr, "[TexLoader::Update] call#%d suspended=%d\n", s_updateCallCount, (int)TextureLoadSuspended);
-		fflush(stderr);
-	}
-
 	// while we have tasks on the foreground queue
 	while (TextureLoadTaskClass *task = _ForegroundQueue.Pop_Front()) {
 		UPDATE_NETWORK;
-		tasksThisUpdate++;
-		if (s_updateCallCount <= 20 || tasksThisUpdate <= 3) {
-			StringClass tmpN;
-			if (task->Peek_Texture()) tmpN = task->Peek_Texture()->Get_Texture_Name();
-			fprintf(stderr, "[TexLoader::Update] call#%d task#%d type=%d state=%d tex='%s'\n",
-				s_updateCallCount, tasksThisUpdate, (int)task->Get_Type(), (int)task->Get_State(),
-				tmpN.Is_Empty() ? "(null)" : tmpN.Peek_Buffer());
-		}
 		// dispatch to proper task handler
 		switch (task->Get_Type()) {
 			case TextureLoadTaskClass::TASK_THUMBNAIL:
@@ -895,11 +871,6 @@ void TextureLoader::Update(void (*network_callback)())
 				Process_Foreground_Load(task);
 				break;
 		}
-	}
-
-	if (s_updateCallCount <= 20 && tasksThisUpdate > 0) {
-		fprintf(stderr, "[TexLoader::Update] call#%d processed %d tasks\n",
-			s_updateCallCount, tasksThisUpdate);
 	}
 
 	TextureBaseClass::Invalidate_Old_Unused_Textures(TextureInactiveOverrideTime);
@@ -1273,40 +1244,13 @@ void TextureLoadTaskClass::End_Load()
 
 void TextureLoadTaskClass::Finish_Load()
 {
-	static int s_finishCount = 0;
-	if (++s_finishCount <= 30) {
-		const char* texPath = "(null)";
-		if (Texture) {
-			StringClass tmp = Texture->Get_Full_Path();
-			texPath = tmp.Peek_Buffer();
-			printf("[Finish_Load] #%d: state=%d tex='%s'\n",
-				s_finishCount, (int)State, texPath);
-		} else {
-			printf("[Finish_Load] #%d: state=%d tex='(null)'\n",
-				s_finishCount, (int)State);
-		}
-		fflush(stdout);
-	}
 	switch (State) {
 		// NOTE: fall-through below is intentional.
 
 		case STATE_NONE:
 			if (!Begin_Load()) {
-				{
-					const char* failPath = "(null)";
-					if (Texture) {
-						StringClass tmp2 = Texture->Get_Full_Path();
-						failPath = tmp2.Peek_Buffer();
-					}
-					printf("[Finish_Load] Begin_Load FAILED: '%s'\n", failPath);
-					fflush(stdout);
-				}
 				Apply_Missing_Texture();
 				break;
-			}
-			if (s_finishCount <= 30) {
-				printf("[Finish_Load] #%d: Begin_Load OK, D3DTex=%p\n", s_finishCount, (void*)D3DTexture);
-				fflush(stdout);
 			}
 			FALLTHROUGH;
 

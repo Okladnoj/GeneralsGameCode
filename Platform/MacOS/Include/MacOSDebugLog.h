@@ -34,7 +34,7 @@
 // Comment out groups you've already verified to reduce noise
 // ============================================================================
 #define DLOG_ACTIVE_GROUPS ( \
-    DLOG_GROUP_RFLOW       | \
+/*  DLOG_GROUP_RFLOW       | */\
     DLOG_GROUP_TRANSITION  | \
     DLOG_GROUP_INPUT       | \
     DLOG_GROUP_TEXTURE     | \
