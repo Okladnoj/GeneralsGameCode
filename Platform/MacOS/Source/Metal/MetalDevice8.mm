@@ -946,7 +946,9 @@ STDMETHODIMP MetalDevice8::GetDisplayMode(D3DDISPLAYMODE *pMode) {
 
 STDMETHODIMP MetalDevice8::CreateAdditionalSwapChain(D3DPRESENT_PARAMETERS *p,
                                                      IDirect3DSwapChain8 **s) {
-  return E_NOTIMPL;
+  // Metal uses a single CAMetalLayer; additional swap chains not supported.
+  if (s) *s = nullptr;
+  return D3DERR_NOTAVAILABLE;
 }
 
 STDMETHODIMP MetalDevice8::Reset(D3DPRESENT_PARAMETERS *p) { return D3D_OK; }
@@ -985,7 +987,7 @@ STDMETHODIMP MetalDevice8::GetBackBuffer(UINT i, D3DBACKBUFFER_TYPE t,
     return D3D_OK;
   }
   *b = nullptr;
-  return E_NOTIMPL;
+  return D3DERR_NOTFOUND;
 }
 
 // ─────────────────────────────────────────────────────
@@ -1056,13 +1058,17 @@ STDMETHODIMP MetalDevice8::CreateTexture(UINT w, UINT h, UINT l, DWORD u,
 STDMETHODIMP MetalDevice8::CreateVolumeTexture(UINT w, UINT h, UINT d, UINT l,
                                                DWORD u, D3DFORMAT f, D3DPOOL p,
                                                IDirect3DVolumeTexture8 **t) {
-  return E_NOTIMPL;
+  // Volume textures not implemented — engine handles nullptr gracefully.
+  if (t) *t = nullptr;
+  return D3D_OK;
 }
 
 STDMETHODIMP MetalDevice8::CreateCubeTexture(UINT s, UINT l, DWORD u,
                                              D3DFORMAT f, D3DPOOL p,
                                              IDirect3DCubeTexture8 **t) {
-  return E_NOTIMPL;
+  // Cube textures not implemented — engine handles nullptr gracefully.
+  if (t) *t = nullptr;
+  return D3D_OK;
 }
 
 STDMETHODIMP MetalDevice8::CreateVertexBuffer(UINT Length, DWORD Usage,
@@ -1133,7 +1139,7 @@ STDMETHODIMP MetalDevice8::GetRenderTarget(IDirect3DSurface8 **s) {
     return D3D_OK;
   }
   *s = nullptr;
-  return E_NOTIMPL;
+  return D3DERR_NOTFOUND;
 }
 STDMETHODIMP MetalDevice8::GetDepthStencilSurface(IDirect3DSurface8 **s) {
   if (!s)
@@ -1144,7 +1150,7 @@ STDMETHODIMP MetalDevice8::GetDepthStencilSurface(IDirect3DSurface8 **s) {
     return D3D_OK;
   }
   *s = nullptr;
-  return E_NOTIMPL;
+  return D3DERR_NOTFOUND;
 }
 STDMETHODIMP MetalDevice8::SetDepthStencilSurface(IDirect3DSurface8 *s) {
   return D3D_OK;
