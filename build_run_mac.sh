@@ -89,7 +89,7 @@ export GENERALS_FPS_LIMIT="${GENERALS_FPS_LIMIT:-60}"
 
 # Screenshot delay (default 15s)
 if [ -z "$SCREENSHOT_DELAY" ]; then
-    SCREENSHOT_DELAY=15
+    SCREENSHOT_DELAY=12
 fi
 
 echo "Starting game..."

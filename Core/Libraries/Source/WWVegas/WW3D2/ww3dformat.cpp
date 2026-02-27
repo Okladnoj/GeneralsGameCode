@@ -316,7 +316,7 @@ WW3DFormat Get_Valid_Texture_Format(WW3DFormat format, bool is_compression_allow
 	if (!DX8Wrapper::Get_Current_Caps()->Support_DXTC() ||
 		!is_compression_allowed) {
 		switch (format) {
-		case WW3D_FORMAT_DXT1: format=WW3D_FORMAT_R8G8B8; break;
+		case WW3D_FORMAT_DXT1: format=WW3D_FORMAT_A8R8G8B8; break;  // DXT1 can have 1-bit alpha; preserve alpha channel
 		case WW3D_FORMAT_DXT2:
 		case WW3D_FORMAT_DXT3:
 		case WW3D_FORMAT_DXT4:

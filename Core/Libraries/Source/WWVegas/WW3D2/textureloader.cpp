@@ -256,9 +256,10 @@ IDirect3DTexture8* Load_Compressed_Texture(
 	unsigned height=dds_file.Get_Height(0);
 	unsigned mips=dds_file.Get_Mip_Level_Count();
 
-	// If format isn't defined get the nearest valid texture format to the compressed file format
-	// Note that the nearest valid format could be anything, even uncompressed.
-	if (dest_format==WW3D_FORMAT_UNKNOWN) dest_format=Get_Valid_Texture_Format(dds_file.Get_Format(),true);
+	// Validate texture format - Get_Valid_Texture_Format handles format fallbacks
+	// (e.g. DXT1→DXT2 on NVidia/Metal where DXT1 is not supported).
+	if (dest_format==WW3D_FORMAT_UNKNOWN) dest_format=dds_file.Get_Format();
+	dest_format=Get_Valid_Texture_Format(dest_format,true);
 
 	IDirect3DTexture8* d3d_texture = DX8Wrapper::_Create_DX8_Texture
 	(

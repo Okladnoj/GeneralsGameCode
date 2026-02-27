@@ -610,9 +610,85 @@ Vertices are filled in `HeightMapRenderObjClass::updateVB()`, where `diffuse` co
 
 | Баг | Severity | Вероятная причина |
 |:---|:---|:---|
-| White squares (particle splash) | 🟡 | Формат текстуры партиклов (DXT1 vs DXT3) или blend mode |
 | Black shadow on mountain back | 🟡 | DXT1 пустые блоки не ловятся порогом discard |
 | Terrain texture simplified | 🟡 | PS path не применяет texTransformFlags (computeUVPS) |
+
+---
+
+## Инициализация устройства и определение форматов
+
+### Цепочка инициализации
+
+```
+WW3D::Init()
+  ├─ Init_D3D_To_WW3_Conversion()     ← таблицы конвертации D3D↔WW3D
+  └─ DX8Wrapper::Init()
+       └─ Enumerate_Devices()
+            └─ DX8Caps(UNKNOWN)        ← caps без display format (только для enumeration)
+
+W3DDisplay::init()
+  └─ WW3D::Set_Render_Device(0, w, h, bits, windowed)
+       └─ DX8Wrapper::Set_Render_Device()
+            ├─ if IsWindowed:
+            │    GetAdapterDisplayMode → DisplayFormat    ← macOS: A8R8G8B8
+            ├─ else (fullscreen):
+            │    Find_Color_And_Z_Mode → DisplayFormat    ← может не найти → UNKNOWN!
+            └─ Create_Device()
+                 └─ Do_Onetime_Device_Dependent_Inits()
+                      ├─ [macOS] if DisplayFormat==UNKNOWN: GetDisplayMode → fix
+                      └─ Compute_Caps(DisplayFormat)
+                           └─ Check_Texture_Format_Support(display_format)
+                                ├─ if UNKNOWN → все форматы = false, return
+                                └─ for each WW3DFormat:
+                                     CheckDeviceFormat → SupportTextureFormat[i]
+```
+
+### `Check_Texture_Format_Support` → `SupportTextureFormat[]`
+
+`DX8Caps` хранит массив `SupportTextureFormat[WW3D_FORMAT_COUNT]`.
+Заполняется **один раз** при `Compute_Caps` через `IDirect3D8::CheckDeviceFormat()`.
+На macOS `MetalInterface8::CheckDeviceFormat` → всегда `D3D_OK` (все форматы поддерживаются).
+
+**Критическое условие:** если `display_format == WW3D_FORMAT_UNKNOWN`, метод делает
+early return с `false` для всех форматов. Это каскадно отключает DXTC, alpha-форматы
+и все fallback-цепочки в `Get_Valid_Texture_Format`.
+
+### `Get_Valid_Texture_Format` — дерево решений
+
+Вызывается при загрузке текстуры для определения итогового формата.
+
+```
+Вход: format (из DDS/TGA), is_compression_allowed
+
+1. if !SupportDXTC || !is_compression_allowed:
+     DXT1 → A8R8G8B8    (сохраняет alpha)
+     DXT2-5 → A8R8G8B8
+   else:
+     DXT оставляется как есть (GPU native BC1-BC3)
+
+2. if TextureBitDepth == 16:
+     A8R8G8B8 → A4R4G4B4
+     X8R8G8B8 → R5G6B5
+
+3. if !Support_Texture_Format(format):
+     fallback: A8R8G8B8 → A4R4G4B4 → X8R8G8B8 → R5G6B5
+```
+
+`TextureBitDepth` определяется:
+- По умолчанию: `32` на macOS, `16` на Windows (см. `DEFAULT_TEXTURE_BIT_DEPTH`)
+- Может быть перезаписан из конфига (`Registry_Load_Render_Device`)
+- Может быть установлен явно через `WW3D::Set_Texture_Bitdepth(32)` в `W3DDisplay::init()`
+
+### macOS: отличие от Windows
+
+На macOS `IsWindowed = false` (simulated fullscreen). `Find_Color_And_Z_Mode` ищет
+enumerated display mode с точным совпадением разрешения. Если совпадения нет —
+`DisplayFormat` не устанавливается. `Do_Onetime_Device_Dependent_Inits` компенсирует
+это запросом `D3DDevice->GetDisplayMode()`.
+
+На Windows DXT текстуры поддерживаются GPU hardware, `SupportDXTC = true`, и форматы
+передаются GPU напрямую. На macOS Metal поддерживает BC1-BC3 нативно через
+`MTLPixelFormatBC1_RGBA` / `BC2_RGBA` / `BC3_RGBA`.
 
 ---
 

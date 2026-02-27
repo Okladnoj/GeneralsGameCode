@@ -411,6 +411,18 @@ void DX8Wrapper::Do_Onetime_Device_Dependent_Inits(void) {
   /*
   ** Set Global render states (some of which depend on caps)
   */
+#ifdef __APPLE__
+  // TheSuperHackers @bugfix macOS: DisplayFormat may still be D3DFMT_UNKNOWN
+  // when Create_Device is called before Set_Render_Device fully initializes
+  // (e.g. fullscreen mode where Find_Color_And_Z_Mode can fail to match a
+  // resolution). Query the actual device display mode to get the real format.
+  if (DisplayFormat == D3DFMT_UNKNOWN && D3DDevice != nullptr) {
+    D3DDISPLAYMODE mode;
+    if (SUCCEEDED(D3DDevice->GetDisplayMode(&mode))) {
+      DisplayFormat = mode.Format;
+    }
+  }
+#endif
   Compute_Caps(D3DFormat_To_WW3DFormat(DisplayFormat));
 
   /*
