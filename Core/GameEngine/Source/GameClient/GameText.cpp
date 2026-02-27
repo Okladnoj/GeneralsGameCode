@@ -967,7 +967,11 @@ Bool GameTextManager::parseCSF( const Char *filename )
 
 					while ( *ptr )
 					{
-						*ptr = ~*ptr;
+						// TheSuperHackers @fix CSF stores UTF-16 chars XOR'd with 0xFFFF.
+						// On Windows (16-bit wchar_t), ~x correctly inverts all bits.
+						// On macOS/Linux (32-bit wchar_t), we must only invert the lower
+						// 16 bits to keep the result as a valid Unicode codepoint.
+						*ptr = (WideChar)((*ptr ^ 0xFFFF) & 0xFFFF);
 						ptr++;
 					}
 				}
