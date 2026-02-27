@@ -2392,6 +2392,13 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
       auto it = m_PSHandleMap.find(m_PixelShader);
       if (it != m_PSHandleMap.end()) {
         psu.psType = it->second.psType;
+        static int psDrawCount = 0;
+        if (psDrawCount < 5) {
+          printf("[PS] DRAW with PS active! handle=0x%x type=%u\n",
+                  m_PixelShader, psu.psType);
+          fflush(stdout);
+        }
+        psDrawCount++;
       }
       // Copy PS constant registers c0..c7
       for (int r = 0; r < MAX_PS_CONSTANTS; ++r) {
@@ -3028,8 +3035,9 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
         info.psType = PS_TERRAIN;
       }
 
-      fprintf(stderr, "[PS] CreatePixelShader: handle=0x%x tex=%u arith=%u dp3=%d lrp=%d mad=%d texbem=%d -> type=%u\n",
+      printf("[PS] CreatePixelShader: handle=0x%x tex=%u arith=%u dp3=%d lrp=%d mad=%d texbem=%d -> type=%u\n",
              h, numTex, numArith, hasDp3, hasLrp, hasMad, hasTexbem, info.psType);
+      fflush(stdout);
     }
   }
 
@@ -3038,6 +3046,11 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
 }
 
 STDMETHODIMP MetalDevice8::SetPixelShader(DWORD h) {
+  if (h != m_PixelShader) {
+    printf("[PS] SetPixelShader: 0x%x -> 0x%x (found=%d)\n",
+            m_PixelShader, h, h ? (int)(m_PSHandleMap.count(h)) : -1);
+    fflush(stdout);
+  }
   m_PixelShader = h;
   return D3D_OK;
 }

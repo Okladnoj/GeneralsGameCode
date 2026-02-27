@@ -76,5 +76,5 @@ if [ "$DO_SCREENSHOT" = true ]; then
     kill $GAME_PID 2>/dev/null
     wait $GAME_PID 2>/dev/null
 else
-    build/macos/GeneralsMD/generalszh
+    build/macos/GeneralsMD/generalszh > Platform/MacOS/Build/Logs/game.log 2>&1
 fi
