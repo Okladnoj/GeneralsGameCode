@@ -812,15 +812,14 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
             return float2(in.camPosX, in.camPosY);
         }
         
-        // D3DTSS_TCI_PASSTHRU: use vertex UV set.
-        // TODO(PS_PATH): This workaround skips texTransformFlags for PASSTHRU to prevent
-        // stale state from cloud/noise TSS passes causing black terrain. Once PS path is
-        // active (terrain renders via pixel shader, not TSS), restore proper transform:
-        //   float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
-        //   if (uniforms.texTransformFlags[stage] != 0)
-        //       uv = (uniforms.texMatrix[stage] * float4(uv, 0.0, 1.0)).xy;
-        //   return uv;
-        return (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+        // D3DTSS_TCI_PASSTHRU: use vertex UV set, apply texture transform if set.
+        // PS path handles terrain/cloud/noise, so stale texTransformFlags
+        // from multi-pass TSS are no longer an issue for terrain.
+        float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+        if (uniforms.texTransformFlags[stage] != 0) {
+            uv = (uniforms.texMatrix[stage] * float4(uv, 0.0, 1.0)).xy;
+        }
+        return uv;
     };
     
     float2 uv0 = computeUV(fragUniforms.texCoordIndex[0], 0);
@@ -897,10 +896,10 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     if (fragUniforms.specularEnable != 0) {
         current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
     }
-
-    // TODO(PS_PATH): Workaround — discard opaque black fragments from 3D textured geometry.
+    // Discard opaque black fragments from 3D textured geometry.
     // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
-    // This may be unnecessary once PS path handles terrain blending properly.
+    // This affects TSS-rendered 3D meshes (mountains, etc.) that receive
+    // DXT1 textures with empty blocks. Root cause: texture loading issue.
     if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
         dot(current.rgb, float3(1.0)) < 0.001) {
         discard_fragment();

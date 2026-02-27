@@ -915,14 +915,10 @@ WWINLINE void DX8Wrapper::Set_DX8_Texture(unsigned int stage, IDirect3DBaseTextu
   		return;
   	}
 
-#ifndef __APPLE__
-	// On Windows/DX8, texture bindings persist between draw calls,
-	// so we can skip redundant SetTexture calls.
-	// TODO(PS_PATH): On Metal, textures are re-bound each draw call, so this
-	// cache skip causes stale textures. Investigate if Metal binding can be
-	// optimized to avoid re-binding like DX8.
+	// Skip redundant SetTexture calls. On Metal, DrawIndexedPrimitive
+	// re-binds m_Textures[] each draw call, so this wrapper-level cache
+	// only avoids unnecessary device calls — safe on all platforms.
 	if (Textures[stage]==texture) return;
-#endif
 
 	SNAPSHOT_SAY(("DX8 - SetTexture(%x) ",texture));
 
