@@ -87,6 +87,7 @@ struct FragmentUniforms {
     uint   specularEnable;
     uint   texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX: which UV set each stage uses
     uint   texFormatType[4]; // 0=Default, 1=Luminance(L8/P8), 2=Luminance+Alpha(A4L4/A8L8)
+    uint   blendEnabled;     // D3DRS_ALPHABLENDENABLE — used by black discard guard
 };
 
 // ─────────────────────────────────────────────────────
@@ -222,22 +223,21 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
         // In the original shader: swayType stored in vertex diffuse alpha as 1-based index.
         //
         // Extract sway type from diffuse alpha (packed as 0..MAX_SWAY_TYPES normalized)
-        // In W3DTreeBuffer, swayType is stored as diffuse alpha = swayType (1..MAX_SWAY_TYPES)
-        // encoded as integer in the alpha byte of the diffuse DWORD.
-        // The diffuse color arrives in in.color as normalized BGRA.
-        // Alpha = in.color.a contains swayType / 255.0
-        // So swayType = round(in.color.a * 255.0)
-        uint swayType = (uint)(in.color.a * 255.0 + 0.5);
+        // Extract sway type from normal.x (repurposed field).
+        // In W3DTreeBuffer, swayType is stored in curVb->nx = swayType (1..MAX_SWAY_TYPES)
+        // as an integer value packed into the normal.x float component.
+        uint swayType = (uint)(in.normal.x + 0.5);
         if (swayType < 1) swayType = 1;
         if (swayType > 8) swayType = 8;
         
         // Sway vector for this tree's sway type is in c[8 + swayType]
         float3 swayVec = customVS.c[8 + swayType].xyz;
         
-        // Weight sway by vertex height: normal.z carries the height factor.
-        // In Trees.vso, the vertex normal is repurposed to carry sway weight.
-        // Specifically, vertices near the top of the tree have larger normal.z.
-        float swayWeight = in.normal.z;
+        // Weight sway by vertex height above ground:
+        // In W3DTreeBuffer, normal is repurposed: nx=swayType, ny=darkening, nz=ground Z.
+        // Trees.vso computes sway weight as (v0.z - v1.z) = vertex Z - ground Z
+        // = height of this vertex above the tree's base. Top sways more, base doesn't.
+        float swayWeight = pos.z - in.normal.z;
         
         // Apply sway displacement to position
         float4 swayedPos = pos;
@@ -823,6 +823,7 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     };
     
     float2 uv0 = computeUV(fragUniforms.texCoordIndex[0], 0);
+
     float2 uv1 = computeUV(fragUniforms.texCoordIndex[1], 1);
     float2 uv2 = computeUV(fragUniforms.texCoordIndex[2], 2);
     float2 uv3 = computeUV(fragUniforms.texCoordIndex[3], 3);
@@ -898,9 +899,10 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     }
     // Discard opaque black fragments from 3D textured geometry.
     // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
-    // This affects TSS-rendered 3D meshes (mountains, etc.) that receive
-    // DXT1 textures with empty blocks. Root cause: texture loading issue.
+    // Skip when alpha test is enabled — alpha test handles transparency
+    // for trees/particles, and their dark pixels are valid content.
     if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
+        fragUniforms.alphaTestEnable == 0 &&
         dot(current.rgb, float3(1.0)) < 0.001) {
         discard_fragment();
     }

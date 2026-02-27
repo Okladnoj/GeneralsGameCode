@@ -915,10 +915,11 @@ WWINLINE void DX8Wrapper::Set_DX8_Texture(unsigned int stage, IDirect3DBaseTextu
   		return;
   	}
 
-	// Skip redundant SetTexture calls on Windows/DX8 where bindings persist.
+	// Skip redundant SetTexture calls when pointer hasn't changed.
 	// On Metal, 2D UI elements reuse the same D3D texture pointer with different
-	// content (dynamic text rendering), so we must always call SetTexture to
-	// ensure the device sees updated texture data.
+	// content (via LockRect/UnlockRect with new pixel data), so we always call
+	// through to the device. MetalDevice8::SetTexture uses a generation counter
+	// to avoid redundant GPU texture bindings for static textures (~95% of calls).
 #ifndef __APPLE__
 	if (Textures[stage]==texture) return;
 #endif

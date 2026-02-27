@@ -1,0 +1,43 @@
+/**
+ * T12: Sampler State Mapping Tests
+ */
+
+TEST(T12_1_ADDRESS_WRAP) {
+  ASSERT_EQ(MapD3DAddressToMTL(D3DTADDRESS_WRAP), MTLSamplerAddressModeRepeat);
+}
+
+TEST(T12_2_ADDRESS_MIRROR) {
+  ASSERT_EQ(MapD3DAddressToMTL(D3DTADDRESS_MIRROR), MTLSamplerAddressModeMirrorRepeat);
+}
+
+TEST(T12_3_ADDRESS_CLAMP) {
+  ASSERT_EQ(MapD3DAddressToMTL(D3DTADDRESS_CLAMP), MTLSamplerAddressModeClampToEdge);
+}
+
+TEST(T12_4_FILTER_POINT) {
+  ASSERT_EQ(MapD3DFilterToMTL(D3DTEXF_POINT), MTLSamplerMinMagFilterNearest);
+}
+
+TEST(T12_5_FILTER_LINEAR) {
+  ASSERT_EQ(MapD3DFilterToMTL(D3DTEXF_LINEAR), MTLSamplerMinMagFilterLinear);
+}
+
+TEST(T12_FILTER_ANISOTROPIC) {
+  ASSERT_EQ(MapD3DFilterToMTL(D3DTEXF_ANISOTROPIC), MTLSamplerMinMagFilterLinear);
+}
+
+TEST(T12_6_MIP_NONE) {
+  ASSERT_EQ(MapD3DMipFilterToMTL(D3DTEXF_NONE), MTLSamplerMipFilterNotMipmapped);
+}
+
+TEST(T12_7_MIP_LINEAR) {
+  ASSERT_EQ(MapD3DMipFilterToMTL(D3DTEXF_LINEAR), MTLSamplerMipFilterLinear);
+}
+
+TEST(T12_MIP_POINT) {
+  ASSERT_EQ(MapD3DMipFilterToMTL(D3DTEXF_POINT), MTLSamplerMipFilterNearest);
+}
+
+TEST(T12_ADDRESS_BORDER) {
+  ASSERT_EQ(MapD3DAddressToMTL(D3DTADDRESS_BORDER), MTLSamplerAddressModeClampToZero);
+}

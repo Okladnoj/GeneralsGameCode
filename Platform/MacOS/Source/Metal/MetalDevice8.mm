@@ -14,11 +14,14 @@
 
 // Now include our header (which includes d3d8.h / win_compat.h)
 #import "MetalDevice8.h"
+#include "MetalBridgeMappings.h"
+#include "MetalFormatConvert.h"
 #include "MetalIndexBuffer8.h"
 #include "MetalSurface8.h"
 #include "MetalTexture8.h"
 #include "MetalVertexBuffer8.h"
 #include "MacOSDebugLog.h"
+#include "MetalTextureCapture.h"
 #include <cstdio>
 #include <cstring>
 
@@ -63,6 +66,8 @@ MetalDevice8::MetalDevice8()
     : m_RefCount(1), m_Device(nullptr), m_CommandQueue(nullptr),
       m_MetalLayer(nullptr), m_CurrentCommandBuffer(nullptr),
       m_CurrentDrawable(nullptr), m_CurrentEncoder(nullptr), m_InScene(false),
+      m_RTTColorTexture(nullptr), m_RTTDepthTexture(nullptr),
+      m_RTTSurface(nullptr), m_RTTWidth(0), m_RTTHeight(0),
       m_StreamSource(nullptr), m_StreamStride(0), m_IndexBuffer(nullptr),
       m_BaseVertexIndex(0), m_VertexShader(0), m_PixelShader(0),
       m_HWND(nullptr), m_ScreenWidth(800), m_ScreenHeight(600),
@@ -93,6 +98,7 @@ MetalDevice8::MetalDevice8()
   }
   
   memset(m_Textures, 0, sizeof(m_Textures));
+  memset(m_TextureGeneration, 0, sizeof(m_TextureGeneration));
   memset(m_Transforms, 0, sizeof(m_Transforms));
   memset(&m_Viewport, 0, sizeof(m_Viewport));
   memset(&m_Material, 0, sizeof(m_Material));
@@ -182,6 +188,10 @@ MetalDevice8::MetalDevice8()
 }
 
 MetalDevice8::~MetalDevice8() {
+  // Export captured textures (if capture was enabled)
+  TextureCaptureSystem::Instance().ExportCpp(
+      "Platform/MacOS/Tests/captured_textures_data.cpp");
+
   // Release sampler state cache
   for (auto &pair : m_SamplerStateCache) {
     if (pair.second)
@@ -288,6 +298,7 @@ struct FragmentUniforms {
   uint32_t specularEnable;
   uint32_t texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX per stage
   uint32_t texFormatType[4]; // 0=Default, 1=Luminance(r,r,r,1), 2=Luminance+Alpha(r,r,r,g)
+  uint32_t blendEnabled;     // D3DRS_ALPHABLENDENABLE
 };
 
 // Stage 8: LightData (matches MacOSShaders.metal)
@@ -365,6 +376,10 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
   SET_MTL(Device, device);
   g_MetalMTLDevice = m_Device; // Global access for VB/IB
   g_theMetalDevice = this;     // Global access for MacOSDisplayManager
+
+  // Init texture capture system (reads GENERALS_CAPTURE_TEXTURES env)
+  TextureCaptureSystem::Instance().Init();
+  TextureCaptureSystem::Instance().CaptureDeviceCaps(this);
 
   // Create a small zero buffer for default vertex attributes (missing FVF
   // components)
@@ -564,52 +579,7 @@ void MetalDevice8::CreateDepthTexture(UINT width, UINT height) {
   m_DepthStateDirty = true;
 }
 
-static MTLCompareFunction MapD3DCmpToMTL(DWORD d3dCmp) {
-  switch (d3dCmp) {
-  case D3DCMP_NEVER:
-    return MTLCompareFunctionNever;
-  case D3DCMP_LESS:
-    return MTLCompareFunctionLess;
-  case D3DCMP_EQUAL:
-    return MTLCompareFunctionEqual;
-  case D3DCMP_LESSEQUAL:
-    return MTLCompareFunctionLessEqual;
-  case D3DCMP_GREATER:
-    return MTLCompareFunctionGreater;
-  case D3DCMP_NOTEQUAL:
-    return MTLCompareFunctionNotEqual;
-  case D3DCMP_GREATEREQUAL:
-    return MTLCompareFunctionGreaterEqual;
-  case D3DCMP_ALWAYS:
-    return MTLCompareFunctionAlways;
-  default:
-    return MTLCompareFunctionLessEqual; // DX8 default
-  }
-}
-
-// Map D3DSTENCILOP → MTLStencilOperation
-static MTLStencilOperation MapD3DStencilOpToMTL(DWORD op) {
-  switch (op) {
-  case D3DSTENCILOP_KEEP:
-    return MTLStencilOperationKeep;
-  case D3DSTENCILOP_ZERO:
-    return MTLStencilOperationZero;
-  case D3DSTENCILOP_REPLACE:
-    return MTLStencilOperationReplace;
-  case D3DSTENCILOP_INCRSAT:
-    return MTLStencilOperationIncrementClamp;
-  case D3DSTENCILOP_DECRSAT:
-    return MTLStencilOperationDecrementClamp;
-  case D3DSTENCILOP_INVERT:
-    return MTLStencilOperationInvert;
-  case D3DSTENCILOP_INCR:
-    return MTLStencilOperationIncrementWrap;
-  case D3DSTENCILOP_DECR:
-    return MTLStencilOperationDecrementWrap;
-  default:
-    return MTLStencilOperationKeep;
-  }
-}
+// MapD3DCmpToMTL() and MapD3DStencilOpToMTL() are now in MetalBridgeMappings.h
 
 void *MetalDevice8::GetDepthStencilState() {
   if (!m_DepthStateDirty && m_DepthStencilState)
@@ -681,51 +651,7 @@ void *MetalDevice8::GetDepthStencilState() {
 //  Stage 6: D3DBLEND → MTLBlendFactor mapping
 //  Spec: d3d8_stub.h D3DBLEND enum
 // ─────────────────────────────────────────────────────
-static MTLBlendFactor MapD3DBlendToMTL(DWORD blend) {
-  switch (blend) {
-  case D3DBLEND_ZERO:
-    return MTLBlendFactorZero;
-  case D3DBLEND_ONE:
-    return MTLBlendFactorOne;
-  case D3DBLEND_SRCCOLOR:
-    return MTLBlendFactorSourceColor;
-  case D3DBLEND_INVSRCCOLOR:
-    return MTLBlendFactorOneMinusSourceColor;
-  case D3DBLEND_SRCALPHA:
-    return MTLBlendFactorSourceAlpha;
-  case D3DBLEND_INVSRCALPHA:
-    return MTLBlendFactorOneMinusSourceAlpha;
-  case D3DBLEND_DESTALPHA:
-    return MTLBlendFactorDestinationAlpha;
-  case D3DBLEND_INVDESTALPHA:
-    return MTLBlendFactorOneMinusDestinationAlpha;
-  case D3DBLEND_DESTCOLOR:
-    return MTLBlendFactorDestinationColor;
-  case D3DBLEND_INVDESTCOLOR:
-    return MTLBlendFactorOneMinusDestinationColor;
-  case D3DBLEND_SRCALPHASAT:
-    return MTLBlendFactorSourceAlphaSaturated;
-  default:
-    return MTLBlendFactorOne;
-  }
-}
-
-// ─────────────────────────────────────────────────────
-//  Stage 6: D3DCULL → MTLCullMode mapping
-//  DX8 uses CW/CCW winding opposite to Metal
-// ─────────────────────────────────────────────────────
-static MTLCullMode MapD3DCullToMTL(DWORD cull) {
-  switch (cull) {
-  case D3DCULL_NONE:
-    return MTLCullModeNone;
-  case D3DCULL_CW:
-    return MTLCullModeFront; // DX8 CW = Metal Front
-  case D3DCULL_CCW:
-    return MTLCullModeBack;
-  default:
-    return MTLCullModeBack; // DX8 default is CCW
-  }
-}
+// MapD3DBlendToMTL() and MapD3DCullToMTL() are now in MetalBridgeMappings.h
 
 // ─────────────────────────────────────────────────────
 //  Stage 6: Build 64-bit PSO cache key
@@ -748,6 +674,17 @@ uint64_t MetalDevice8::BuildPSOKey(DWORD fvf, UINT stride) {
   key |= (uint64_t)(cwMask) << 43;
   key |= (uint64_t)(dwAlphaEn) << 47;
   key |= (uint64_t)(stride) << 48; // Up to 65535 stride
+  
+  // RTT depth availability: PSO must match render pass depth attachment
+  bool hasDepth = false;
+  if (m_RTTColorTexture) {
+    hasDepth = (m_RTTDepthTexture != nullptr);
+  } else {
+    hasDepth = (m_DepthTexture != nullptr);
+  }
+  if (!hasDepth) {
+    key |= (uint64_t)1 << 63; // mark PSOs without depth
+  }
   return key;
 }
 
@@ -765,8 +702,14 @@ void MetalDevice8::ApplyPerDrawState() {
   // Front face winding: DX8 default is CW, Metal default is CW
   [MTL_ENCODER setFrontFacingWinding:MTLWindingClockwise];
 
-  // Depth/Stencil
-  if (m_DepthTexture) {
+  // Depth/Stencil — skip if rendering to texture without depth
+  bool hasDepth = false;
+  if (m_RTTColorTexture) {
+    hasDepth = (m_RTTDepthTexture != nullptr);
+  } else {
+    hasDepth = (m_DepthTexture != nullptr);
+  }
+  if (hasDepth) {
     void *dss = GetDepthStencilState();
     if (dss) {
       [MTL_ENCODER setDepthStencilState:(__bridge id<MTLDepthStencilState>)dss];
@@ -782,47 +725,7 @@ void MetalDevice8::ApplyPerDrawState() {
 // ─────────────────────────────────────────────────────
 //  Stage 7: Get or Create MTLSamplerState for a texture stage
 // ─────────────────────────────────────────────────────
-static MTLSamplerAddressMode MapD3DAddressToMTL(DWORD addr) {
-  switch (addr) {
-  case D3DTADDRESS_WRAP:
-    return MTLSamplerAddressModeRepeat;
-  case D3DTADDRESS_CLAMP:
-    return MTLSamplerAddressModeClampToEdge;
-  case D3DTADDRESS_MIRROR:
-    return MTLSamplerAddressModeMirrorRepeat;
-  case D3DTADDRESS_BORDER:
-    return MTLSamplerAddressModeClampToZero;
-  default:
-    return MTLSamplerAddressModeRepeat;
-  }
-}
-
-static MTLSamplerMinMagFilter MapD3DFilterToMTL(DWORD filter) {
-  switch (filter) {
-  case D3DTEXF_POINT:
-    return MTLSamplerMinMagFilterNearest;
-  case D3DTEXF_LINEAR:
-  case D3DTEXF_ANISOTROPIC:
-  case D3DTEXF_FLATCUBIC:
-  case D3DTEXF_GAUSSIANCUBIC:
-    return MTLSamplerMinMagFilterLinear;
-  default:
-    return MTLSamplerMinMagFilterLinear;
-  }
-}
-
-static MTLSamplerMipFilter MapD3DMipFilterToMTL(DWORD filter) {
-  switch (filter) {
-  case D3DTEXF_NONE:
-    return MTLSamplerMipFilterNotMipmapped;
-  case D3DTEXF_POINT:
-    return MTLSamplerMipFilterNearest;
-  case D3DTEXF_LINEAR:
-    return MTLSamplerMipFilterLinear;
-  default:
-    return MTLSamplerMipFilterNotMipmapped;
-  }
-}
+// MapD3DAddressToMTL(), MapD3DFilterToMTL(), MapD3DMipFilterToMTL() are now in MetalBridgeMappings.h
 
 void *MetalDevice8::GetSamplerState(DWORD stage) {
   if (stage >= MAX_TEXTURE_STAGES)
@@ -974,6 +877,7 @@ STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
   }
   CLEAR_MTL(CurrentDrawable);
   m_InScene = false;
+  g_metalPresentCount++;
   return D3D_OK;
 }
 
@@ -1110,6 +1014,136 @@ STDMETHODIMP MetalDevice8::CreateImageSurface(UINT w, UINT h, D3DFORMAT f,
 STDMETHODIMP MetalDevice8::CopyRects(IDirect3DSurface8 *src, const void *sr,
                                      UINT c, IDirect3DSurface8 *dst,
                                      const void *dp) {
+  if (!src || !dst) return E_FAIL;
+
+  MetalSurface8 *srcSurf = (MetalSurface8 *)src;
+  MetalSurface8 *dstSurf = (MetalSurface8 *)dst;
+
+  // Get destination Metal texture
+  MetalTexture8 *dstTex = dstSurf->GetParentTexture();
+  if (!dstTex) return E_FAIL;
+  id<MTLTexture> mtlDst = dstTex->GetMTLTexture();
+  if (!mtlDst) return E_FAIL;
+
+  // Source data: the surface may have a persistent locked buffer
+  // (W3DShroud's lock-once pattern), or we may need to lock it.
+  const void *srcBits = srcSurf->GetLockedData();
+  UINT srcPitch = srcSurf->GetLockedPitch();
+  bool didLock = false;
+  
+  if (!srcBits) {
+    // No persistent buffer — try locking
+    D3DLOCKED_RECT srcLocked;
+    HRESULT hr = srcSurf->LockRect(&srcLocked, nullptr, D3DLOCK_READONLY);
+    if (FAILED(hr)) return hr;
+    srcBits = srcLocked.pBits;
+    srcPitch = srcLocked.Pitch;
+    didLock = true;
+  }
+
+  const RECT *srcRects = (const RECT *)sr;
+  const POINT *dstPoints = (const POINT *)dp;
+
+  D3DFORMAT srcFmt = srcSurf->GetD3DFormat();
+  UINT srcBpp = BytesPerPixelFromD3D(srcFmt);
+  bool is16bit = Is16BitFormat(srcFmt);
+
+  // If c == 0 and srcRects == nullptr: copy entire surface
+  UINT numRects = (c == 0 && srcRects == nullptr) ? 1 : c;
+  if (numRects == 0) numRects = 1;
+
+  for (UINT i = 0; i < numRects; i++) {
+    UINT srcX = 0, srcY = 0, copyW = 0, copyH = 0;
+    UINT dstX = 0, dstY = 0;
+
+    if (srcRects) {
+      srcX = srcRects[i].left;
+      srcY = srcRects[i].top;
+      copyW = srcRects[i].right - srcRects[i].left;
+      copyH = srcRects[i].bottom - srcRects[i].top;
+    } else {
+      // Get surface desc for full copy
+      D3DSURFACE_DESC desc;
+      srcSurf->GetDesc(&desc);
+      copyW = desc.Width;
+      copyH = desc.Height;
+    }
+
+    if (dstPoints) {
+      dstX = dstPoints[i].x;
+      dstY = dstPoints[i].y;
+    }
+
+    if (copyW == 0 || copyH == 0) continue;
+
+    // Source data pointer offset by srcX, srcY
+    const uint8_t *srcRow = (const uint8_t *)srcBits
+                            + srcY * srcPitch
+                            + srcX * srcBpp;
+
+    if (is16bit) {
+      // Convert 16-bit source to 32-bit BGRA8 and upload
+      UINT dstPitch = copyW * 4;
+      uint8_t *converted = (uint8_t *)malloc(dstPitch * copyH);
+      if (converted) {
+        for (UINT y = 0; y < copyH; y++) {
+          const uint16_t *sp = (const uint16_t *)(srcRow + y * srcPitch);
+          uint32_t *dpx = (uint32_t *)(converted + y * dstPitch);
+          for (UINT x = 0; x < copyW; x++) {
+            dpx[x] = ConvertPixel16to32(srcFmt, sp[x]);
+          }
+        }
+        MTLRegion region = MTLRegionMake2D(dstX, dstY, copyW, copyH);
+        [mtlDst replaceRegion:region
+               mipmapLevel:0
+                 withBytes:converted
+               bytesPerRow:dstPitch];
+        free(converted);
+      }
+    } else {
+      // Direct copy for 32-bit formats
+      MTLRegion region = MTLRegionMake2D(dstX, dstY, copyW, copyH);
+      // Must provide contiguous data — copy row by row if srcPitch != copyW*bpp
+      UINT dstPitch = copyW * srcBpp;
+      if ((UINT)srcPitch == dstPitch) {
+        [mtlDst replaceRegion:region
+               mipmapLevel:0
+                 withBytes:srcRow
+               bytesPerRow:dstPitch];
+      } else {
+        uint8_t *tmp = (uint8_t *)malloc(dstPitch * copyH);
+        if (tmp) {
+          for (UINT y = 0; y < copyH; y++) {
+            memcpy(tmp + y * dstPitch,
+                   srcRow + y * srcPitch,
+                   dstPitch);
+          }
+          [mtlDst replaceRegion:region
+                 mipmapLevel:0
+                   withBytes:tmp
+                 bytesPerRow:dstPitch];
+          free(tmp);
+        }
+      }
+    }
+  }
+
+  if (didLock) {
+    srcSurf->UnlockRect();
+  }
+
+  // Mark the destination texture as written
+  dstTex->MarkWritten();
+
+  static int s_copyRectsLog = 0;
+  if (s_copyRectsLog < 10) {
+    printf("[CopyRects] #%d: src=%p dst=%p numRects=%u fmt=%u is16bit=%d\n",
+           s_copyRectsLog, (void*)src, (void*)dst, numRects,
+           (unsigned)srcFmt, (int)is16bit);
+    fflush(stdout);
+    s_copyRectsLog++;
+  }
+
   return D3D_OK;
 }
 
@@ -1128,6 +1162,73 @@ STDMETHODIMP MetalDevice8::GetFrontBuffer(IDirect3DSurface8 *d) {
 
 STDMETHODIMP MetalDevice8::SetRenderTarget(IDirect3DSurface8 *s,
                                            IDirect3DSurface8 *d) {
+  // Restoring default render target?
+  if (s == nullptr || s == m_DefaultRTSurface) {
+    if (m_RTTSurface) {
+      fprintf(stderr, "[MetalDevice8] SetRenderTarget: restoring default RT\n");
+      m_RTTSurface->Release();
+      m_RTTSurface = nullptr;
+    }
+    m_RTTColorTexture = nullptr;
+    m_RTTDepthTexture = nullptr;
+    m_RTTWidth = 0;
+    m_RTTHeight = 0;
+
+    // End current encoder so next draw/Clear creates a new render pass
+    // targeting the drawable.
+    if (m_CurrentEncoder) {
+      [MTL_ENCODER endEncoding];
+      CLEAR_MTL(CurrentEncoder);
+    }
+    return D3D_OK;
+  }
+
+  // Setting a custom render target (render-to-texture)
+  MetalSurface8 *surf = (MetalSurface8 *)s;
+  MetalTexture8 *tex = surf->GetParentTexture();
+  if (!tex) {
+    fprintf(stderr, "[MetalDevice8] SetRenderTarget: surface has no parent texture — ignoring\n");
+    return D3D_OK;
+  }
+
+  id<MTLTexture> mtl = tex->GetMTLTexture();
+  if (!mtl) {
+    fprintf(stderr, "[MetalDevice8] SetRenderTarget: parent texture has no MTLTexture — ignoring\n");
+    return D3D_OK;
+  }
+
+  // End current encoder so next draw/Clear creates a new render pass
+  // targeting the RTT texture.
+  if (m_CurrentEncoder) {
+    [MTL_ENCODER endEncoding];
+    CLEAR_MTL(CurrentEncoder);
+  }
+
+  // Store RTT state
+  if (m_RTTSurface) {
+    m_RTTSurface->Release();
+  }
+  m_RTTSurface = s;
+  m_RTTSurface->AddRef();
+  m_RTTColorTexture = (__bridge void *)mtl;
+  m_RTTWidth = surf->GetWidth();
+  m_RTTHeight = surf->GetHeight();
+
+  // Depth target
+  if (d) {
+    MetalSurface8 *dsurf = (MetalSurface8 *)d;
+    MetalTexture8 *dtex = dsurf->GetParentTexture();
+    if (dtex) {
+      m_RTTDepthTexture = dtex->GetMetalTexture();
+    } else {
+      m_RTTDepthTexture = nullptr; // use default depth
+    }
+  } else {
+    m_RTTDepthTexture = nullptr;
+  }
+
+  fprintf(stderr, "[MetalDevice8] SetRenderTarget: RTT %ux%u mtl=%p\n",
+          m_RTTWidth, m_RTTHeight, m_RTTColorTexture);
   return D3D_OK;
 }
 STDMETHODIMP MetalDevice8::GetRenderTarget(IDirect3DSurface8 **s) {
@@ -1226,7 +1327,14 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
   }
 
   MTLRenderPassDescriptor *rpd = [MTLRenderPassDescriptor renderPassDescriptor];
-  rpd.colorAttachments[0].texture = MTL_DRAWABLE.texture;
+  // --- Color attachment: RTT or Drawable ---
+  id<MTLTexture> colorTarget = nil;
+  if (m_RTTColorTexture) {
+    colorTarget = (__bridge id<MTLTexture>)m_RTTColorTexture;
+  } else {
+    colorTarget = MTL_DRAWABLE.texture;
+  }
+  rpd.colorAttachments[0].texture = colorTarget;
 
   if (Flags & D3DCLEAR_TARGET) {
     float r = ((Color >> 16) & 0xFF) / 255.0f;
@@ -1243,9 +1351,16 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
   rpd.colorAttachments[0].storeAction = MTLStoreActionStore;
 
   // --- Depth attachment ---
-  if (m_DepthTexture) {
-    id<MTLTexture> depthTex = (__bridge id<MTLTexture>)m_DepthTexture;
-    rpd.depthAttachment.texture = depthTex;
+  // Use RTT depth if set, otherwise use default depth buffer
+  id<MTLTexture> depthTarget = nil;
+  if (m_RTTColorTexture && m_RTTDepthTexture) {
+    depthTarget = (__bridge id<MTLTexture>)m_RTTDepthTexture;
+  } else if (m_DepthTexture) {
+    depthTarget = (__bridge id<MTLTexture>)m_DepthTexture;
+  }
+
+  if (depthTarget) {
+    rpd.depthAttachment.texture = depthTarget;
     rpd.depthAttachment.storeAction = MTLStoreActionStore;
 
     if (Flags & D3DCLEAR_ZBUFFER) {
@@ -1255,8 +1370,7 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
       rpd.depthAttachment.loadAction = MTLLoadActionLoad;
     }
 
-    // Stencil attachment (same texture for Depth32Float_Stencil8)
-    rpd.stencilAttachment.texture = depthTex;
+    rpd.stencilAttachment.texture = depthTarget;
     rpd.stencilAttachment.storeAction = MTLStoreActionStore;
     if (Flags & D3DCLEAR_STENCIL) {
       rpd.stencilAttachment.loadAction = MTLLoadActionClear;
@@ -1265,6 +1379,10 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
       rpd.stencilAttachment.loadAction = MTLLoadActionLoad;
     }
   }
+
+  // --- Viewport: use RTT dimensions or screen ---
+  UINT vpW = m_RTTColorTexture ? m_RTTWidth : (UINT)(m_Viewport.Width > 0 ? m_Viewport.Width : MTL_LAYER.drawableSize.width);
+  UINT vpH = m_RTTColorTexture ? m_RTTHeight : (UINT)(m_Viewport.Height > 0 ? m_Viewport.Height : MTL_LAYER.drawableSize.height);
 
   id<MTLRenderCommandEncoder> encoder =
       [MTL_CMD_BUF renderCommandEncoderWithDescriptor:rpd];
@@ -1280,12 +1398,10 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
   }
 
   MTLViewport vp;
-  vp.originX = m_Viewport.X;
-  vp.originY = m_Viewport.Y;
-  vp.width =
-      m_Viewport.Width > 0 ? m_Viewport.Width : MTL_LAYER.drawableSize.width;
-  vp.height =
-      m_Viewport.Height > 0 ? m_Viewport.Height : MTL_LAYER.drawableSize.height;
+  vp.originX = m_RTTColorTexture ? 0 : m_Viewport.X;
+  vp.originY = m_RTTColorTexture ? 0 : m_Viewport.Y;
+  vp.width = vpW;
+  vp.height = vpH;
   vp.znear = m_Viewport.MinZ;
   vp.zfar = m_Viewport.MaxZ > 0 ? m_Viewport.MaxZ : 1.0;
   [MTL_ENCODER setViewport:vp];
@@ -1451,8 +1567,28 @@ STDMETHODIMP MetalDevice8::GetRenderState(D3DRENDERSTATETYPE State,
 
 STDMETHODIMP MetalDevice8::SetTexture(DWORD Stage,
                                       IDirect3DBaseTexture8 *pTexture) {
-  if (Stage < MAX_TEXTURE_STAGES)
-    m_Textures[Stage] = pTexture;
+  if (Stage < MAX_TEXTURE_STAGES) {
+    // Generation-based caching: skip if same pointer AND same content.
+    // DX8Wrapper skips its own cache on Apple (#ifndef __APPLE__) because
+    // 2D UI reuses the same IDirect3DTexture8* with new pixel data.
+    // Here we restore caching by checking the texture's generation counter:
+    // generation increments on every UnlockRect (content update).
+    if (m_Textures[Stage] == pTexture && pTexture != nullptr) {
+      MetalTexture8 *mt = (MetalTexture8 *)pTexture;
+      uint32_t gen = mt->GetGeneration();
+      if (gen == m_TextureGeneration[Stage]) {
+        return D3D_OK; // same texture, same content — skip
+      }
+      m_TextureGeneration[Stage] = gen;
+    } else {
+      m_Textures[Stage] = pTexture;
+      if (pTexture) {
+        m_TextureGeneration[Stage] = ((MetalTexture8 *)pTexture)->GetGeneration();
+      } else {
+        m_TextureGeneration[Stage] = 0;
+      }
+    }
+  }
 
   if (Stage == 0) {
     if (pTexture) {
@@ -1532,8 +1668,14 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
   pd.fragmentFunction = (__bridge id<MTLFunction>)m_FunctionFragment;
   pd.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
 
-  // Depth attachment pixel format must match the depth texture
-  if (m_DepthTexture) {
+  // Depth attachment pixel format must match the render pass depth attachment
+  bool hasDepth = false;
+  if (m_RTTColorTexture) {
+    hasDepth = (m_RTTDepthTexture != nullptr);
+  } else {
+    hasDepth = (m_DepthTexture != nullptr);
+  }
+  if (hasDepth) {
     pd.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
     pd.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
   }
@@ -1830,6 +1972,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
     fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
   }
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
+  fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
@@ -2031,6 +2174,43 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
     }
   }
 
+  // --- Alpha-blended draw diagnostic (particles/smoke/effects) ---
+  {
+    static int s_blendLogCount = 0;
+    bool blendOn = m_RenderStates[D3DRS_ALPHABLENDENABLE] != 0;
+    DWORD srcB = m_RenderStates[D3DRS_SRCBLEND];
+    DWORD dstB = m_RenderStates[D3DRS_DESTBLEND];
+    // Log any non-trivial blend (not just src=1,dst=0 which is opaque)
+    bool nonTrivialBlend = blendOn && !(srcB == D3DBLEND_ONE && dstB == D3DBLEND_ZERO);
+    if (nonTrivialBlend && g_metalPresentCount > 50 && s_blendLogCount < 30) {
+      MetalTexture8 *t0 = m_Textures[0] ? (MetalTexture8 *)m_Textures[0] : nullptr;
+      id<MTLTexture> mt0 = t0 ? t0->GetMTLTexture() : nil;
+      printf("[BLEND_DRAW #%d] fvf=0x%x pc=%u src=%u dst=%u "
+             "tex0=%p(%lux%lu mtlFmt=%lu d3dFmt=%d) "
+             "S0:COP=%u CA1=%u CA2=%u AOP=%u AA1=%u AA2=%u "
+             "S1:COP=%u AOP=%u "
+             "alphaTest=%u alphaRef=%u\n",
+             s_blendLogCount, (unsigned)fvf, pc,
+             (unsigned)srcB, (unsigned)dstB,
+             (void*)m_Textures[0],
+             mt0 ? (unsigned long)mt0.width : 0, mt0 ? (unsigned long)mt0.height : 0,
+             mt0 ? (unsigned long)mt0.pixelFormat : 0,
+             t0 ? (int)t0->GetD3DFormat() : -1,
+             (unsigned)m_TextureStageStates[0][D3DTSS_COLOROP],
+             (unsigned)m_TextureStageStates[0][D3DTSS_COLORARG1],
+             (unsigned)m_TextureStageStates[0][D3DTSS_COLORARG2],
+             (unsigned)m_TextureStageStates[0][D3DTSS_ALPHAOP],
+             (unsigned)m_TextureStageStates[0][D3DTSS_ALPHAARG1],
+             (unsigned)m_TextureStageStates[0][D3DTSS_ALPHAARG2],
+             (unsigned)m_TextureStageStates[1][D3DTSS_COLOROP],
+             (unsigned)m_TextureStageStates[1][D3DTSS_ALPHAOP],
+             (unsigned)m_RenderStates[D3DRS_ALPHATESTENABLE],
+             (unsigned)m_RenderStates[D3DRS_ALPHAREF]);
+      fflush(stdout);
+      s_blendLogCount++;
+    }
+  }
+
   // --- 3D mesh diagnostic: log first N draws with normals (buildings/units) ---
   {
     static int s_3dMeshLogCount = 0;
@@ -2226,6 +2406,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
     fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
   }
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
+  fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
@@ -2383,6 +2564,78 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
       }
     }
     [MTL_ENCODER setVertexBytes:&cvu length:sizeof(cvu) atIndex:4];
+
+    // ─── Tree draw diagnostic (shaderType==1) ───
+    static int s_treeDumpCount = 0;
+    if (cvu.shaderType == 1 && s_treeDumpCount < 3) {
+      s_treeDumpCount++;
+      printf("\n═══ TREE DRAW #%d ═══\n", s_treeDumpCount);
+      // WVP matrix (c4..c7)
+      printf("  c4(WVP row0): [%.4f %.4f %.4f %.4f]\n", cvu.c[4].x, cvu.c[4].y, cvu.c[4].z, cvu.c[4].w);
+      printf("  c5(WVP row1): [%.4f %.4f %.4f %.4f]\n", cvu.c[5].x, cvu.c[5].y, cvu.c[5].z, cvu.c[5].w);
+      printf("  c6(WVP row2): [%.4f %.4f %.4f %.4f]\n", cvu.c[6].x, cvu.c[6].y, cvu.c[6].z, cvu.c[6].w);
+      printf("  c7(WVP row3): [%.4f %.4f %.4f %.4f]\n", cvu.c[7].x, cvu.c[7].y, cvu.c[7].z, cvu.c[7].w);
+      // Sway vectors (c8=nosway, c9..c16)
+      printf("  c8(noSway):   [%.4f %.4f %.4f %.4f]\n", cvu.c[8].x, cvu.c[8].y, cvu.c[8].z, cvu.c[8].w);
+      printf("  c9(sway1):    [%.4f %.4f %.4f %.4f]\n", cvu.c[9].x, cvu.c[9].y, cvu.c[9].z, cvu.c[9].w);
+      // Shroud UV params (c32, c33)
+      printf("  c32(shroudOff): [%.4f %.4f %.4f %.4f]\n", cvu.c[32].x, cvu.c[32].y, cvu.c[32].z, cvu.c[32].w);
+      printf("  c33(shroudScl): [%.6f %.6f %.6f %.6f]\n", cvu.c[33].x, cvu.c[33].y, cvu.c[33].z, cvu.c[33].w);
+
+      // Vertex data: first 3 vertices
+      MetalVertexBuffer8 *dvb = (MetalVertexBuffer8 *)m_StreamSource;
+      if (dvb) {
+        id<MTLBuffer> mtlBuf = (__bridge id<MTLBuffer>)dvb->GetMTLBuffer();
+        if (mtlBuf) {
+          uint8_t *raw = (uint8_t*)mtlBuf.contents;
+          UINT vStride = D3DXGetFVFVertexSize(fvf);
+          for (int vi = 0; vi < 3 && vi < (int)nv; vi++) {
+            float *fv = (float*)(raw + vi * vStride);
+            // FVF 0x152: float3 pos, float3 normal(repurposed), DWORD diffuse, float2 uv
+            float px = fv[0], py = fv[1], pz = fv[2];
+            float nx = fv[3], ny = fv[4], nz = fv[5]; // swayType, darkening, groundZ
+            uint32_t diff = *(uint32_t*)(fv + 6);
+            float u = fv[7], v = fv[8];
+            printf("  vtx[%d]: pos[%.2f %.2f %.2f] normal[%.2f %.2f %.2f] diff=0x%08x uv[%.4f %.4f]\n",
+                   vi, px, py, pz, nx, ny, nz, diff, u, v);
+            printf("    -> swayType=%.0f, darkening=%.2f, groundZ=%.2f, heightAboveGround=%.2f\n",
+                   nx, ny, nz, pz - nz);
+          }
+        }
+      }
+
+      // Alpha test state
+      printf("  alphaTestEnable=%u alphaFunc=%u alphaRef=%u (%.3f)\n",
+             (unsigned)m_RenderStates[D3DRS_ALPHATESTENABLE],
+             (unsigned)m_RenderStates[D3DRS_ALPHAFUNC],
+             (unsigned)m_RenderStates[D3DRS_ALPHAREF],
+             m_RenderStates[D3DRS_ALPHAREF] / 255.0f);
+      // Blend state
+      printf("  alphaBlend=%u src=%u dst=%u\n",
+             (unsigned)m_RenderStates[D3DRS_ALPHABLENDENABLE],
+             (unsigned)m_RenderStates[D3DRS_SRCBLEND],
+             (unsigned)m_RenderStates[D3DRS_DESTBLEND]);
+      // TSS stage 0
+      printf("  TSS0: cOp=%u cA1=%u cA2=%u aOp=%u aA1=%u aA2=%u\n",
+             m_TextureStageStates[0][D3DTSS_COLOROP],
+             m_TextureStageStates[0][D3DTSS_COLORARG1],
+             m_TextureStageStates[0][D3DTSS_COLORARG2],
+             m_TextureStageStates[0][D3DTSS_ALPHAOP],
+             m_TextureStageStates[0][D3DTSS_ALPHAARG1],
+             m_TextureStageStates[0][D3DTSS_ALPHAARG2]);
+      // Texture info
+      MetalTexture8 *t0 = m_Textures[0] ? (MetalTexture8 *)m_Textures[0] : nullptr;
+      if (t0) {
+        id<MTLTexture> mt = t0->GetMTLTexture();
+        printf("  tex0: %lux%lu pixFmt=%lu d3dFmt=%u\n",
+               (unsigned long)mt.width, (unsigned long)mt.height,
+               (unsigned long)mt.pixelFormat, (unsigned)t0->GetD3DFormat());
+      } else {
+        printf("  tex0: NULL!\n");
+      }
+      printf("═══════════════════\n\n");
+      fflush(stdout);
+    }
   }
 
   // 6c. Bind Custom PS Uniforms (buffer 5) — when custom pixel shader is active
@@ -2707,6 +2960,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
     fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
   }
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
+  fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {

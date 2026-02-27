@@ -257,6 +257,7 @@ private:
   static const int MAX_TEXTURE_STAGES = 8;
   DWORD m_TextureStageStates[MAX_TEXTURE_STAGES][32];
   IDirect3DBaseTexture8 *m_Textures[MAX_TEXTURE_STAGES];
+  uint32_t m_TextureGeneration[MAX_TEXTURE_STAGES]; // generation counter cache for texture binding optimization
 
   D3DMATRIX m_Transforms[260];
   D3DVIEWPORT8 m_Viewport;
@@ -326,6 +327,13 @@ private:
   MetalSurface8
       *m_DefaultRTSurface; // returned by GetRenderTarget / GetBackBuffer
   MetalSurface8 *m_DefaultDepthSurface; // returned by GetDepthStencilSurface
+
+  // --- Render-to-Texture (RTT) ---
+  void *m_RTTColorTexture;   // id<MTLTexture> — active RTT color target, or nullptr
+  void *m_RTTDepthTexture;   // id<MTLTexture> — active RTT depth target, or nullptr (use default)
+  IDirect3DSurface8 *m_RTTSurface;   // currently active RTT surface (AddRef'd)
+  UINT m_RTTWidth;           // RTT dimensions
+  UINT m_RTTHeight;
 };
 
 #endif // __APPLE__

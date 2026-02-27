@@ -5,16 +5,25 @@
 #   sh build_run_mac.sh --clean               # clean + build + run
 #   sh build_run_mac.sh --screenshot          # build + run + screenshot after 15s
 #   sh build_run_mac.sh --screenshot=8.5      # build + run + screenshot after 8.5s
-#   sh build_run_mac.sh --clean --screenshot  # clean + build + run + screenshot
+# Run: sh build_run_mac.sh --test                # build + run tests
 
 DO_CLEAN=false
 DO_SCREENSHOT=false
+DO_TEST=false
+TEST_FILTER=""
 SCREENSHOT_DELAY=""
 
 for arg in "$@"; do
     case "$arg" in
         --clean)
             DO_CLEAN=true
+            ;;
+        --test)
+            DO_TEST=true
+            ;;
+        --test=*)
+            DO_TEST=true
+            TEST_FILTER="${arg#--test=}"
             ;;
         --screenshot=*)
             DO_SCREENSHOT=true
@@ -43,6 +52,24 @@ echo "Building project..."
 cmake --build build/macos
 if [ $? -ne 0 ]; then
     exit 1
+fi
+
+# ── Test Mode ──
+if [ "$DO_TEST" = true ]; then
+    mkdir -p Platform/MacOS/Build/Logs
+    TEST_LOG="Platform/MacOS/Build/Logs/test_results.log"
+    echo ""
+    echo "Running DX8→Metal Bridge Tests..."
+    echo ""
+    if [ -n "$TEST_FILTER" ]; then
+        ./build/macos/Platform/MacOS/Tests/metal_bridge_tests "$TEST_FILTER" 2>&1 | tee "$TEST_LOG"
+    else
+        ./build/macos/Platform/MacOS/Tests/metal_bridge_tests 2>&1 | tee "$TEST_LOG"
+    fi
+    TEST_EXIT=${PIPESTATUS[0]}
+    echo ""
+    echo "Test log saved to: $TEST_LOG"
+    exit $TEST_EXIT
 fi
 
 sleep 1

@@ -205,3 +205,6 @@ target_compile_options(macos_platform PRIVATE
 target_precompile_headers(macos_platform PRIVATE
     [["Utility/CppMacros.h"]]
 )
+
+# ── Integration Tests ──
+add_subdirectory(Tests)

@@ -99,7 +99,11 @@ extern "C" void MacOS_SetDisplayResolution(int w, int h);
 const int DEFAULT_RESOLUTION_WIDTH = 640;
 const int DEFAULT_RESOLUTION_HEIGHT = 480;
 const int DEFAULT_BIT_DEPTH = 32;
+#ifdef __APPLE__
+const int DEFAULT_TEXTURE_BIT_DEPTH = 32;  // macOS Metal: use 32-bit textures to preserve alpha channels
+#else
 const int DEFAULT_TEXTURE_BIT_DEPTH = 16;
+#endif
 
 bool DX8Wrapper_IsWindowed = true;
 
@@ -2492,7 +2496,17 @@ void DX8Wrapper::Apply_Render_State_Changes() {
             // If the VB format is FVF, set the FVF as a vertex shader
             unsigned fvf = render_state.vertex_buffers[i]->FVF_Info().Get_FVF();
             if (fvf != 0) {
+#ifdef __APPLE__
+              // Don't overwrite a custom vertex shader handle (bit 31 set)
+              // with an FVF. Trees use a custom VS (0x80000001) that gets
+              // destroyed here otherwise, because Draw() calls Apply_Render_State_Changes()
+              // which re-applies VB states including this FVF override.
+              if (!(Vertex_Shader & 0x80000000)) {
+                Set_Vertex_Shader(fvf);
+              }
+#else
               Set_Vertex_Shader(fvf);
+#endif
             }
           }
           break;

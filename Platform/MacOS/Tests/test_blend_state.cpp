@@ -1,0 +1,53 @@
+/**
+ * T3: Alpha Blend State Mapping Tests
+ * Verifies MapD3DBlendToMTL() — D3DBLEND → MTLBlendFactor
+ */
+
+TEST(T3_1_BLEND_ZERO) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_ZERO), MTLBlendFactorZero);
+}
+
+TEST(T3_2_BLEND_ONE) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_ONE), MTLBlendFactorOne);
+}
+
+TEST(T3_3_BLEND_SRCCOLOR) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_SRCCOLOR), MTLBlendFactorSourceColor);
+}
+
+TEST(T3_4_BLEND_INVSRCCOLOR) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_INVSRCCOLOR), MTLBlendFactorOneMinusSourceColor);
+}
+
+TEST(T3_5_BLEND_SRCALPHA) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_SRCALPHA), MTLBlendFactorSourceAlpha);
+}
+
+TEST(T3_6_BLEND_INVSRCALPHA) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_INVSRCALPHA), MTLBlendFactorOneMinusSourceAlpha);
+}
+
+TEST(T3_7_BLEND_DESTALPHA) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_DESTALPHA), MTLBlendFactorDestinationAlpha);
+}
+
+TEST(T3_8_BLEND_INVDESTALPHA) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_INVDESTALPHA), MTLBlendFactorOneMinusDestinationAlpha);
+}
+
+TEST(T3_9_BLEND_DESTCOLOR) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_DESTCOLOR), MTLBlendFactorDestinationColor);
+}
+
+TEST(T3_10_BLEND_INVDESTCOLOR) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_INVDESTCOLOR), MTLBlendFactorOneMinusDestinationColor);
+}
+
+TEST(T3_11_BLEND_SRCALPHASAT) {
+  ASSERT_EQ(MapD3DBlendToMTL(D3DBLEND_SRCALPHASAT), MTLBlendFactorSourceAlphaSaturated);
+}
+
+TEST(T3_12_BLEND_default_fallback) {
+  // Unknown blend value should fall back to ONE
+  ASSERT_EQ(MapD3DBlendToMTL(999), MTLBlendFactorOne);
+}

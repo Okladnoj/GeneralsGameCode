@@ -1,6 +1,9 @@
 #include "MetalTexture8.h"
 #include "MetalDevice8.h"
 #include "MetalSurface8.h"
+#include "MetalFormatConvert.h"
+#include "MetalBridgeMappings.h"
+#include "MetalTextureCapture.h"
 #include <map>
 #include <cstdio>
 
@@ -8,87 +11,7 @@
 #define D3DERR_INVALIDCALL E_FAIL
 #endif
 
-// Helper: Get Bytes Per Pixel or Block Size
-UINT BytesPerPixelFromD3D(D3DFORMAT fmt) {
-  switch (fmt) {
-  case D3DFMT_A8R8G8B8:
-  case D3DFMT_X8R8G8B8:
-    return 4;
-  case D3DFMT_R5G6B5:
-  case D3DFMT_X1R5G5B5:
-  case D3DFMT_A1R5G5B5:
-  case D3DFMT_A4R4G4B4:
-  case D3DFMT_V8U8:
-  case D3DFMT_L6V5U5:
-  case D3DFMT_A8L8:
-  case D3DFMT_A8P8:
-    return 2;
-  case D3DFMT_R8G8B8:
-    return 3;
-  case D3DFMT_A8:
-  case D3DFMT_L8:
-  case D3DFMT_P8:
-  case D3DFMT_A4L4:
-    return 1;
-  case D3DFMT_DXT1:
-    return 8; // Per 4x4 block (8 bytes)
-  case D3DFMT_DXT2:
-  case D3DFMT_DXT3:
-  case D3DFMT_DXT4:
-  case D3DFMT_DXT5:
-    return 16; // Per 4x4 block (16 bytes)
-  default:
-    return 4; // Fallback
-  }
-}
-
-// Helper: Metal Pixel Format
-MTLPixelFormat MetalFormatFromD3D(D3DFORMAT fmt) {
-  switch (fmt) {
-  case D3DFMT_A8R8G8B8:
-  case D3DFMT_X8R8G8B8:
-  case D3DFMT_R8G8B8:     // 24-bit → promoted to 32-bit BGRA in UnlockRect
-    return MTLPixelFormatBGRA8Unorm;
-
-  // 16-bit formats → BGRA8Unorm (CPU conversion in UnlockRect)
-  case D3DFMT_R5G6B5:
-  case D3DFMT_X1R5G5B5:
-  case D3DFMT_A1R5G5B5:
-  case D3DFMT_A4R4G4B4:
-    return MTLPixelFormatBGRA8Unorm;
-
-  case D3DFMT_V8U8:
-  case D3DFMT_L6V5U5:
-    return MTLPixelFormatRG8Snorm;
-
-  case D3DFMT_L8:
-  case D3DFMT_P8:
-    return MTLPixelFormatR8Unorm;
-
-  case D3DFMT_A8:
-    return MTLPixelFormatA8Unorm;
-
-  case D3DFMT_A8L8:
-  case D3DFMT_A8P8:
-    return MTLPixelFormatRG8Unorm;
-
-  case D3DFMT_A4L4:
-    return MTLPixelFormatRG8Unorm; // CPU conversion: 4+4 bits → 8+8 bits
-
-  // macOS Metal supports BC compression
-  case D3DFMT_DXT1:
-    return MTLPixelFormatBC1_RGBA;
-  case D3DFMT_DXT2: // premultiplied alpha DXT3
-  case D3DFMT_DXT3:
-    return MTLPixelFormatBC2_RGBA;
-  case D3DFMT_DXT4: // premultiplied alpha DXT5
-  case D3DFMT_DXT5:
-    return MTLPixelFormatBC3_RGBA;
-
-  default:
-    return MTLPixelFormatBGRA8Unorm;
-  }
-}
+// BytesPerPixelFromD3D() and MetalFormatFromD3D() are now in MetalFormatConvert.h / MetalBridgeMappings.h
 
 MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
                              UINT levels, DWORD usage, D3DFORMAT format,
@@ -154,7 +77,7 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
       void *initData = malloc(dataSize);
       if (initData) {
         if (usage & D3DUSAGE_RENDERTARGET) {
-          memset(initData, 0xFF, dataSize);
+          memset(initData, 0x00, dataSize); // Transparent black — matches DX8 cleared RT
         } else if (format == D3DFMT_DXT1) {
           // 0x00 creates opaque black for DXT1. We need transparent (code 3).
           // 00 00 (c0) 00 00 (c1) FF FF FF FF (indices)
@@ -393,79 +316,7 @@ STDMETHODIMP MetalTexture8::LockRect(UINT Level, D3DLOCKED_RECT *pLockedRect,
   return D3D_OK;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 16-bit → 32-bit pixel format conversion helpers
-// Called during UnlockRect to convert source data before GPU upload
-// ─────────────────────────────────────────────────────────────────
-
-static bool Is16BitFormat(D3DFORMAT fmt) {
-  return fmt == D3DFMT_R5G6B5 || fmt == D3DFMT_X1R5G5B5 ||
-         fmt == D3DFMT_A1R5G5B5 || fmt == D3DFMT_A4R4G4B4;
-}
-
-// Convert a buffer of 16-bit pixels to BGRA8 (32-bit).
-// Returns malloc'd buffer that caller must free. Sets outPitch.
-static void *Convert16to32(D3DFORMAT fmt, const void *src, UINT width,
-                           UINT height, UINT srcPitch, UINT *outPitch) {
-  UINT dstPitch = width * 4;
-  *outPitch = dstPitch;
-  uint8_t *dst = (uint8_t *)malloc(dstPitch * height);
-  if (!dst) return nullptr;
-
-  const uint8_t *srcRow = (const uint8_t *)src;
-  uint8_t *dstRow = dst;
-
-  for (UINT y = 0; y < height; y++) {
-    const uint16_t *sp = (const uint16_t *)srcRow;
-    uint32_t *dp = (uint32_t *)dstRow;
-
-    for (UINT x = 0; x < width; x++) {
-      uint16_t px = sp[x];
-      uint8_t B, G, R, A;
-
-      switch (fmt) {
-      case D3DFMT_R5G6B5:
-        // RRRR RGGG GGGB BBBB
-        B = (uint8_t)(((px      ) & 0x1F) * 255 / 31);
-        G = (uint8_t)(((px >>  5) & 0x3F) * 255 / 63);
-        R = (uint8_t)(((px >> 11) & 0x1F) * 255 / 31);
-        A = 255;
-        break;
-      case D3DFMT_X1R5G5B5:
-        // xRRR RRGG GGGB BBBB
-        B = (uint8_t)(((px      ) & 0x1F) * 255 / 31);
-        G = (uint8_t)(((px >>  5) & 0x1F) * 255 / 31);
-        R = (uint8_t)(((px >> 10) & 0x1F) * 255 / 31);
-        A = 255;
-        break;
-      case D3DFMT_A1R5G5B5:
-        // ARRR RRGG GGGB BBBB
-        B = (uint8_t)(((px      ) & 0x1F) * 255 / 31);
-        G = (uint8_t)(((px >>  5) & 0x1F) * 255 / 31);
-        R = (uint8_t)(((px >> 10) & 0x1F) * 255 / 31);
-        A = (px >> 15) ? 255 : 0;
-        break;
-      case D3DFMT_A4R4G4B4:
-        // AAAA RRRR GGGG BBBB
-        B = (uint8_t)(((px      ) & 0x0F) * 255 / 15);
-        G = (uint8_t)(((px >>  4) & 0x0F) * 255 / 15);
-        R = (uint8_t)(((px >>  8) & 0x0F) * 255 / 15);
-        A = (uint8_t)(((px >> 12) & 0x0F) * 255 / 15);
-        break;
-      default:
-        B = G = R = A = 255;
-        break;
-      }
-
-      // Metal BGRA8Unorm: byte order is B, G, R, A in memory
-      dp[x] = ((uint32_t)A << 24) | ((uint32_t)R << 16) |
-              ((uint32_t)G << 8)  | ((uint32_t)B);
-    }
-    srcRow += srcPitch;
-    dstRow += dstPitch;
-  }
-  return dst;
-}
+// Is16BitFormat() and Convert16to32() are now in MetalFormatConvert.h
 
 // ─────────────────────────────────────────────────────────────────
 
@@ -491,6 +342,15 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
             Level, nonZero, checkBytes, (void*)m_Texture);
     fflush(stdout);
     s_texUnlockCount++;
+  }
+
+  // ── Texture Capture (for golden-data tests) ──
+  if (Level == 0 && TextureCaptureSystem::Instance().IsEnabled()) {
+    UINT capW = std::max(1u, m_Width >> Level);
+    UINT capH = std::max(1u, m_Height >> Level);
+    uint32_t dataSize = capH * lvl.pitch;
+    TextureCaptureSystem::Instance().CaptureTexture(
+        m_Format, capW, capH, lvl.pitch, lvl.ptr, dataSize);
   }
 
   // Upload to Metal Texture
@@ -603,7 +463,7 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
 
   free(lvl.ptr);
   m_LockedLevels.erase(it);
-  m_HasBeenWritten = true;
+  MarkWritten(); // sets m_HasBeenWritten + increments m_Generation for texture cache
 
   return D3D_OK;
 }

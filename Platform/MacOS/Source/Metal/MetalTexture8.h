@@ -50,9 +50,10 @@ public:
   }
   void *GetMTLTextureVoid() const { return m_Texture; }
   void *GetMetalTexture() const { return m_Texture; }
-  void MarkWritten() { m_HasBeenWritten = true; }
+  void MarkWritten() { m_HasBeenWritten = true; ++m_Generation; }
   bool HasBeenWritten() const { return m_HasBeenWritten; }
   D3DFORMAT GetD3DFormat() const { return m_Format; }
+  uint32_t GetGeneration() const { return m_Generation; }
 
 private:
   ULONG m_RefCount;
@@ -68,6 +69,7 @@ private:
   D3DPOOL m_Pool;
   bool m_HasBeenWritten = false;  // Track if texture data has been uploaded
   DWORD m_LOD = 0;                // Texture LOD (max mip level clamp)
+  uint32_t m_Generation = 0;      // Incremented on each content update (for texture cache)
 
   // Staging for LockRect (assuming single lock for now)
   // We might need a map of locked levels if multiple levels are locked

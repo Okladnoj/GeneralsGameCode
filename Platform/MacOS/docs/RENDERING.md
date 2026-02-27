@@ -2,6 +2,8 @@
 
 В этом документе подробно описывается бэкенд рендеринга Metal, который транслирует вызовы API DirectX 8 в Apple Metal.
 
+> Обновлено: 2026-02-27
+
 ---
 
 ## Обзор (Overview)
@@ -72,44 +74,69 @@ graph TD
 - Проверяет флаг `m_InScene`
 - Создает `MTLCommandBuffer` из `m_CommandQueue`
 - Получает `CAMetalDrawable` от `CAMetalLayer`
+- Поддерживает множественные `BeginScene/EndScene` за кадр (для RTT проходов)
 
 ### 2. `Clear(count, rects, flags, color, z, stencil)`
 - Завершает текущий кодировщик (encoder), если он есть
 - Создает `MTLRenderPassDescriptor`:
-  - `D3DCLEAR_TARGET` → `MTLLoadActionClear` + clearColor
+  - `D3DCLEAR_TARGET` → `MTLLoadActionClear` + clearColor (alpha принудительно 1.0)
   - Без `D3DCLEAR_TARGET` → `MTLLoadActionLoad`
+- Depth/Stencil: `Depth32Float_Stencil8`
 - Создает новый `MTLRenderCommandEncoder`
 - Устанавливает `MTLViewport` из `m_Viewport`
+- Автоматически вызывает `BeginScene()` если вызван до него (WW3D вызывает Clear до BeginScene)
 
 ### 3. Вызовы отрисовки (Draw Calls)
 `DrawPrimitive` / `DrawIndexedPrimitive` / `DrawPrimitiveUP`:
 
 1. Получает FVF из VB через `GetBufferFVF(m_StreamSource)`
-2. Получает/создает PSO через `GetPSO(fvf)` (кешируется)
+2. Получает/создает PSO через `GetPSO(fvf, stride)` (кешируется по ключу fvf+blend state)
 3. Устанавливает PSO для кодировщика
-4. Привязывает вершинный буфер: `setVertexBuffer:offset:atIndex:0`
-5. Заполняет `MetalUniforms` → буфер `setVertexBytes` под индексом 1:
+4. Применяет per-draw state: cull mode, depth/stencil
+5. Привязывает вершинный буфер: `setVertexBuffer:offset:atIndex:0`
+6. Привязывает missing-attribute zero buffer: `setVertexBuffer:atIndex:30`
+7. Заполняет `MetalUniforms` → буфер `setVertexBytes` под индексом 1:
    - матрицы `world`, `view`, `projection`
    - `screenSize` — ширина/высота окна
    - `useProjection` — 1 (3D) или 2 (Screen Space, XYZRHW)
-6. Привязывает текстуры: `setFragmentTexture:atIndex:0/1`
-7. Определение примитивов (Primitive mapping):
+   - `texMatrix[4]` — текстурные матрицы D3DTS_TEXTURE0..3
+   - `texTransformFlags[4]` — D3DTSS_TEXTURETRANSFORMFLAGS per stage
+8. Заполняет `FragmentUniforms` → буфер 2:
+   - TSS конфигурация (4 стадии: colorOp/alphaOp/args)
+   - `textureFactor`, `fogColor/Start/End/Density/Mode`
+   - `alphaTestEnable/Func/Ref`
+   - `hasTexture[4]`, `texCoordIndex[4]`, `texFormatType[4]`
+   - `specularEnable`
+9. Заполняет `LightingUniforms` → буфер 3:
+   - До 4 источников света (directional/point/spot)
+   - Material properties (diffuse/ambient/specular/emissive/power)
+   - Material color source mode (D3DMCS_MATERIAL/COLOR1/COLOR2)
+   - Vertex fog parameters
+10. Если PS активен: `CustomPSUniforms` → буфер 5
+11. Если custom VS активен: `CustomVSUniforms` → буфер 4
+12. Привязывает текстуры: `setFragmentTexture:atIndex:0..3`
+13. Привязывает семплеры: `setFragmentSamplerState:atIndex:0..3`
+14. Определение примитивов (Primitive mapping):
    - `D3DPT_TRIANGLELIST` → `MTLPrimitiveTypeTriangle`
    - `D3DPT_TRIANGLESTRIP` → `MTLPrimitiveTypeTriangleStrip`
    - `D3DPT_LINELIST` → `MTLPrimitiveTypeLine`
-8. `drawPrimitives` или `drawIndexedPrimitives`
+   - `D3DPT_LINESTRIP` → `MTLPrimitiveTypeLineStrip`
+   - `D3DPT_POINTLIST` → `MTLPrimitiveTypePoint`
+15. `drawPrimitives` или `drawIndexedPrimitives`
 
 ### 4. `Present()`
 - Вызывает `endEncoding` у текущего кодировщика
 - Выполняет `presentDrawable` + `commit` для буфера команд
-- Вызывает `waitUntilCompleted` для синхронизации GPU и CPU (заменяет подход с семафорами)
+- Вызывает `waitUntilCompleted` для синхронизации GPU и CPU
 - Освобождает кодировщик, drawable, буфер команд
 
 ---
 
 ## Объекты состояния конвейера (PSO)
 
-`GetPSO(DWORD fvf)` создает или извлекает из кеша (`m_PsoCache`):
+`GetPSO(DWORD fvf, UINT stride)` создает или извлекает из кеша (`m_PsoCache`).
+
+Ключ PSO: `uint64_t` кодирует fvf + blend enable + src/dst blend + color write mask + stride.
 
 ### Дескриптор вершин (из FVF)
 
@@ -117,84 +144,118 @@ graph TD
 |:---|:---|:---|:---|
 | `D3DFVF_XYZ` | attr[0] position | Float3 | 12B |
 | `D3DFVF_XYZRHW` | attr[0] position | Float4 | 16B |
-| `D3DFVF_DIFFUSE` | attr[1] color | UChar4Normalized | 4B |
-| `D3DFVF_TEX1` | attr[2] texCoord0 | Float2 | 8B |
 | `D3DFVF_NORMAL` | attr[3] normal | Float3 | 12B |
-| `D3DFVF_SPECULAR` | attr[4] specular | UChar4Normalized | 4B |
+| `D3DFVF_DIFFUSE` | attr[1] color | UChar4Normalized_BGRA | 4B |
+| `D3DFVF_SPECULAR` | attr[4] specular | UChar4Normalized_BGRA | 4B |
+| `D3DFVF_TEX1` | attr[2] texCoord0 | Float2 | 8B |
 | `D3DFVF_TEX2` | attr[5] texCoord1 | Float2 | 8B |
+
+> **Примечание:** Порядок полей в FVF memory layout: position → normal → diffuse → specular → texcoords. Stride берётся от вызывающего кода (для учёта padding в C++ структурах), а не вычисляется как сумма атрибутов.
+
+### Missing Attribute Defaults (buffer 30)
+FVF может не содержать все 6 атрибутов. Неиспользуемые атрибуты подключаются к `m_ZeroBuffer` (layout 30, MTLVertexStepFunctionConstant):
+- Missing position: (0,0,0)
+- Missing diffuse: white (0xFFFFFFFF)
+- Missing texCoord: (0,0)
+- Missing normal: (0,0,0)
+- Missing specular: black (0x00000000)
 
 ### Uniform буферы
 
 | Индекс буфера | Стадия (Stage) | Содержимое |
 |:---|:---|:---|
 | buffer(0) | Vertex | Данные вершин (VB или inline) |
-| buffer(1) | Vertex | `MetalUniforms` — World/View/Projection, screenSize, useProjection |
-| buffer(2) | Fragment | `FragmentUniforms` — конфигурация TSS, textureFactor, туман, alpha test |
-| buffer(3) | Vertex | `LightingUniforms` — источники света, материалы, параметры тумана |
+| buffer(1) | Vertex + Fragment | `MetalUniforms` — MVP, screenSize, texMatrix[4], texTransformFlags[4] |
+| buffer(2) | Fragment | `FragmentUniforms` — TSS конфиг, textureFactor, туман, alpha test, texCoordIndex, texFormatType |
+| buffer(3) | Vertex | `LightingUniforms` — до 4 источников света, материалы, fog params |
+| buffer(4) | Vertex | `CustomVSUniforms` — shaderType + VS constant registers c0..c33 |
+| buffer(5) | Fragment | `CustomPSUniforms` — psType + PS constant registers c0..c7 |
+| buffer(30) | Vertex | Zeros buffer для missing FVF attributes |
 
 ---
 
 ## Шейдеры (`MacOSShaders.metal`)
 
 ### Вершинный шейдер (`vertex_main`)
-- **Входы (Inputs):** `position` (attr 0), `color` (attr 1), `texCoord` (attr 2), `normal` (attr 3)
-- **Uniforms:** `world`, `view`, `projection`, `screenSize`, `useProjection`
-- **Логика:**
-  - `useProjection == 1`: `pos = projection * view * world * pos` (3D преобразование)
-  - `useProjection == 2`: Экранные координаты → NDC (`pos / screenSize * 2 - 1`)
-  - Фактор тумана (fog factor) вычисляется на основе Z в координатах вида (view-space)
+
+Единый шейдер с тремя путями:
+
+#### 1. Custom Vertex Shader: Trees (shaderType == 1)
+Реализует `Trees.vso`:
+- c4-c7: World-View-Projection матрица (transposed row-major)
+- Sway displacement: swayType кодирован в diffuse alpha (1-based index)
+- swayWeight = normal.z (высота над землёй)
+- Shroud UV: c32 (offset) + c33 (scale)
+- Alpha восстанавливается в 1.0 (alpha был использован для swayType)
+
+#### 2. Custom Vertex Shader: Water Wave (shaderType == 2)
+Реализует `wave.vso`:
+- c2-c5: WVP матрица (transposed)
+- UV0: pass-through
+- UV1: текстурная проекция для отражения (c6-c9)
+
+#### 3. Standard vertex shader (shaderType == 0)
+- `useProjection == 1`: `pos = projection * view * world * pos` (3D)
+- `useProjection == 2`: Экранные координаты → NDC (`pos / screenSize * 2 - 1`, Y-flip)
+- Camera-space position вычисляется для D3DTSS_TCI_CAMERASPACEPOSITION
+- Per-vertex lighting (DX8 FFP):
+  - До 4 источников света (directional, point, spot)
+  - Material color source (D3DMCS_MATERIAL/COLOR1/COLOR2)
+  - DX8 формулы: ambient + diffuse (N·L) + specular (N·H)^power
+  - Attenuation: 1/(a0 + a1*d + a2*d²)
+  - Spotlight: inner/outer cone с falloff
+
+#### Fog (все пути)
+- Линейный: `(fogEnd - dist) / (fogEnd - fogStart)`
+- Exp: `exp(-density * dist)`
+- Exp2: `exp(-(density * dist)²)`
+- 2D вершины: fogFactor = 1.0 (UI без тумана)
 
 ### Фрагментный шейдер (`fragment_main`)
-- Сэмплирует текстуру, если установлен бит `SHIFT_TEXTURING`
-- `finalColor = texColor * vertexColor`
-- Alpha test: отбрасывает пиксель, если альфа < порога
-- Туман: смешивается с цветом тумана `fogColor` на основе фактора тумана
 
----
+Два основных пути:
 
-## Пути загрузки текстур (Texture Loading Paths)
+#### Путь A: Custom Pixel Shader (psUniforms.psType != 0)
+Обходит TSS. Определяет тип PS по bytecode-анализу в `CreatePixelShader`:
 
-В игре есть три разных пути загрузки текстур, которые ведут себя по-разному в Windows и macOS.
+| psType | Название | Описание |
+|:---|:---|:---|
+| 1 | `PS_TERRAIN` | `lrp r0, v0.a, t0, t1` — terrain blend by vertex alpha |
+| 2 | `PS_TERRAIN_NOISE1` | terrain + cloud texture (stage 2) |
+| 3 | `PS_TERRAIN_NOISE2` | terrain + cloud + noise (stages 2-3) |
+| 4 | `PS_ROAD_NOISE2` | road: t0 * t1 * t2, alpha = t0.a |
+| 5 | `PS_MONOCHROME` | luminance = dot(t0.rgb, c0.rgb) * c1 * c2 |
+| 6 | `PS_WAVE` | bump water: t1 * c0 (reflection factor) |
+| 7 | `PS_FLAT_TERRAIN` | simplified terrain blend |
+| 8 | `PS_FLAT_TERRAIN0` | same as flat terrain |
+| 9 | `PS_FLAT_TERRAIN_NOISE1` | flat terrain + cloud |
+| 10 | `PS_FLAT_TERRAIN_NOISE2` | flat terrain + cloud + noise |
 
-### Путь A: Фоновая / Приоритетная загрузка (Стандартные модели)
-Это основной способ запроса текстур при загрузке файлов `.w3d`.
-1. `WW3DAssetManager::Get_Texture(name)` создает новый класс `TextureClass` с `Initialized = false`.
-2. Конструктор `TextureClass::ctor(name)` на macOS вызывает `Init()` сразу (строка 772, `#ifdef __APPLE__`).
-3. `Init()` вызывает `Request_Foreground_Loading(this)`.
-4. **Ключевой момент:** `Request_Foreground_Loading` на строке 715 проверяет `tc->Is_Initialized()`. Если thumbnail уже установил `Initialized = true`, полная загрузка **пропускается**!
-5. Если не initialized: `TextureLoadTaskClass::Finish_Load()` синхронно загружает текстуру:
-   - `Begin_Load()` создает пустую `IDirect3DTexture8` через `_Create_DX8_Texture(w,h,fmt)`
-   - `Load()` читает файл `.tga`/`.dds`, использует `LockRect`, копирует данные, `UnlockRect`
-   - `D3DXFilterTexture()` — **stub** на macOS, возвращает S_OK (мипмапы не генерируются)
+PS bytecode classification в `CreatePixelShader` использует:
+- Количество tex инструкций
+- Наличие dp3 (monochrome), lrp (terrain blend), texbem (water bump)
 
-### Путь B: Прямая загрузка (D3DXCreateTextureFromFileExA)
-Обычно используется для DDS файлов или специфических проходов рендеринга UI.
-1. Вызывается напрямую `DX8Wrapper::_Create_DX8_Texture(filename, mip_count)`.
-2. Делегирует вызов `D3DXCreateTextureFromFileExA` (который локально реализует заглушка D3DX в macOS).
-3. Текстура создается полностью, данные записываются в память, и мипмапы генерируются за один шаг.
+#### Путь B: TSS Pipeline (psType == 0)
+Полный TSS processing для D3DTOP операций:
+- 4 стадии (stages 0-3), каждая с colorOp и alphaOp
+- `resolveArg()`: D3DTA_DIFFUSE, CURRENT, TEXTURE, TFACTOR, SPECULAR + modifiers (COMPLEMENT, ALPHAREPLICATE)
+- `evaluateBlendOp()`: BLENDDIFFUSEALPHA, BLENDTEXTUREALPHA, BLENDFACTORALPHA, BLENDCURRENTALPHA
+- `evaluateOp()`: SELECTARG1/2, MODULATE/2X/4X, ADD, ADDSIGNED/2X, SUBTRACT, ADDSMOOTH, DOTPRODUCT3, MODULATEALPHA_ADDCOLOR и др.
 
-### Путь C: Загрузка миниатюр (Early Initializer)
-Этот путь является источником многих проблем с текстурами на macOS.
-1. При создании `TextureClass`, конструктор `TextureBaseClass` вызывает `Load_Locked_Surface()`.
-2. `Load_Locked_Surface` вызывает `TextureLoader::Request_Thumbnail(this)`, устанавливает `Initialized = false`.
-3. `TextureLoader::Load_Thumbnail` извлекает небольшую сжатую превью-текстуру из кешей `.tht` (128x128).
-4. Вызывает `Apply_New_Surface(d3d_texture, true)`, что устанавливает `Initialized = true`.
-5. Когда после этого `Init()` вызывает `Request_Foreground_Loading(this)`, проверка `Is_Initialized()` **возвращает true**, и полная загрузка **пропускается**.
-6. ⚠️ **Результат:** Модели рендерятся с thumbnail текстурами (128x128, низкое качество) вместо полноразмерных.
+#### UV Computation
+- `computeUV()` (TSS path): поддерживает TCI_PASSTHRU и TCI_CAMERASPACEPOSITION с текстурными матрицами
+- `computeUVPS()` (PS path): аналогично, но без texTransformFlags для PASSTHRU
 
-### Текущее состояние (Февраль 2025)
+#### Texture Format Unpacking
+Luminance форматы (L8, P8, A8L8, A4L4):
+- `texFormatType == 1`: RGB = texture.r, A = 1.0
+- `texFormatType == 2`: RGB = texture.r, A = texture.g
 
-- **80+ текстур** создаются через `Get_Texture()` → `TextureClass::ctor(name)` (подтверждено логами).
-- **Все текстуры имеют `hasD3D=1`** — D3DTexture указатель не null.
-- **Только ~3 `MetalTexture8` Created** через `MetalDevice8::CreateTexture` — остальные D3DTexture указатели указывают на **thumbnail текстуры**, загруженные через `Load_Thumbnail`.
-- `TextureLoader::Update()` теперь вызывается из `W3DDisplay::draw()` каждый кадр (фикс добавлен в `#ifdef __APPLE__` блоке).
-- **Белые модели**: вероятная причина — модели рендерятся с thumbnail (128x128) вместо полноразмерных текстур. Thumbnail может содержать некорректные данные или быть пустым.
-
-### ⚠️ ВАЖНО: Диагностика логов
-
-**`fprintf(stderr)` НЕ попадает в `game.log`** на macOS! Перенаправление `2>&1` в build_run_mac.sh не работает для stderr после старта игры (вероятно, игра или macOS перенаправляют stderr).
-
-**Используйте только `printf` (stdout) + `fflush(stdout)` для всех диагностических логов.** Система `DLOG/DLOG_RFLOW` (MacOSDebugLog.h) использует `printf` — поэтому её логи видны.
+#### Post-processing
+1. Alpha test: D3DCMP operations
+2. Fog: `mix(fogColor, color, fogFactor)`
+3. Specular add: if `D3DRS_SPECULARENABLE`
+4. Black discard: опaque черные (0,0,0,1) пиксели из DXT1 → `discard_fragment()` (workaround)
 
 ---
 
@@ -202,7 +263,7 @@ graph TD
 
 ### Архитектура: Текстуры, поддерживаемые буферами (Buffer-Backed Textures)
 
-Несжатые текстуры используют **хранилище на базе буферов**: `MTLBuffer` поддерживает `MTLTexture`, и `LockRect` возвращает прямой указатель на память `MTLBuffer.contents`. Это повторяет семантику шины AGP из DX8, где `LockRect` возвращал указатель на память, отображенную в область видимости GPU.
+Несжатые текстуры используют **хранилище на базе буферов**: `MTLBuffer` поддерживает `MTLTexture`, и `LockRect` возвращает прямой указатель на память `MTLBuffer.contents`. Это повторяет семантику шины AGP из DX8.
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -219,7 +280,7 @@ graph TD
 1. `CreateTexture(w, h, levels, usage, format, pool)` → `MetalTexture8`:
    - Запрашивает `minimumLinearTextureAlignmentForPixelFormat:` для выравнивания строк
    - Создает `MTLBuffer` с выровненной структурой памяти для всех уровней мипмапов
-   - Для одноуровневых мипмапов (single-mip): `[buffer newTextureWithDescriptor:offset:bytesPerRow:]` — истинное отсутствие копирования (zero-copy)
+   - Для одноуровневых мипмапов (single-mip): `[buffer newTextureWithDescriptor:offset:bytesPerRow:]` — zero-copy
    - Для многоуровневых (multi-mip): отдельная `MTLTexture` + буферное хранилище (синхронизируется через `replaceRegion` при разблокировке)
 2. `GetSurfaceLevel(level)` → создает `MetalSurface8`, связанную с родителем
 3. `LockRect(level)` → возвращает **прямой указатель** на `MTLBuffer.contents + mipOffset`
@@ -245,13 +306,51 @@ graph TD
 | DXT1 | `MTLPixelFormatBC1_RGBA` | ❌ Нет (staging) |
 | DXT3 | `MTLPixelFormatBC2_RGBA` | ❌ Нет (staging) |
 | DXT5 | `MTLPixelFormatBC3_RGBA` | ❌ Нет (staging) |
+| L8 / P8 | `MTLPixelFormatR8Unorm` | ✅ Да |
+| A8L8 / A4L4 / A8P8 | `MTLPixelFormatRG8Unorm` | ✅ Да |
 | 16-бит (R5G6B5, и т.д.) | BGRA8 (конвертируется) | ✅ Да (16→32 при разблокировке) |
+
+### ⚠️ Кэширование текстур (Texture Cache Bypass)
+
+На Windows `DX8Wrapper::Set_DX8_Texture()` кэширует привязку по указателю:
+```cpp
+if (Textures[stage] == texture) return; // skip redundant SetTexture
+```
+
+На Metal этот кэш **отключён** (`#ifndef __APPLE__`), потому что 2D UI переиспользует тот же `IDirect3DTexture8*` указатель с разным содержимым (динамический текстовый рендеринг через LockRect/UnlockRect). Без bypass кэш отфильтровывает вызов, но Metal привязывает ту же MTLTexture — данные обновлены, но в edge cases (пересоздание MTLTexture при unlock, переиспользование адреса аллокатором) могут быть stale bindings.
+
+**Решение (запланировано):** generation counter в MetalTexture8 — инкрементируется при каждом UnlockRect, позволяет кэшировать статические текстуры (~95% вызовов) и корректно обновлять динамические.
+
+---
+
+## Пути загрузки текстур (Texture Loading Paths)
+
+В игре есть три разных пути загрузки текстур.
+
+### Путь A: Фоновая / Приоритетная загрузка (Стандартные модели)
+Основной способ запроса текстур при загрузке файлов `.w3d`.
+1. `WW3DAssetManager::Get_Texture(name)` создает `TextureClass` с `Initialized = false`
+2. Конструктор на macOS вызывает `Init()` сразу (`#ifdef __APPLE__`)
+3. `Init()` → `Request_Foreground_Loading(this)`
+4. `TextureLoadTaskClass::Finish_Load()` синхронно загружает текстуру
+
+### Путь B: Прямая загрузка (D3DXCreateTextureFromFileExA)
+Для DDS файлов или специфических проходов рендеринга UI.
+1. `DX8Wrapper::_Create_DX8_Texture(filename, mip_count)`
+2. Делегирует `D3DXCreateTextureFromFileExA` (macOS stub)
+3. Текстура создается полностью за один шаг
+
+### Путь C: Загрузка миниатюр (Early Initializer)
+1. Конструктор `TextureBaseClass` → `Load_Locked_Surface()` → `Request_Thumbnail(this)`
+2. `Load_Thumbnail` извлекает 128x128 превью из `.tht` кешей
+3. `Apply_New_Surface()` устанавливает `Initialized = true`
+4. `TextureLoader::Update()` вызывается из `W3DDisplay::draw()` каждый кадр для дозагрузки полноразмерных текстур
 
 ---
 
 ## Процесс загрузки карты-меню (Shell Map Loading Flow)
 
-На macOS конечный автомат (state machine) заставочного (intro) видео обходится, потому что функция `VideoPlayer::open()` возвращает `nullptr`:
+На macOS конечный автомат intro видео обходится (VideoPlayer::open → nullptr):
 
 ```
 MacOSGameClient::update()  (callCount == 0)
@@ -288,25 +387,48 @@ MacOSGameClient::update()  (callCount == 0)
 
 ---
 
-## Известные проблемы/недостатки (Known Gaps)
+## Render State Coverage
 
-| Фича | Статус | Примечания |
-|:---|:---|:---|
-| DrawPrimitiveUP | ✅ Работает | Отрисовка текста 2D/UI четырехугольников работает корректно |
-| Состояния Depth/Stencil | ✅ Работает | Состояние глубины создается для каждого PSO, флаг изменений отслеживается |
-| Динамическое смешивание (per render state) | ✅ Работает | Закодировано в ключе кеша PSO |
-| Привязка CullMode | ✅ Работает | Принудительно устанавливается MTLCullModeNone для отрисовки 2D/XYZRHW (исправление инверсии по Y) |
-| Формулы TSS в шейдере | ✅ Работает | evaluateBlendOp обрабатывает SELECTARG1/2, MODULATE, ADD и др. |
-| Состояния семплера (Sampler states) | ✅ Работает | Кеш состояния семплера для каждой стадии |
-| Повершинное освещение (Per-vertex lighting) | ✅ Работает | Буфер uniform'ов света, до 4 направленных источников света |
-| Реальные параметры тумана | ✅ Работает | Линейный/exp/exp2 туман в вершинном и фрагментном шейдерах |
-| Загрузка Shell map | ✅ Работает | Обход видео + принудительный showShellMap в MacOSGameClient |
-| Вызовы 3D-отрисовки | ✅ Работает | fvf=0x252, рендерятся куски ландшафта |
-| Мультитекстурирование (этап 1+) | ⚠️ Частично | Привязаны stage 0+1, TSS вычисляется для двух стадий |
-| Текстуры, поддерживаемые буфером (Buffer-backed) | ✅ Работает | Эмуляция AGP памяти из DX8 через MTLBuffer без копирования данных (zero-copy) |
-| Ландшафтные текстуры видимы | ✅ Работает | Починено с помощью MTLStorageModeShared + buffer-backed |
-| Render targets (целевые текстуры для рендера) | ❌ Не реализовано | Низкий приоритет |
-| TriangleFan → TriangleList | ❌ Не реализовано | Низкий приоритет |
+### ✅ Полностью реализовано
+- World/View/Projection transforms
+- Texture transforms (D3DTS_TEXTURE0..3) с texTransformFlags
+- Per-vertex lighting (до 4 источников: directional, point, spot)
+- Material properties + color source modes (D3DMCS)
+- Alpha test (все D3DCMP операции)
+- Alpha blend (динамический state, закодирован в PSO key)
+- Depth test/write (per-PSO depth stencil state)
+- Stencil operations
+- Fog (linear, exp, exp2 — vertex fog + fragment fog)
+- Specular enable/disable (post-TSS additive specular)
+- Pixel shaders (PS 1.1, 10 типов — bytecode classification)
+- Custom vertex shaders (Trees.vso, Wave.vso)
+- FVF vertex shaders (автоматическое определение layout из FVF)
+- Texture binding (4 stages + 4 samplers)
+- Sampler states (min/mag/mip filter, address modes U/V/W)
+- TSS pipeline (4 stages, все D3DTOP operations)
+- Texture coordinate indexing (D3DTSS_TEXCOORDINDEX: UV set selection + TCI modes)
+- Camera-space texture projection (D3DTSS_TCI_CAMERASPACEPOSITION)
+- Texture format unpacking (luminance L8, A8L8, palettized P8)
+- Color write mask (D3DRS_COLORWRITEENABLE → MTLColorWriteMask)
+- DrawPrimitiveUP (2D/UI quads)
+- DrawPrimitive (3D non-indexed)
+- DrawIndexedPrimitive (3D indexed)
+- Cull mode (MTLCullModeNone for 2D, per-state for 3D)
+
+### ⚠️ Workarounds (осознанный tech debt)
+- **Texture cache disabled** — 2D UI переиспользует D3D указатели с новым контентом. Запланировано: generation counter
+- **Black fragment discard** — DXT1 пустые блоки → opaque black. Root cause: texture loading pipeline
+- **TriangleFan → не конвертируется** — движок не использует TriangleFan на этой карте
+
+### Stubs (no-op, безопасные)
+- Clip planes (no-op, rarely used)
+- Gamma ramp (applied once, cosmetic)
+- Volume/Cube textures (return nullptr, engine gracefully falls back)
+
+### ❌ Не реализовано (нет вызывающих или low priority)
+- DrawIndexedPrimitiveUP (0 engine callers)
+- Additional swap chains (Metal single-layer)
+- Render targets (SetRenderTarget → no-op, low priority)
 
 ---
 
@@ -317,7 +439,7 @@ MacOSGameClient::update()  (callCount == 0)
 
 1. **Отключено тестирование и запись глубины (Depth test & write)** — 2D UI должен рисоваться поверх 3D-геометрии
 2. **Отсечение нелицевых граней (Back-face culling) отключено** — Вершинный шейдер переворачивает координату Y для конвертации из экрана в NDC
-   (`1.0 - y/screenH * 2.0`), что меняет порядок обхода вершин с CW (по часовой) на CCW (против часовой). Без отключения куллинга все 2D-треугольники бы отбрасывались.
+   (`1.0 - y/screenH * 2.0`), что меняет порядок обхода вершин с CW → CCW. Без отключения куллинга все 2D-треугольники бы отбрасывались.
 3. **Обход проекции** — `useProjection == 2` использует трансформацию из экранных координат в NDC
    вместо стандартного конвейера матриц MVP.
 
@@ -350,7 +472,7 @@ MacOSGameWindowManager → W3DGameWindowManager → GameWindowManager
 `MacOSGameWindow` — это подкласс `W3DGameWindow`, который переопределяет:
 - `winSetFont()` — пропускает `m_textRenderer.Set_Font()` (избегает краша при nullptr)
 - `winSetText()` — пропускает `m_textRenderer.Build_Sentence()` 
-- `drawText()` — no-op (пустышка, отрисовка текста происходит через `MacOSDisplayString`)
+- `drawText()` — no-op (отрисовка текста через `MacOSDisplayString`)
 
 ### Основные файлы
 
@@ -358,40 +480,20 @@ MacOSGameWindowManager → W3DGameWindowManager → GameWindowManager
 |:---|:---|
 | `MacOSGameWindowManager.h` | Наследует `W3DGameWindowManager`, переопределяет `allocateNewWindow`, `winFormatText`, `winGetTextSize` |
 | `MacOSGameWindowManager.mm` | Создает экземпляры `MacOSGameWindow`, рендеринг текста через `DisplayString` |
-| `MacOSGadgetDraw.mm` | Устаревшие упрощенные функции отрисовки (больше не используются, но оставлены) |
+| `MacOSGadgetDraw.mm` | Устаревшие упрощённые функции отрисовки (оставлены для справки) |
 
 ---
 
 ## ✅ РЕШЕНО: Текстуры ландшафта (MTLStorageModeShared)
 
 ### Проблема
-
 Все текстуры ландшафта отображались как ЧЕРНЫЕ (BLACK), несмотря на то, что данные корректно выгружались через `replaceRegion`.
 
-### Коренная причина (Root Cause)
+### Коренная причина
+В macOS `MTLTextureDescriptor.storageMode` по умолчанию = `MTLStorageModeManaged`. При Managed storage `replaceRegion` обновляет только CPU-копию. GPU увидит изменения только после `synchronizeResource:`. Мы никогда не вызывали `synchronizeResource` → GPU читал нули.
 
-В macOS для параметра `MTLTextureDescriptor.storageMode` по умолчанию установлено значение **`MTLStorageModeManaged`** (значение `1`). При управляемом (Managed) хранилище вызов `replaceRegion` обновляет только **копию данных на стороне CPU**. GPU увидит эти изменения только после явного вызова `synchronizeResource:` через кодировщик команд (blit). Так как мы никогда не вызывали `synchronizeResource`, GPU всегда считывал нули.
-
-### Исправление (Fix)
-
-Установить `desc.storageMode = MTLStorageModeShared` для текстур (кроме render targets) в `MetalTexture8.mm`. В режиме Shared (общая унифицированная память на Apple Silicon) вызов `replaceRegion` пишет данные напрямую в доступную для GPU память — без необходимости какой-либо синхронизации.
-
-```objc
-// Конструктор MetalTexture8
-if (usage & D3DUSAGE_RENDERTARGET) {
-    desc.usage |= MTLTextureUsageRenderTarget;
-    // RT использует по умолчанию Managed — Shared+RT может вызвать сбой (краш)
-} else {
-    desc.storageMode = MTLStorageModeShared;
-}
-```
-
-### Почему затрагивался только ландшафт
-
-Другие текстуры (3D-объекты, UI) тоже использовали режим Managed, но, казалось, работали, потому что:
-- **Одноуровневые текстуры** (`m_Levels == 1`) ПЕРЕСОЗДАВАЛИСЬ с нуля в `MetalTexture8::UnlockRect`, а только что созданные текстуры с данными от `replaceRegion`, видимо, синхронизировались автоматически.
-- **DDS текстуры**, загруженные через `D3DXCreateTextureFromFileExA`, также проходили через `MetalTexture8::UnlockRect` (что пересоздавало текстуру).
-- **Текстуры ландшафта** использовали `MetalSurface8::UnlockRect`, который НЕ выполнял пересоздание — они вызывали `replaceRegion` для существующей Managed текстуры, что требовало явной синхронизации, которая не делалась.
+### Исправление
+`desc.storageMode = MTLStorageModeShared` для текстур (кроме render targets). На Apple Silicon Shared = unified memory, `replaceRegion` пишет сразу в GPU-доступную память.
 
 ---
 
@@ -440,6 +542,11 @@ Vertex alpha (`diffuse.a`) controls the blend transition mask between terrain te
 #### Noise/Cloud shaders — 3 passes:
 Pass 2 adds cloud shadows and/or lightmap via `D3DTSS_TCI_CAMERASPACEPOSITION` (camera-space texture projection).
 
+#### Pixel Shader terrain path
+When GPU supports PS 1.1 (always on Metal), `TerrainShaderPixelShader` is used instead. This reduces terrain to 1-2 passes:
+- PS does the `lrp` blend (t0↔t1 by vertex alpha) in a single pass
+- Noise/cloud stages are added as additional texture fetches within the same PS
+
 ### Terrain Textures
 
 Terrain uses a **single macro atlas** (`m_stageZeroTexture`) at 1024×1024 (format `fmt=80` = `MTLPixelFormatRGBA8Unorm`). Both texture stages (0 and 1) in `W3DShaderManager::setTexture()` point to the same atlas:
@@ -449,7 +556,7 @@ W3DShaderManager::setTexture(0, m_stageZeroTexture);  // for pass 0 (macro UVs)
 W3DShaderManager::setTexture(1, m_stageZeroTexture);  // for pass 1 (detail UVs)
 ```
 
-**Important:** `W3DShaderManager::setTexture()` does NOT call `DX8Wrapper::Set_Texture()`. It only stores the pointer in `m_Textures[]` for later use by the shader. The terrain shader binds textures directly via the device:
+**Important:** `W3DShaderManager::setTexture()` does NOT call `DX8Wrapper::Set_Texture()`. It only stores the pointer in `m_Textures[]`. The terrain shader binds textures directly via the device:
 
 ```cpp
 // Inside TerrainShader2Stage::set(pass):
@@ -459,15 +566,15 @@ DX8Wrapper::_Get_D3D_Device8()->SetTexture(0,
 
 ### Extra Blend Tiles (3-Way Blending)
 
-When `TheGlobalData->m_use3WayTerrainBlends` is enabled, additional tiles are drawn after the main passes via `renderExtraBlendTiles()`. This handles corner cases where 3 different textures meet. Uses `DynamicVBAccessClass` with `DX8_FVF_XYZNDUV2` format and separate VB/IB.
+When `TheGlobalData->m_use3WayTerrainBlends` is enabled, additional tiles are drawn after the main passes via `renderExtraBlendTiles()`. Uses `DynamicVBAccessClass` with `DX8_FVF_XYZNDUV2` format and separate VB/IB.
 
 ### Terrain FVF
 
 Terrain uses `fvf = 0x252`:
 - `D3DFVF_XYZ` (0x002) — 3D position
+- `D3DFVF_NORMAL` (0x010) — normals for lighting
 - `D3DFVF_DIFFUSE` (0x040) — vertex color (lighting + alpha for blend mask)
 - `D3DFVF_TEX2` (0x200) — dual UV coordinates (macro + detail)
-- `D3DFVF_NORMAL` (0x010) — normals for lighting
 
 Vertices are filled in `HeightMapRenderObjClass::updateVB()`, where `diffuse` contains:
 - **RGB** — static terrain lighting (`getStaticDiffuse()`)
@@ -497,4 +604,20 @@ Vertices are filled in `HeightMapRenderObjClass::updateVB()`, where `diffuse` co
 12. shroud pass — fog of war (if enabled)
 ```
 
+---
 
+## Известные визуальные баги
+
+| Баг | Severity | Вероятная причина |
+|:---|:---|:---|
+| White squares (particle splash) | 🟡 | Формат текстуры партиклов (DXT1 vs DXT3) или blend mode |
+| Black shadow on mountain back | 🟡 | DXT1 пустые блоки не ловятся порогом discard |
+| Terrain texture simplified | 🟡 | PS path не применяет texTransformFlags (computeUVPS) |
+
+---
+
+## ⚠️ ВАЖНО: Диагностика логов
+
+**`fprintf(stderr)` НЕ попадает в `game.log`** на macOS!
+
+**Используйте только `printf` (stdout) + `fflush(stdout)` для всех диагностических логов.** Система `DLOG/DLOG_RFLOW` (MacOSDebugLog.h) использует `printf` — поэтому её логи видны.
