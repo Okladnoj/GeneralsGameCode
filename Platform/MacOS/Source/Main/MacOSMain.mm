@@ -428,7 +428,7 @@ NetworkInterface *Win32GameEngine::createNetwork(void) {
 }
 Radar *Win32GameEngine::createRadar(void) {
   fprintf(stderr, "FACTORY: createRadar\n");
-  return new RadarDummy();
+  return NEW W3DRadar();
 }
 WebBrowser *Win32GameEngine::createWebBrowser(void) {
   fprintf(stderr, "FACTORY: createWebBrowser\n");
