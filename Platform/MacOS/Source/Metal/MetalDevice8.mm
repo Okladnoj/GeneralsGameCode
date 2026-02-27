@@ -1149,6 +1149,68 @@ STDMETHODIMP MetalDevice8::CopyRects(IDirect3DSurface8 *src, const void *sr,
 
 STDMETHODIMP MetalDevice8::UpdateTexture(IDirect3DBaseTexture8 *s,
                                          IDirect3DBaseTexture8 *d) {
+  if (!s || !d) return E_FAIL;
+
+  // Both must be IDirect3DTexture8 (our MetalTexture8)
+  MetalTexture8 *srcTex = (MetalTexture8 *)s;
+  MetalTexture8 *dstTex = (MetalTexture8 *)d;
+
+  id<MTLTexture> mtlDst = dstTex->GetMTLTexture();
+  if (!mtlDst) return E_FAIL;
+
+  UINT levels = srcTex->GetLevelCount();
+  UINT dstLevels = dstTex->GetLevelCount();
+  if (levels > dstLevels) levels = dstLevels;
+
+  D3DFORMAT srcFmt = srcTex->GetD3DFormat();
+  bool is16bit = Is16BitFormat(srcFmt);
+
+  for (UINT level = 0; level < levels; level++) {
+    D3DLOCKED_RECT srcLocked;
+    HRESULT hr = srcTex->LockRect(level, &srcLocked, nullptr, D3DLOCK_READONLY);
+    if (FAILED(hr)) continue;
+
+    D3DSURFACE_DESC desc;
+    srcTex->GetLevelDesc(level, &desc);
+    UINT w = desc.Width;
+    UINT h = desc.Height;
+
+    if (is16bit) {
+      // Convert 16-bit to 32-bit BGRA8
+      UINT dstPitch = w * 4;
+      uint8_t *converted = (uint8_t *)malloc(dstPitch * h);
+      if (converted) {
+        for (UINT y = 0; y < h; y++) {
+          const uint16_t *sp = (const uint16_t *)((uint8_t *)srcLocked.pBits + y * srcLocked.Pitch);
+          uint32_t *dp = (uint32_t *)(converted + y * dstPitch);
+          for (UINT x = 0; x < w; x++) {
+            dp[x] = ConvertPixel16to32(srcFmt, sp[x]);
+          }
+        }
+        MTLRegion region = MTLRegionMake2D(0, 0, w, h);
+        [mtlDst replaceRegion:region mipmapLevel:level withBytes:converted bytesPerRow:dstPitch];
+        free(converted);
+      }
+    } else {
+      // Direct upload (32-bit or matching format)
+      MTLRegion region = MTLRegionMake2D(0, 0, w, h);
+      [mtlDst replaceRegion:region mipmapLevel:level
+              withBytes:srcLocked.pBits bytesPerRow:w * 4];
+    }
+
+    srcTex->UnlockRect(level);
+  }
+
+  dstTex->MarkWritten();
+
+  static int s_updateTexLog = 0;
+  if (s_updateTexLog < 5) {
+    printf("[UpdateTexture] src=%p dst=%p levels=%u fmt=%u\n",
+           (void*)s, (void*)d, levels, (unsigned)srcFmt);
+    fflush(stdout);
+    s_updateTexLog++;
+  }
+
   return D3D_OK;
 }
 
