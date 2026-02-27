@@ -2020,13 +2020,7 @@ void InGameUI::update()
 
 	GameWindow *moneyWin = TheWindowManager->winGetWindowFromId( nullptr, moneyWindowKey );
 	GameWindow *powerWin = TheWindowManager->winGetWindowFromId( nullptr, powerWindowKey );
-//	if( moneyWin == nullptr )
-//	{
-//		NameKeyType moneyWindowKey = TheNameKeyGenerator->nameToKey( "ControlBar.wnd:MoneyDisplay" );
-//
-//		moneyWin = TheWindowManager->winGetWindowFromId( nullptr, moneyWindowKey );
-//
-//	}  // end if
+
 	Player* moneyPlayer = TheControlBar->getCurrentlyViewedPlayer();
 	if( moneyPlayer)
 	{
