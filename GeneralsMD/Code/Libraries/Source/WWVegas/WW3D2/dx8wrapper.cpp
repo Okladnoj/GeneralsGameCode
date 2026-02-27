@@ -2647,7 +2647,7 @@ DX8Wrapper::_Create_DX8_Texture(const char *filename,
       0, D3DFMT_UNKNOWN, D3DPOOL_MANAGED, D3DX_FILTER_BOX, D3DX_FILTER_BOX, 0,
       nullptr, nullptr, &texture);
 
-  fprintf(stderr, "[Create_DX8_Texture] file='%s' result=%u\n", filename ? filename : "null", result);
+
 
   if (result != D3D_OK) {
     return MissingTexture::_Get_Missing_Texture();
