@@ -207,6 +207,7 @@ void W3DGadgetStaticTextDraw( GameWindow *window, WinInstanceData *instData )
 		drawStaticTextText( window, instData, textColor, textOutlineColor );
 
 
+
 }
 
 // W3DGadgetStaticTextImageDraw ===============================================

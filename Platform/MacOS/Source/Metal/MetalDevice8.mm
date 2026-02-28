@@ -2273,9 +2273,6 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
     }
   }
 
-
-
-
   [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
 
   // 5b. Build Lighting Uniforms (buffer 3) — Stage 8 Lighting

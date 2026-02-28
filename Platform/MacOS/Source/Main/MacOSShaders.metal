@@ -901,8 +901,13 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
     // Skip when alpha test is enabled — alpha test handles transparency
     // for trees/particles, and their dark pixels are valid content.
+    // Also skip when TSS stage 0 colorOp is SELECTARG2 (==3), which means
+    // the texture is not actually used (e.g., untextured 2D overlays like
+    // the build clock). A stale texture may remain bound from a previous
+    // draw call, so hasTexture alone is not sufficient.
     if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
         fragUniforms.alphaTestEnable == 0 &&
+        fragUniforms.stages[0].colorOp != 3 && // D3DTOP_SELECTARG2 = texture unused
         dot(current.rgb, float3(1.0)) < 0.001) {
         discard_fragment();
     }
