@@ -54,6 +54,9 @@
 //-----------------------------------------------------------------------------
 
 #include "dx8wrapper.h"
+#ifdef __APPLE__
+#include "W3DDevice/MacOSHardwareProfile.h"
+#endif
 #include "assetmgr.h"
 #include "Lib/BaseType.h"
 #include "Common/file.h"
@@ -2912,8 +2915,8 @@ ChipsetType W3DShaderManager::getChipset()
 
 #ifdef __APPLE__
 	// On macOS, D3D adapter identifier returns zeros so vendor/device detection
-	// fails. Report PS 2.0 level hardware to enable pixel shader terrain/water paths.
-	return DC_GENERIC_PIXEL_SHADER_2_0;
+	// fails. Use centralized hardware profile.
+	return MacOSHardware::GetChipsetType();
 #endif
 
 	ChipsetType chip=DC_UNKNOWN;
@@ -3079,21 +3082,21 @@ Bool W3DShaderManager::testMinimumRequirements(ChipsetType *videoChipType, CpuTy
 {
 #ifdef __APPLE__
 	// On macOS, CPUDetectClass and getChipset() return zeros/unknowns.
-	// Report a high-end hardware profile so the game selects VeryHigh quality.
+	// Use centralized hardware profile.
 	if (videoChipType)
-		*videoChipType = DC_GEFORCE4;
+		*videoChipType = MacOSHardware::GetChipsetType();
 	if (cpuType)
-		*cpuType = P4;
+		*cpuType = MacOSHardware::GetCpuType();
 	if (cpuFreq)
-		*cpuFreq = 3000;
+		*cpuFreq = MacOSHardware::GetCpuFreqMHz();
 	if (numRAM)
-		*numRAM = (MemValueType)2048 * 1024 * 1024; // 2 GB
+		*numRAM = MacOSHardware::GetTotalRAM();
 	if (intBenchIndex)
-		*intBenchIndex = 10.0f;
+		*intBenchIndex = MacOSHardware::GetIntBenchIndex();
 	if (floatBenchIndex)
-		*floatBenchIndex = 10.0f;
+		*floatBenchIndex = MacOSHardware::GetFloatBenchIndex();
 	if (memBenchIndex)
-		*memBenchIndex = 10.0f;
+		*memBenchIndex = MacOSHardware::GetMemBenchIndex();
 	return TRUE;
 #else
 	if (videoChipType)
