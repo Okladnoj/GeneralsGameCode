@@ -1,4 +1,5 @@
 #import <AppKit/AppKit.h>
+#import <CoreText/CoreText.h>
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
@@ -61,25 +62,50 @@ public:
     if (!nsText)
       return;
 
+    // TheSuperHackers @fix macOS: Use CoreText + CoreGraphics for text
+    // rendering instead of AppKit (NSGraphicsContext/NSBitmapImageRep).
+    // AppKit text APIs internally schedule performSelector:onMainThread:
+    // callbacks on the RunLoop. CoreGraphics bitmap contexts are purely
+    // CPU-side and never interact with the RunLoop.
+
     float fontSize = 16.0f;
     if (m_font && m_font->pointSize > 0)
       fontSize = (float)m_font->pointSize;
 
-    NSFont *font = [NSFont fontWithName:@"Arial-BoldMT" size:fontSize];
-    if (!font)
-      font = [NSFont boldSystemFontOfSize:fontSize];
+    // Create CoreText font and attributes
+    CTFontRef ctFont = CTFontCreateWithName(CFSTR("Arial-BoldMT"), fontSize, NULL);
+    if (!ctFont)
+      ctFont = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, NULL);
 
-    NSDictionary *attrs = @{
-      NSFontAttributeName : font,
-      NSForegroundColorAttributeName : [NSColor whiteColor]
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGFloat whiteComps[] = {1.0, 1.0, 1.0, 1.0};
+    CGColorRef whiteColor = CGColorCreate(cs, whiteComps);
+
+    NSDictionary *ctAttrs = @{
+      (__bridge id)kCTFontAttributeName : (__bridge id)ctFont,
+      (__bridge id)kCTForegroundColorAttributeName : (__bridge id)whiteColor,
     };
+    NSAttributedString *attrStr = [[NSAttributedString alloc]
+        initWithString:nsText
+            attributes:ctAttrs];
 
-    NSSize size = [nsText sizeWithAttributes:attrs];
-    if (size.width <= 0 || size.height <= 0)
+    // Measure text size using CTFramesetter
+    CTFramesetterRef framesetter =
+        CTFramesetterCreateWithAttributedString((__bridge CFAttributedStringRef)attrStr);
+    CGSize suggestedSize = CTFramesetterSuggestFrameSizeWithConstraints(
+        framesetter, CFRangeMake(0, 0), NULL,
+        CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX), NULL);
+
+    if (suggestedSize.width <= 0 || suggestedSize.height <= 0) {
+      CFRelease(framesetter);
+      CGColorRelease(whiteColor);
+      CGColorSpaceRelease(cs);
+      CFRelease(ctFont);
       return;
+    }
 
-    m_Width = (int)ceil(size.width) + 4;
-    m_Height = (int)ceil(size.height) + 4;
+    m_Width = (int)ceil(suggestedSize.width) + 4;
+    m_Height = (int)ceil(suggestedSize.height) + 4;
 
     // Release old texture if size changed
     if (m_D3DTexture) {
@@ -95,94 +121,95 @@ public:
     // Create new texture via DX8 pipeline (MetalDevice8)
     if (!m_D3DTexture) {
       IDirect3DDevice8 *dev = DX8Wrapper::_Get_D3D_Device8();
-      if (!dev)
+      if (!dev) {
+        CFRelease(framesetter);
+        CGColorRelease(whiteColor);
+        CGColorSpaceRelease(cs);
+        CFRelease(ctFont);
         return;
+      }
       HRESULT hr = dev->CreateTexture(m_Width, m_Height, 1, 0, D3DFMT_A8R8G8B8,
                                       D3DPOOL_MANAGED, &m_D3DTexture);
-      if (FAILED(hr) || !m_D3DTexture)
+      if (FAILED(hr) || !m_D3DTexture) {
+        CFRelease(framesetter);
+        CGColorRelease(whiteColor);
+        CGColorSpaceRelease(cs);
+        CFRelease(ctFont);
         return;
+      }
     }
 
     // Render text to bitmap and upload to texture
     D3DLOCKED_RECT lr;
     if (m_D3DTexture->LockRect(0, &lr, nullptr, 0) == D3D_OK) {
-      // TheSuperHackers @fix macOS: Wrap AppKit text rendering in
-      // @autoreleasepool to prevent use-after-free crash.
-      // NSString drawInRect: internally queues deferred tasks via
-      // performSelector:onThread: that reference the NSBitmapImageRep and
-      // NSGraphicsContext. Without autoreleasepool + flushGraphics, these
-      // objects are ARC-released while tasks are still pending. On the next
-      // MacOS_PumpEvents(), RunLoop executes the dangling tasks → SIGSEGV
-      // in __NSThreadPerformPerform.
-      @autoreleasepool {
-        NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
-            initWithBitmapDataPlanes:NULL
-                          pixelsWide:m_Width
-                          pixelsHigh:m_Height
-                       bitsPerSample:8
-                     samplesPerPixel:4
-                            hasAlpha:YES
-                            isPlanar:NO
-                      colorSpaceName:NSDeviceRGBColorSpace
-                        bitmapFormat:0
-                         bytesPerRow:m_Width * 4
-                        bitsPerPixel:32];
+      // Create BGRA bitmap context — matches Metal's BGRA8Unorm directly
+      CGContextRef ctx = CGBitmapContextCreate(
+          NULL, m_Width, m_Height, 8, m_Width * 4, cs,
+          kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
 
-        unsigned char *src = [rep bitmapData];
-        memset(src, 0, m_Width * m_Height * 4);
+      if (ctx) {
+        CGContextClearRect(ctx, CGRectMake(0, 0, m_Width, m_Height));
 
-        [NSGraphicsContext saveGraphicsState];
-        NSGraphicsContext *context =
-            [NSGraphicsContext graphicsContextWithBitmapImageRep:rep];
-        [NSGraphicsContext setCurrentContext:context];
+        // Flip to top-down coordinates (origin at top-left, like AppKit)
+        CGContextTranslateCTM(ctx, 0, m_Height);
+        CGContextScaleCTM(ctx, 1.0, -1.0);
 
-        [nsText drawInRect:NSMakeRect(2, 0, m_Width - 4, m_Height)
-            withAttributes:attrs];
+        // CRITICAL: Reset text matrix to identity for CoreText.
+        // Without this, the flipped CTM causes each glyph to be mirrored.
+        CGContextSetTextMatrix(ctx, CGAffineTransformIdentity);
 
-        // Flush all deferred rendering operations before releasing the
-        // context and bitmap rep. This ensures no dangling performSelector
-        // tasks reference destroyed objects.
-        [context flushGraphics];
-        [NSGraphicsContext restoreGraphicsState];
+        // Create a frame for the text in the full rect
+        CGMutablePathRef path = CGPathCreateMutable();
+        CGPathAddRect(path, NULL, CGRectMake(2, 0, m_Width - 4, m_Height));
+        CTFrameRef frame = CTFramesetterCreateFrame(
+            framesetter, CFRangeMake(0, 0), path, NULL);
+        CTFrameDraw(frame, ctx);
+        CFRelease(frame);
+        CGPathRelease(path);
 
+        // Copy pixels to texture — BGRA matches Metal directly
+        // CG data buffer is bottom-up in memory, we need top-down
+        unsigned char *src = (unsigned char *)CGBitmapContextGetData(ctx);
         unsigned char *dst = (unsigned char *)lr.pBits;
-        if (!dst) {
-          m_D3DTexture->UnlockRect(0);
-          m_Stale = false;
-          return;
-        }
 
-        // Copy row-by-row, respecting lr.Pitch (which may be larger than
-        // m_Width * 4 due to buffer-backed texture alignment).
-        int srcPitch = m_Width * 4;
-        int dstPitch = lr.Pitch;
+        if (src && dst) {
+          int srcPitch = (int)CGBitmapContextGetBytesPerRow(ctx);
+          int dstPitch = lr.Pitch;
 
-        for (int y = 0; y < m_Height; y++) {
-          unsigned char *srcRow = src + y * srcPitch;
-          unsigned char *dstRow = dst + y * dstPitch;
+          for (int y = 0; y < m_Height; y++) {
+            unsigned char *srcRow = src + (m_Height - 1 - y) * srcPitch;
+            unsigned char *dstRow = dst + y * dstPitch;
 
-          for (int x = 0; x < m_Width; x++) {
-            unsigned char r = srcRow[x * 4 + 0];
-            unsigned char g = srcRow[x * 4 + 1];
-            unsigned char b = srcRow[x * 4 + 2];
-            unsigned char a = srcRow[x * 4 + 3];
+            for (int x = 0; x < m_Width; x++) {
+              unsigned char b = srcRow[x * 4 + 0];
+              unsigned char g = srcRow[x * 4 + 1];
+              unsigned char r = srcRow[x * 4 + 2];
+              unsigned char a = srcRow[x * 4 + 3];
 
-            // Unpremultiply and convert to BGRA
-            if (a > 0 && a < 255) {
-              dstRow[x * 4 + 0] = (unsigned char)((int)b * 255 / a);
-              dstRow[x * 4 + 1] = (unsigned char)((int)g * 255 / a);
-              dstRow[x * 4 + 2] = (unsigned char)((int)r * 255 / a);
-            } else {
-              dstRow[x * 4 + 0] = b;
-              dstRow[x * 4 + 1] = g;
-              dstRow[x * 4 + 2] = r;
+              // Unpremultiply alpha
+              if (a > 0 && a < 255) {
+                dstRow[x * 4 + 0] = (unsigned char)((int)b * 255 / a);
+                dstRow[x * 4 + 1] = (unsigned char)((int)g * 255 / a);
+                dstRow[x * 4 + 2] = (unsigned char)((int)r * 255 / a);
+              } else {
+                dstRow[x * 4 + 0] = b;
+                dstRow[x * 4 + 1] = g;
+                dstRow[x * 4 + 2] = r;
+              }
+              dstRow[x * 4 + 3] = a;
             }
-            dstRow[x * 4 + 3] = a;
           }
         }
-      } // end @autoreleasepool — rep and context fully released here
+
+        CGContextRelease(ctx);
+      }
       m_D3DTexture->UnlockRect(0);
     }
+
+    CFRelease(framesetter);
+    CGColorRelease(whiteColor);
+    CGColorSpaceRelease(cs);
+    CFRelease(ctFont);
     m_Stale = false;
   }
 
