@@ -3071,6 +3071,25 @@ Bool testMinimumRequirements(ChipsetType *videoChipType, CpuType *cpuType, Int *
 
 Bool W3DShaderManager::testMinimumRequirements(ChipsetType *videoChipType, CpuType *cpuType, Int *cpuFreq, MemValueType *numRAM, Real *intBenchIndex, Real *floatBenchIndex, Real *memBenchIndex)
 {
+#ifdef __APPLE__
+	// On macOS, CPUDetectClass and getChipset() return zeros/unknowns.
+	// Report a high-end hardware profile so the game selects VeryHigh quality.
+	if (videoChipType)
+		*videoChipType = DC_GEFORCE4;
+	if (cpuType)
+		*cpuType = P4;
+	if (cpuFreq)
+		*cpuFreq = 3000;
+	if (numRAM)
+		*numRAM = (MemValueType)2048 * 1024 * 1024; // 2 GB
+	if (intBenchIndex)
+		*intBenchIndex = 10.0f;
+	if (floatBenchIndex)
+		*floatBenchIndex = 10.0f;
+	if (memBenchIndex)
+		*memBenchIndex = 10.0f;
+	return TRUE;
+#else
 	if (videoChipType)
 		*videoChipType = getChipset();
 
@@ -3109,6 +3128,7 @@ Bool W3DShaderManager::testMinimumRequirements(ChipsetType *videoChipType, CpuTy
 	}
 
 	return TRUE;
+#endif
 }
 
 /**Try to guess how well the video card will handle the game assuming very fast CPU*/

@@ -829,6 +829,8 @@ void GameEngine::init() {
 #ifdef __APPLE__
     // macOS: default to 60 FPS render cap for smoother camera/animations on
     // modern hardware. The game logic tick rate stays at 30 Hz.
+    // GameLOD may have set framesPerSecondLimit to 30 for VeryHigh quality,
+    // so we always override it here.
     // Can be overridden via GENERALS_FPS_LIMIT environment variable.
     {
         int macFpsLimit = 60;
@@ -837,9 +839,7 @@ void GameEngine::init() {
             macFpsLimit = atoi(fpsEnv);
             if (macFpsLimit < 30) macFpsLimit = 30;
         }
-        if (TheGlobalData->m_framesPerSecondLimit < macFpsLimit) {
-            TheWritableGlobalData->m_framesPerSecondLimit = macFpsLimit;
-        }
+        TheWritableGlobalData->m_framesPerSecondLimit = macFpsLimit;
         TheWritableGlobalData->m_useFpsLimit = TRUE;
     }
 #endif
