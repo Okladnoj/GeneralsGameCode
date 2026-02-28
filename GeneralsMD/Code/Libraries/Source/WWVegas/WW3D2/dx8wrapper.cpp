@@ -1100,6 +1100,12 @@ bool DX8Wrapper::Set_Render_Device(int dev, int width, int height, int bits,
   */
   ::ZeroMemory(&_PresentParameters, sizeof(D3DPRESENT_PARAMETERS));
 
+#ifdef __APPLE__
+  // Metal always uses BGRA8 with alpha; set early so getBackBufferFormat()
+  // returns A8R8G8B8 even before the windowed-mode detection runs.
+  _PresentParameters.BackBufferFormat = D3DFMT_A8R8G8B8;
+#endif
+
   _PresentParameters.BackBufferWidth = ResolutionWidth;
   _PresentParameters.BackBufferHeight = ResolutionHeight;
   _PresentParameters.BackBufferCount = IsWindowed ? 1 : 2;
@@ -4681,6 +4687,13 @@ const char *DX8Wrapper::Get_DX8_Blend_Op_Name(unsigned value) {
 //============================================================================
 
 WW3DFormat DX8Wrapper::getBackBufferFormat(void) {
+#ifdef __APPLE__
+  // Metal always uses BGRA8 with alpha. If _PresentParameters hasn't been
+  // initialized yet (format == UNKNOWN after ZeroMemory), return A8R8G8B8
+  // so that destination-alpha features (soft water edges) work correctly.
+  if (_PresentParameters.BackBufferFormat == D3DFMT_UNKNOWN)
+    return WW3D_FORMAT_A8R8G8B8;
+#endif
   return D3DFormat_To_WW3DFormat(_PresentParameters.BackBufferFormat);
 }
 
@@ -4692,6 +4705,7 @@ extern "C" void MacOS_UpdateDX8Resolution(int w, int h) {
   // Update internal resolution tracking
   _PresentParameters.BackBufferWidth = w;
   _PresentParameters.BackBufferHeight = h;
+  _PresentParameters.BackBufferFormat = D3DFMT_A8R8G8B8; // Metal always uses BGRA8 with alpha
   DX8Wrapper::ResolutionWidth = w;
   DX8Wrapper::ResolutionHeight = h;
 

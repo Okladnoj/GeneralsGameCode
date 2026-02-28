@@ -769,6 +769,46 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
             result.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb * t2.rgb * t3.rgb;
             result.a = 1.0;
         }
+        else if (psType == 11) {
+            // PS_WATER_TRAPEZOID: standing water with sparkles and shroud
+            // Original PS1.1:
+            //   mul r0, v0, t0         ; blend vertex color and alpha into base texture
+            //   mad r0.rgb, t1, t2, r0 ; blend sparkles (t1 * t2) and add to r0
+            //   mul r0.rgb, r0, t3     ; blend in black shroud
+            result = diffuse * t0;                    // mul r0, v0, t0
+            result.rgb = t1.rgb * t2.rgb + result.rgb;  // mad r0.rgb, t1, t2, r0
+            result.rgb = result.rgb * t3.rgb;           // mul r0.rgb, r0, t3
+        }
+        else if (psType == 12) {
+            // PS_WATER_BUMP: bump-mapped water with environment mapped reflection
+            // Original PS1.1:
+            //   tex t0
+            //   tex t1
+            //   texbem t2, t1        ; use t1 as env map adjustment on t2
+            //   mul r0, v0, t0       ; blend vertex color into base texture
+            //   mul r1.rgb, t2, c0   ; reduce environment reflection by constant
+            //   add r0.rgb, r0, r1   ; add reflection
+            //
+            // texbem is not feasible in Metal without bump map textures,
+            // so we approximate: use t2 directly as reflection with c0 factor
+            float4 reflFactor = psUniforms.c[0];
+            result = diffuse * t0;                         // mul r0, v0, t0
+            result.rgb = result.rgb + t2.rgb * reflFactor.rgb; // add r0.rgb, r0, r1
+        }
+        else if (psType == 13) {
+            // PS_WATER_RIVER: river water with sparkles and shroud
+            // Original PS1.1:
+            //   mul r0, v0, t0       ; blend vertex color into t0
+            //   mul r1, t1, t2       ; sparkle * noise
+            //   add r0.rgb, r0, t3   ; add shroud lighting
+            //   +mul r0.a, r0, t3    ; multiply alpha by shroud alpha
+            //   add r0.rgb, r0, r1   ; add sparkles
+            result = diffuse * t0;                        // mul r0, v0, t0
+            float3 sparkle = t1.rgb * t2.rgb;             // mul r1, t1, t2
+            result.rgb = result.rgb + t3.rgb;             // add r0.rgb, r0, t3
+            result.a = result.a * t3.a;                   // +mul r0.a, r0, t3
+            result.rgb = result.rgb + sparkle;            // add r0.rgb, r0, r1
+        }
         else {
             // Unknown PS: fallthrough to basic texturing
             result = t0 * diffuse;

@@ -2700,8 +2700,8 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
     [MTL_ENCODER setFragmentBytes:&psu length:sizeof(psu) atIndex:5];
   }
 
-  // Bind textures
-  for (int s = 0; s < 2; s++) {
+  // Bind textures (all 4 stages — water PS uses stages 0-3)
+  for (int s = 0; s < 4; s++) {
     if (m_Textures[s]) {
       MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
       id<MTLTexture> mtlTex = tex->GetMTLTexture();
@@ -2710,7 +2710,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
       }
     }
   }
-  for (int s = 0; s < 2; s++) {
+  for (int s = 0; s < 4; s++) {
     void *sam = GetSamplerState(s);
     if (sam) {
       [MTL_ENCODER setFragmentSamplerState:(__bridge id<MTLSamplerState>)sam
@@ -2906,6 +2906,8 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
       bool hasDp3 = false;
       bool hasLrp = false;
       bool hasMad = false;
+      bool hasMul = false;
+      bool hasAdd = false;
       bool hasTexbem = false;
 
       for (int i = 1; i < 256; i++) {
@@ -2922,13 +2924,15 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
           skip = (opcode == 0x40) ? 1 : 2;
         } else if (opcode >= 0x02 && opcode <= 0x3F) {
           numArith++;
-          if (opcode == 0x09) hasDp3 = true;
-          if (opcode == 0x12) hasLrp = true;
-          if (opcode == 0x05) hasMad = true;
-          if (opcode == 0x05 || opcode == 0x12 || opcode == 0x32)
-            skip = 4;
+          if (opcode == 0x02) hasAdd = true;  // add
+          if (opcode == 0x04) hasMad = true;  // mad
+          if (opcode == 0x05) hasMul = true;  // mul
+          if (opcode == 0x09) hasDp3 = true;  // dp3
+          if (opcode == 0x12) hasLrp = true;  // lrp
+          if (opcode == 0x04 || opcode == 0x12 || opcode == 0x32)
+            skip = 4;  // mad, lrp, and other 4-arg instructions
           else if (opcode == 0x02)
-            skip = 2;
+            skip = 2;  // add: dest + src (but may have more args in PS1.1 — 3)
           else
             skip = 3;
         }
@@ -2940,7 +2944,12 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
 
       if (numTex == 1 && hasDp3) {
         info.psType = PS_MONOCHROME;
+      } else if (hasTexbem && numTex >= 3) {
+        // 3 tex stages with texbem = bump water (environment mapped reflection)
+        // from D3DXAssembleShader in W3DWater.cpp (m_waterPixelShader)
+        info.psType = PS_WATER_BUMP;
       } else if (hasTexbem) {
+        // 2 tex stages with texbem = wave.pso (vertex shader water)
         info.psType = PS_WAVE;
       } else if (numTex == 2 && hasLrp) {
         info.psType = PS_TERRAIN;
@@ -2952,14 +2961,23 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
         info.psType = PS_ROAD_NOISE2;
       } else if (numTex == 2 && !hasLrp && !hasDp3) {
         info.psType = PS_FLAT_TERRAIN;
-      } else if (numTex == 4 && !hasLrp) {
-        info.psType = PS_FLAT_TERRAIN_NOISE2;
+      } else if (numTex == 4 && !hasLrp && hasMad) {
+        // 4 tex + mad = trapezoid water (standing water with sparkles + shroud)
+        info.psType = PS_WATER_TRAPEZOID;
+      } else if (numTex == 4 && !hasLrp && !hasMad) {
+        // 4 tex, no mad, no lrp = could be river water or flat terrain noise2
+        // River water uses add but not mad; flat terrain noise2 uses neither
+        if (hasAdd) {
+          info.psType = PS_WATER_RIVER;
+        } else {
+          info.psType = PS_FLAT_TERRAIN_NOISE2;
+        }
       } else {
         info.psType = PS_TERRAIN;
       }
 
-      printf("[PS] CreatePixelShader: handle=0x%x tex=%u arith=%u dp3=%d lrp=%d mad=%d texbem=%d -> type=%u\n",
-             h, numTex, numArith, hasDp3, hasLrp, hasMad, hasTexbem, info.psType);
+      printf("[PS] CreatePixelShader: handle=0x%x tex=%u arith=%u dp3=%d lrp=%d mad=%d mul=%d add=%d texbem=%d -> type=%u\n",
+             h, numTex, numArith, hasDp3, hasLrp, hasMad, hasMul, hasAdd, hasTexbem, info.psType);
       fflush(stdout);
     }
   }

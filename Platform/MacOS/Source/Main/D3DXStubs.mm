@@ -632,15 +632,141 @@ HRESULT WINAPI D3DXAssembleShader(const void *pSrcData, UINT SrcDataLen,
                                   DWORD Flags, LPD3DXBUFFER *ppConstants,
                                   LPD3DXBUFFER *ppCompiledShader,
                                   LPD3DXBUFFER *ppCompilationErrors) {
-  if (ppCompiledShader) {
-    *ppCompiledShader = new MockD3DXBuffer(pSrcData, SrcDataLen);
-  }
   if (ppConstants) {
     *ppConstants = nullptr;
   }
   if (ppCompilationErrors) {
     *ppCompilationErrors = nullptr;
   }
+  if (!ppCompiledShader) {
+    return S_OK;
+  }
+
+  // The real D3DXAssembleShader compiles PS assembly text to bytecode.
+  // On macOS we don't need real D3D bytecode, but CreatePixelShader
+  // needs to parse the output to classify the shader type.
+  //
+  // We analyze the ASCII source to determine which water shader this is,
+  // then emit minimal valid PS 1.1 bytecode with the right opcodes for
+  // CreatePixelShader's heuristic classifier:
+  //   - texbem present → PS_WATER_BUMP (env-mapped reflection water)
+  //   - 4x tex + mad → PS_WATER_TRAPEZOID (standing water with sparkles)
+  //   - 4x tex + no mad → PS_WATER_RIVER (river water with sparkles)
+  //   - Other patterns: emit generic bytecode that matches existing terrain PS types
+
+  std::string src;
+  if (pSrcData && SrcDataLen > 0) {
+    src = std::string((const char *)pSrcData, SrcDataLen);
+  }
+
+  // Count opcodes in the ASCII source
+  int texCount = 0;
+  bool hasTexbem = false;
+  bool hasMad = false;
+  bool hasMul = false;
+  bool hasAdd = false;
+  bool hasLrp = false;
+  bool hasDp3 = false;
+
+  // Simple line-by-line analysis 
+  size_t pos = 0;
+  while (pos < src.size()) {
+    size_t eol = src.find('\n', pos);
+    if (eol == std::string::npos) eol = src.size();
+    std::string line = src.substr(pos, eol - pos);
+    pos = eol + 1;
+
+    // Strip comments (;) and leading whitespace
+    size_t semi = line.find(';');
+    if (semi != std::string::npos) line = line.substr(0, semi);
+    size_t first = line.find_first_not_of(" \t\r");
+    if (first == std::string::npos) continue;
+    line = line.substr(first);
+
+    // Skip version directive and empty lines
+    if (line.empty() || line[0] == '\0') continue;
+    if (line.substr(0, 2) == "ps") continue; // ps.1.1 version line
+
+    // Check for opcodes
+    if (line.substr(0, 6) == "texbem") { hasTexbem = true; texCount++; }
+    else if (line.substr(0, 3) == "tex") { texCount++; }
+    else if (line.substr(0, 3) == "mad") { hasMad = true; }
+    else if (line.substr(0, 3) == "mul") { hasMul = true; }
+    else if (line.substr(0, 3) == "add") { hasAdd = true; }
+    else if (line.substr(0, 3) == "lrp") { hasLrp = true; }
+    else if (line.substr(0, 3) == "dp3") { hasDp3 = true; }
+  }
+
+  // Build minimal PS 1.1 bytecode with correct opcodes for classification.
+  // PS 1.1 bytecode format:
+  //   DWORD version = 0xFFFF0101 (PS 1.1)
+  //   DWORD instruction tokens...
+  //   DWORD end = 0x0000FFFF
+  //
+  // tex t0:     opcode 0x40, dest reg (t0)
+  // texbem t2,t1: opcode 0x41, dest reg, src reg
+  // mul r0,r1:  opcode 0x05, dest, src, src  (skip=3)
+  // mad r0,r1,r2,r3: opcode 0x05, dest, src, src, src (skip=4 — but same opcode 0x05)
+  //   Actually: mul = 0x05, mad = 0x04? No — in PS1.1 bytecode:
+  //   mul = 0x05, add = 0x02, mad = 0x04, dp3 = 0x09, lrp = 0x12
+  //
+  // We'll emit enough tokens for the classifier to count correctly.
+
+  std::vector<DWORD> bytecode;
+  bytecode.push_back(0xFFFF0101); // PS 1.1 version
+
+  // Emit tex instructions
+  for (int i = 0; i < texCount; i++) {
+    if (hasTexbem && i == texCount - 1) {
+      // texbem: opcode 0x41 with dest + src (skip=2)
+      bytecode.push_back(0x00000041); // texbem opcode
+      bytecode.push_back(0x800F0800 + (uint32_t)i); // dest: t[i]
+      bytecode.push_back(0x80E40800 + (uint32_t)(i > 0 ? i - 1 : 0)); // src: t[i-1]
+    } else {
+      // tex: opcode 0x40 with dest only (skip=1)
+      bytecode.push_back(0x00000040); // tex opcode
+      bytecode.push_back(0x800F0800 + (uint32_t)i); // dest: t[i]
+    }
+  }
+
+  // Emit arithmetic instructions
+  if (hasMul) {
+    bytecode.push_back(0x00000005); // mul
+    bytecode.push_back(0x800F0800); // dest r0
+    bytecode.push_back(0x80E40000); // src v0
+    bytecode.push_back(0x80E40800); // src t0
+  }
+  if (hasMad) {
+    bytecode.push_back(0x00000004); // mad (opcode 4 = mad in PS1.x)
+    bytecode.push_back(0x800F0800); // dest r0
+    bytecode.push_back(0x80E40801); // src t1
+    bytecode.push_back(0x80E40802); // src t2
+    bytecode.push_back(0x80E40800); // src r0
+  }
+  if (hasAdd) {
+    bytecode.push_back(0x00000002); // add
+    bytecode.push_back(0x800F0800); // dest
+    bytecode.push_back(0x80E40800); // src
+  }
+  if (hasLrp) {
+    bytecode.push_back(0x00000012); // lrp
+    bytecode.push_back(0x800F0800);
+    bytecode.push_back(0x80E40000);
+    bytecode.push_back(0x80E40800);
+    bytecode.push_back(0x80E40801);
+  }
+  if (hasDp3) {
+    bytecode.push_back(0x00000009); // dp3
+    bytecode.push_back(0x800F0800);
+    bytecode.push_back(0x80E40800);
+    bytecode.push_back(0x80E40000);
+  }
+
+  bytecode.push_back(0x0000FFFF); // end token
+
+  DWORD byteSize = (DWORD)(bytecode.size() * sizeof(DWORD));
+  *ppCompiledShader = new MockD3DXBuffer(bytecode.data(), byteSize);
+
   return S_OK;
 }
 

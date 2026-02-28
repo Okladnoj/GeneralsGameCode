@@ -57,11 +57,14 @@ enum PSType {
   PS_TERRAIN_NOISE2 = 3,    // terrainnoise2.pso: terrain + cloud + noise
   PS_ROAD_NOISE2 = 4,       // roadnoise2.pso: road + cloud + noise
   PS_MONOCHROME = 5,        // monochrome.pso: luminance BW effect
-  PS_WAVE = 6,              // wave.pso: bump-mapped water
+  PS_WAVE = 6,              // wave.pso: bump-mapped water (vertex shader water)
   PS_FLAT_TERRAIN = 7,      // fterrain.pso: flat terrain blend
   PS_FLAT_TERRAIN0 = 8,     // fterrain0.pso: flat terrain base only
   PS_FLAT_TERRAIN_NOISE1 = 9,  // fterrainnoise.pso
   PS_FLAT_TERRAIN_NOISE2 = 10, // fterrainnoise2.pso
+  PS_WATER_TRAPEZOID = 11,  // W3DWater trapezoid: t0*v0 + t1*t2 sparkles + t3 shroud
+  PS_WATER_BUMP = 12,       // W3DWater bump: t0*v0 + texbem(t2,t1)*c0 reflection
+  PS_WATER_RIVER = 13,      // W3DWater river: t0*v0 + t1*t2 + t3 shroud
 };
 
 // Metadata for a pixel shader created via CreatePixelShader
