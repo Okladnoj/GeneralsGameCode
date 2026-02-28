@@ -258,6 +258,14 @@ private:
   DWORD m_TextureStageStates[MAX_TEXTURE_STAGES][32];
   IDirect3DBaseTexture8 *m_Textures[MAX_TEXTURE_STAGES];
   uint32_t m_TextureGeneration[MAX_TEXTURE_STAGES]; // generation counter cache for texture binding optimization
+  uint32_t m_TextureDirtyMask; // bitmask: bit N = stage N had SetTexture called since last clear
+
+public:
+  /// Returns bitmask of texture stages modified since last ClearTextureDirty().
+  uint32_t GetTextureDirtyMask() const { return m_TextureDirtyMask; }
+  /// Clears the dirty bitmask after the wrapper has re-applied textures.
+  void ClearTextureDirty() { m_TextureDirtyMask = 0; }
+private:
 
   D3DMATRIX m_Transforms[260];
   D3DVIEWPORT8 m_Viewport;

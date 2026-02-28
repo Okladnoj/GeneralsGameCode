@@ -99,6 +99,7 @@ MetalDevice8::MetalDevice8()
   
   memset(m_Textures, 0, sizeof(m_Textures));
   memset(m_TextureGeneration, 0, sizeof(m_TextureGeneration));
+  m_TextureDirtyMask = 0;
   memset(m_Transforms, 0, sizeof(m_Transforms));
   memset(&m_Viewport, 0, sizeof(m_Viewport));
   memset(&m_Material, 0, sizeof(m_Material));
@@ -1622,6 +1623,7 @@ STDMETHODIMP MetalDevice8::SetTexture(DWORD Stage,
         m_TextureGeneration[Stage] = 0;
       }
     }
+    m_TextureDirtyMask |= (1u << Stage);
   }
 
   if (Stage == 0) {
@@ -3051,6 +3053,20 @@ extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height) {
     g_theMetalDevice->updateScreenSize(width, height);
   } else {
     fprintf(stderr, "[MetalDevice8] WARNING: MacOS_UpdateMetalDeviceScreenSize called but g_theMetalDevice is null\n");
+  }
+}
+
+// Extern C bridges for texture dirty tracking — called from dx8wrapper.cpp
+extern "C" uint32_t MacOS_GetTextureDirtyMask(void *device) {
+  if (device) {
+    return static_cast<MetalDevice8 *>((IDirect3DDevice8 *)device)->GetTextureDirtyMask();
+  }
+  return 0;
+}
+
+extern "C" void MacOS_ClearTextureDirty(void *device) {
+  if (device) {
+    static_cast<MetalDevice8 *>((IDirect3DDevice8 *)device)->ClearTextureDirty();
   }
 }
 

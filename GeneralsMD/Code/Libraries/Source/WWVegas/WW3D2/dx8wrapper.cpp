@@ -58,6 +58,9 @@
 // Bridge function defined in MacOSDisplayManager.mm — synchronizes
 // NSWindow, CAMetalLayer, and MetalDevice8 with the requested resolution.
 extern "C" void MacOS_SetDisplayResolution(int w, int h);
+// Bridge functions for texture dirty tracking (implemented in MetalDevice8.mm)
+extern "C" uint32_t MacOS_GetTextureDirtyMask(void *device);
+extern "C" void MacOS_ClearTextureDirty(void *device);
 #endif
 #include "MacOSDebugLog.h"
 #include "DbgHelpGuard.h"
@@ -2395,10 +2398,29 @@ void DX8Wrapper::Draw_Strip(unsigned short start_index,
 void DX8Wrapper::Apply_Render_State_Changes() {
   SNAPSHOT_SAY(("DX8Wrapper::Apply_Render_State_Changes()"));
 
-#ifndef __APPLE__
+#ifdef __APPLE__
+  // Merge MetalDevice8's per-stage texture dirty mask into wrapper's dirty flags.
+  // This detects when textures are set directly on the device (e.g., terrain shader)
+  // bypassing the wrapper's Set_Texture() dirty tracking.
+  uint32_t deviceTexDirty = 0;
+  if (D3DDevice) {
+    deviceTexDirty = MacOS_GetTextureDirtyMask(D3DDevice);
+    if (deviceTexDirty) {
+      // Force wrapper to re-enter the texture apply loop for changed stages.
+      unsigned texMask = TEXTURE0_CHANGED;
+      for (int t = 0; t < 8; ++t, texMask <<= 1) {
+        if (deviceTexDirty & (1u << t)) {
+          render_state_changed |= texMask;
+        }
+      }
+      MacOS_ClearTextureDirty(D3DDevice);
+    }
+  }
+#endif
+
   if (!render_state_changed)
     return;
-#endif
+
   if (render_state_changed & SHADER_CHANGED) {
     SNAPSHOT_SAY(("DX8 - apply shader"));
     render_state.shader.Apply();
@@ -2407,15 +2429,7 @@ void DX8Wrapper::Apply_Render_State_Changes() {
   unsigned mask = TEXTURE0_CHANGED;
   int i = 0;
   for (; i < CurrentCaps->Get_Max_Textures_Per_Pass(); ++i, mask <<= 1) {
-#ifdef __APPLE__
-    // Metal: always re-apply textures that exist in wrapper cache.
-    // But if wrapper cache is null AND this texture was NOT explicitly changed,
-    // skip Apply_Null — a terrain/custom shader may have set a texture directly
-    // on the device via SetTexture() which we must not clobber.
-    {
-#else
     if (render_state_changed & mask) {
-#endif
       SNAPSHOT_SAY(("DX8 - apply texture %d (%s)", i,
                     render_state.Textures[i]
                         ? render_state.Textures[i]->Get_Full_Path().str()
@@ -2425,9 +2439,10 @@ void DX8Wrapper::Apply_Render_State_Changes() {
         render_state.Textures[i]->Apply(i);
       } else {
 #ifdef __APPLE__
-        // Only apply null if this texture was explicitly changed to null.
-        // This protects textures set directly on the device (e.g., terrain shader).
-        if (render_state_changed & mask) {
+        // Only Apply_Null if the WRAPPER explicitly set this stage to null.
+        // If only the device changed this stage (terrain shader set texture
+        // directly), don't overwrite with null — keep the device's texture.
+        if (!(deviceTexDirty & (1u << i))) {
           TextureBaseClass::Apply_Null(i);
         }
 #else
