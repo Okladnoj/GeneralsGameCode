@@ -502,6 +502,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     finalColor.a = matDiffuse.a; // DX8: output alpha = material diffuse alpha
     finalColor = clamp(finalColor, 0.0, 1.0);
     
+    
     out.color = finalColor;
     out.specularColor = float4(matSpecular.rgb * totalSpecular.rgb, 0.0);
     out.specularColor = clamp(out.specularColor, 0.0, 1.0);

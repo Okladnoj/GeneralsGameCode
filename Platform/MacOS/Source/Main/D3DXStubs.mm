@@ -4,6 +4,7 @@
  * All texture loading goes through MetalDevice8 (DX8-compatible adapter).
  * The old MacOSRenderDevice pipeline is no longer used.
  */
+#include <execinfo.h>
 #include "d3d8.h"
 #include "d3dx8.h"
 #include <windows.h>  // macOS Win32 type shim
@@ -296,6 +297,12 @@ HRESULT WINAPI D3DXCreateTexture(IDirect3DDevice8 *pDevice, UINT Width,
     fprintf(stderr, "[D3DXCreateTexture] #%d: %ux%u fmt=%u mips=%u usage=0x%x pool=%u dev=%p\n",
             s_createCount, Width, Height, (unsigned)Format, MipLevels, 
             (unsigned)Usage, (unsigned)Pool, (void*)pDevice);
+    if (Width == 64 && Height == 64 && Format == D3DFMT_A8R8G8B8) {
+      fprintf(stderr, "=== STACK TRACE FOR 64x64 A8R8G8B8 ===\n");
+      void *callstack[15];
+      int frames = backtrace(callstack, 15);
+      backtrace_symbols_fd(callstack, frames, fileno(stderr));
+    }
   }
   
   HRESULT hr = pDevice->CreateTexture(Width, Height, MipLevels, Usage, Format, Pool, ppTexture);

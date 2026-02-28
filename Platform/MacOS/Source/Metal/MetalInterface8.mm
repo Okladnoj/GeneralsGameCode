@@ -220,7 +220,7 @@ STDMETHODIMP MetalInterface8::GetDeviceCaps(UINT Adapter, DWORD DeviceType,
   pCaps->MaxAnisotropy = 16;
   pCaps->MaxPointSize = 256.0f;
   pCaps->MaxUserClipPlanes = 6;
-  pCaps->MaxVertexBlendMatrices = 4;
+  pCaps->MaxVertexBlendMatrices = 0;
 
   return D3D_OK;
 }

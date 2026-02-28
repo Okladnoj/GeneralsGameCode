@@ -1375,7 +1375,7 @@ void DX8SkinFVFCategoryContainer::Render()
 						verts[v].diffuse=*diffuse++;
 					}
 					else {
-						verts[v].diffuse=0;
+						verts[v].diffuse=0xFFFFFFFF;
 					}
 					if (uv0) {
 						verts[v].u1=(*uv0)[0];

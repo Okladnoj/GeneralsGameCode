@@ -784,6 +784,17 @@ TextureClass::TextureClass
 		if (oldTex) oldTex->Release();
 		Init();
 	}
+	else
+	{
+		// Not on the DX8 thread — can't load textures here.
+		// Reset Initialized AND clear the thumbnail D3DTexture so that when
+		// Init() is called later from the main thread, it enters the
+		// !Peek_D3D_Base_Texture() path and calls Request_Foreground_Loading.
+		Initialized = false;
+		IDirect3DBaseTexture8* oldTex = Peek_D3D_Base_Texture();
+		Poke_Texture(nullptr);
+		if (oldTex) oldTex->Release();
+	}
 #else
 	if (!WW3D::Get_Thumbnail_Enabled())
 	{
@@ -885,20 +896,15 @@ void TextureClass::Init()
 
 	WWPROFILE("TextureClass::Init");
 
-	static int s_initCount = 0;
-	s_initCount++;
-	if (s_initCount <= 30) {
+	if (Width == 64 && Height == 64) {
 		const char* texName = "(none)";
 		StringClass tmpName = Get_Texture_Name();
 		if (!tmpName.Is_Empty()) texName = tmpName.Peek_Buffer();
-		printf("[TextureClass::Init] #%d: name='%s' hasD3DTex=%d fmt=%d mips=%d w=%u h=%u\n",
-			s_initCount, texName,
-			(int)(Peek_D3D_Base_Texture() != nullptr), (int)TextureFormat,
-			(int)MipLevelCount, Width, Height);
+		printf("[TextureClass::Init] 64x64 name='%s' hasD3DTex=%d fmt=%d mips=%d proc=%d\n",
+			texName, (int)(Peek_D3D_Base_Texture() != nullptr), (int)TextureFormat,
+			(int)MipLevelCount, (int)Is_Procedural());
 		fflush(stdout);
 	}
-
-	// If the texture has recently been inactivated, increase the inactivation time (this texture obviously
 	// should not have been inactivated yet).
 	if (InactivationTime && LastInactivationSyncTime)
 	{

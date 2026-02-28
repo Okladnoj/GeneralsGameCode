@@ -1156,59 +1156,48 @@ STDMETHODIMP MetalDevice8::UpdateTexture(IDirect3DBaseTexture8 *s,
   MetalTexture8 *srcTex = (MetalTexture8 *)s;
   MetalTexture8 *dstTex = (MetalTexture8 *)d;
 
+  id<MTLTexture> mtlSrc = srcTex->GetMTLTexture();
   id<MTLTexture> mtlDst = dstTex->GetMTLTexture();
-  if (!mtlDst) return E_FAIL;
+  if (!mtlSrc || !mtlDst) return E_FAIL;
 
   UINT levels = srcTex->GetLevelCount();
   UINT dstLevels = dstTex->GetLevelCount();
   if (levels > dstLevels) levels = dstLevels;
 
-  D3DFORMAT srcFmt = srcTex->GetD3DFormat();
-  bool is16bit = Is16BitFormat(srcFmt);
+  // Use a blit command encoder to copy texture data GPU-side.
+  // This avoids the broken LockRect path that calloc'd zeros for
+  // compressed textures (DXT) since getBytes was skipped for BC formats.
+  id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)m_CommandQueue;
+  id<MTLCommandBuffer> cmdBuf = [queue commandBuffer];
+  id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
 
   for (UINT level = 0; level < levels; level++) {
-    D3DLOCKED_RECT srcLocked;
-    HRESULT hr = srcTex->LockRect(level, &srcLocked, nullptr, D3DLOCK_READONLY);
-    if (FAILED(hr)) continue;
+    UINT sw = std::max(1u, (UINT)mtlSrc.width  >> level);
+    UINT sh = std::max(1u, (UINT)mtlSrc.height >> level);
+    UINT dw = std::max(1u, (UINT)mtlDst.width  >> level);
+    UINT dh = std::max(1u, (UINT)mtlDst.height >> level);
+    UINT w = std::min(sw, dw);
+    UINT h = std::min(sh, dh);
 
-    D3DSURFACE_DESC desc;
-    srcTex->GetLevelDesc(level, &desc);
-    UINT w = desc.Width;
-    UINT h = desc.Height;
-
-    if (is16bit) {
-      // Convert 16-bit to 32-bit BGRA8
-      UINT dstPitch = w * 4;
-      uint8_t *converted = (uint8_t *)malloc(dstPitch * h);
-      if (converted) {
-        for (UINT y = 0; y < h; y++) {
-          const uint16_t *sp = (const uint16_t *)((uint8_t *)srcLocked.pBits + y * srcLocked.Pitch);
-          uint32_t *dp = (uint32_t *)(converted + y * dstPitch);
-          for (UINT x = 0; x < w; x++) {
-            dp[x] = ConvertPixel16to32(srcFmt, sp[x]);
-          }
-        }
-        MTLRegion region = MTLRegionMake2D(0, 0, w, h);
-        [mtlDst replaceRegion:region mipmapLevel:level withBytes:converted bytesPerRow:dstPitch];
-        free(converted);
-      }
-    } else {
-      // Direct upload (32-bit or matching format)
-      MTLRegion region = MTLRegionMake2D(0, 0, w, h);
-      [mtlDst replaceRegion:region mipmapLevel:level
-              withBytes:srcLocked.pBits bytesPerRow:w * 4];
-    }
-
-    srcTex->UnlockRect(level);
+    [blit copyFromTexture:mtlSrc sourceSlice:0 sourceLevel:level
+            sourceOrigin:MTLOriginMake(0, 0, 0)
+              sourceSize:MTLSizeMake(w, h, 1)
+               toTexture:mtlDst destinationSlice:0 destinationLevel:level
+       destinationOrigin:MTLOriginMake(0, 0, 0)];
   }
+
+  [blit endEncoding];
+  [cmdBuf commit];
+  [cmdBuf waitUntilCompleted];
 
   dstTex->MarkWritten();
 
   static int s_updateTexLog = 0;
-  if (s_updateTexLog < 5) {
-    printf("[UpdateTexture] src=%p dst=%p levels=%u fmt=%u\n",
-           (void*)s, (void*)d, levels, (unsigned)srcFmt);
-    fflush(stdout);
+  if (s_updateTexLog < 200) {
+    fprintf(stderr, "[UpdateTexture] blit src=%p dst=%p levels=%u fmt=%u %lux%lu\n",
+           (void*)s, (void*)d,
+           levels, (unsigned)srcTex->GetD3DFormat(),
+           (unsigned long)mtlSrc.width, (unsigned long)mtlSrc.height);
     s_updateTexLog++;
   }
 
@@ -1634,6 +1623,20 @@ STDMETHODIMP MetalDevice8::SetTexture(DWORD Stage,
         (void*)pTexture, mtl ? (__bridge void*)mtl : nullptr,
         mtl ? (unsigned long)mtl.width : 0, mtl ? (unsigned long)mtl.height : 0,
         mtl ? (unsigned long)mtl.pixelFormat : 0);
+      
+      // DIAGNOSTIC: Warn if DXT texture has no data
+      D3DFORMAT fmt = mt->GetD3DFormat();
+      bool isDXT = (fmt == D3DFMT_DXT1 || fmt == D3DFMT_DXT2 || fmt == D3DFMT_DXT3 ||
+                    fmt == D3DFMT_DXT4 || fmt == D3DFMT_DXT5);
+      static int s_noDataWarn = 0;
+      if (mt->GetGeneration() == 0 && s_noDataWarn < 100) {
+        printf("[NODATA] SetTexture stage=0: tex=%p fmt=%u gen=%u written=%d isDXT=%d %ux%u\n",
+               (void*)mt, (unsigned)fmt, mt->GetGeneration(),
+               mt->HasBeenWritten() ? 1 : 0, isDXT ? 1 : 0,
+               mtl ? (unsigned)mtl.width : 0, mtl ? (unsigned)mtl.height : 0);
+        fflush(stdout);
+        s_noDataWarn++;
+      }
     } else {
       DLOG_RFLOW(17, "SetTexture stage=0 tex=NULL");
     }
@@ -1760,18 +1763,28 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
   bool hasTexCoord1 = false;
 
   // --- Position ---
-  if (fvf & D3DFVF_XYZRHW) {
+  DWORD posType = fvf & 0x00E; // Position mask (bits 1-3)
+  
+  if (posType == D3DFVF_XYZRHW) {
     vd.attributes[0].format = MTLVertexFormatFloat4;
     vd.attributes[0].offset = currentOffset;
     vd.attributes[0].bufferIndex = 0;
     currentOffset += 16;
     hasPosition = true;
-  } else if (fvf & D3DFVF_XYZ) {
+  } else if (posType == D3DFVF_XYZ || (posType >= D3DFVF_XYZB1 && posType <= D3DFVF_XYZB5)) {
     vd.attributes[0].format = MTLVertexFormatFloat3;
     vd.attributes[0].offset = currentOffset;
     vd.attributes[0].bufferIndex = 0;
     currentOffset += 12;
     hasPosition = true;
+    
+    if (posType >= D3DFVF_XYZB1) {
+      int blendWeights = (posType - 4) / 2;
+      currentOffset += blendWeights * 4;
+      // Note: If D3DFVF_LASTBETA_UBYTE4 is present, the last blend weight 
+      // is 4 bytes (DWORD/UBYTE4) instead of float (4 bytes).
+      // Since both are 4 bytes, currentOffset calculation remains identical.
+    }
   }
 
   // --- Normal --- mapped to attribute(3) for lighting
@@ -1941,7 +1954,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   memcpy(&u.projection, &m_Transforms[D3DTS_PROJECTION], 64);
   u.screenSize.x = m_ScreenWidth;
   u.screenSize.y = m_ScreenHeight;
-  u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
+  u.useProjection = ((fvf & 0x00E) == D3DFVF_XYZRHW) ? 2 : 1;
   u.shaderSettings = 0; // legacy (unused by new shader)
 
   // Texture transform matrices and flags
@@ -2165,8 +2178,67 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   // 1. Get FVF and PSO
   DWORD fvf = GetBufferFVF(m_StreamSource);
 
+  // === DIAGNOSTIC: Log unique FVF + lighting combos ===
+  // Set env GENERALS_DIAG=1 before launch to enable
+  {
+    static int s_diagInit = -1;
+    if (s_diagInit < 0) {
+      const char *e = getenv("GENERALS_DIAG");
+      s_diagInit = (e && e[0] == '1') ? 1 : 0;
+    }
+    if (s_diagInit == 1) {
+      static int s_totalCalls = 0;
+      static int s_logged = 0;
+      s_totalCalls++;
+      // Log first 200 draws that have normals (skip first 5000 = shell map)
+      if (s_totalCalls > 5000 && s_logged < 200) {
+        DWORD posType = fvf & 0x00E;
+        bool hasNorm = (fvf & D3DFVF_NORMAL) != 0;
+        bool hasDiff = (fvf & D3DFVF_DIFFUSE) != 0;
+        bool hasSpec = (fvf & 0x080) != 0;
+        UINT texCount = (fvf & D3DFVF_TEXCOUNT_MASK) >> D3DFVF_TEXCOUNT_SHIFT;
+        bool lightOn = m_RenderStates[D3DRS_LIGHTING] != 0;
+        DWORD colorOp0 = m_TextureStageStates[0][D3DTSS_COLOROP];
 
-
+        fprintf(stderr, "[DIAG] DIP#%d fvf=0x%x pos=0x%x N=%d D=%d S=%d T=%u "
+                "light=%d matDiff=(%.2f,%.2f,%.2f,%.2f) "
+                "diffSrc=%u ambSrc=%u emSrc=%u "
+                "tex0=%p colorOp0=%u stride=%u pc=%u "
+                "gAmb=0x%x L0en=%d L0typ=%u L0diff=(%.2f,%.2f,%.2f) "
+                "L1en=%d matAmb=(%.2f,%.2f,%.2f) matEm=(%.2f,%.2f,%.2f)\n",
+                s_totalCalls,
+                (unsigned)fvf, (unsigned)posType,
+                hasNorm, hasDiff, hasSpec, texCount,
+                lightOn,
+                m_Material.Diffuse.r, m_Material.Diffuse.g,
+                m_Material.Diffuse.b, m_Material.Diffuse.a,
+                (unsigned)m_RenderStates[D3DRS_DIFFUSEMATERIALSOURCE],
+                (unsigned)m_RenderStates[D3DRS_AMBIENTMATERIALSOURCE],
+                (unsigned)m_RenderStates[D3DRS_EMISSIVEMATERIALSOURCE],
+                (void*)m_Textures[0],
+                (unsigned)colorOp0,
+                (unsigned)m_StreamStride, (unsigned)pc,
+                (unsigned)m_RenderStates[D3DRS_AMBIENT],
+                (int)m_LightEnabled[0], (unsigned)m_Lights[0].Type,
+                m_Lights[0].Diffuse.r, m_Lights[0].Diffuse.g, m_Lights[0].Diffuse.b,
+                (int)m_LightEnabled[1],
+                m_Material.Ambient.r, m_Material.Ambient.g, m_Material.Ambient.b,
+                m_Material.Emissive.r, m_Material.Emissive.g, m_Material.Emissive.b);
+        // Extra: log texture details for lit objects
+        if (lightOn && m_Textures[0]) {
+          MetalTexture8 *tex = (MetalTexture8 *)m_Textures[0];
+          id<MTLTexture> mtl = tex->GetMTLTexture();
+          fprintf(stderr, "  [TEX] d3dfmt=%d mtlFmt=%lu %lux%lu gen=%u\n",
+                  (int)tex->GetD3DFormat(),
+                  mtl ? (unsigned long)mtl.pixelFormat : 0,
+                  mtl ? (unsigned long)mtl.width : 0,
+                  mtl ? (unsigned long)mtl.height : 0,
+                  (unsigned)tex->GetGeneration());
+        }
+        s_logged++;
+      }
+    }
+  }
 
   id<MTLRenderPipelineState> pso =
       (__bridge id<MTLRenderPipelineState>)GetPSO(fvf, m_StreamStride);
@@ -2201,7 +2273,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   memcpy(&u.projection, &m_Transforms[D3DTS_PROJECTION], 64);
   u.screenSize.x = m_ScreenWidth;
   u.screenSize.y = m_ScreenHeight;
-  u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
+  u.useProjection = ((fvf & 0x00E) == D3DFVF_XYZRHW) ? 2 : 1;
   u.shaderSettings = 0; // legacy
 
   // Texture transform matrices and flags
@@ -2520,7 +2592,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   // DX8 spec: pretransformed vertices bypass the transform pipeline and
   // typically render with Z-test disabled. Without this, 2D UI quads at z=0
   // fail the depth test against previously rendered 3D geometry.
-  bool is2D = (fvf & D3DFVF_XYZRHW) != 0;
+  bool is2D = ((fvf & 0x00E) == D3DFVF_XYZRHW) != 0;
   DWORD savedZEnable = 0;
   DWORD savedZWrite  = 0;
   if (is2D) {
@@ -2571,7 +2643,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   memcpy(&u.projection, &m_Transforms[D3DTS_PROJECTION], 64);
   u.screenSize.x = m_ScreenWidth;
   u.screenSize.y = m_ScreenHeight;
-  u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
+  u.useProjection = ((fvf & 0x00E) == D3DFVF_XYZRHW) ? 2 : 1;
   u.shaderSettings = 0;
 
   // Texture transform matrices and flags

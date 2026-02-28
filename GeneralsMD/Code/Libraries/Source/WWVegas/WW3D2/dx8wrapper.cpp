@@ -53,6 +53,7 @@
 #endif
 
 #include "dx8wrapper.h"
+#include <execinfo.h>
 
 #ifdef __APPLE__
 // Bridge function defined in MacOSDisplayManager.mm — synchronizes
@@ -2642,6 +2643,8 @@ DX8Wrapper::_Create_DX8_Texture(unsigned int width, unsigned int height,
   unsigned ret = D3DXCreateTexture(
       DX8Wrapper::_Get_D3D_Device8(), width, height, mip_level_count, 0,
       WW3DFormat_To_D3DFormat(format), pool, &texture);
+
+
 
   // If ran out of texture ram, try invalidating some textures and mesh cache.
   if (ret == D3DERR_OUTOFVIDEOMEMORY) {

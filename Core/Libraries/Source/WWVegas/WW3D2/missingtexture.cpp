@@ -91,8 +91,7 @@ void MissingTexture::_Init()
 			//*buffer++=missing_image_palette[*pixels++];
 			*buffer++=0x7FFF00FF;
 		}
-		buffer=(unsigned*)locked_rect.pBits;
-		buffer+=locked_rect.Pitch/sizeof(unsigned)*y;
+		buffer=(unsigned*)((char*)locked_rect.pBits + locked_rect.Pitch * (y + 1));
 	}
 
 	DX8_ErrorCode(tex->UnlockRect(0));

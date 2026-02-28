@@ -169,6 +169,89 @@ STDMETHODIMP MetalSurface8::LockRect(D3DLOCKED_RECT *pLockedRect,
   memset(m_LockedData, 0, dataSize);
   m_LockedPitch = pitch;
 
+  // Read back existing data if requested and available
+  if ((Flags & D3DLOCK_DISCARD) == 0 && m_ParentTexture) {
+    if (!m_ParentTexture->HasBeenWritten()) {
+      printf("[MetalSurface8] LockRect WARN: parent=%p not written yet!\n", (void*)m_ParentTexture);
+      fflush(stdout);
+    } else {
+      id<MTLTexture> tex = (__bridge id<MTLTexture>)m_ParentTexture->GetMetalTexture();
+      if (tex && tex.storageMode == MTLStorageModeShared) {
+        if (bpp == 4 || (bpp == 1 && tex.pixelFormat == MTLPixelFormatR8Unorm)) {
+          MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
+          [tex getBytes:m_LockedData bytesPerRow:pitch fromRegion:region mipmapLevel:m_MipLevel];
+          
+          uint32_t* cdata = (uint32_t*)m_LockedData;
+          int nz = 0;
+          for (int i=0; i<std::min(256u, m_Width*m_Height); i++) { if (cdata[i]) nz++; }
+          printf("[MetalSurface8] LockRect DOWN %ux%u bpp=%d nz=%d/256 parent=%p\n", m_Width, m_Height, bpp, nz, (void*)m_ParentTexture);
+          fflush(stdout);
+        } else if (bpp == 3 && tex.pixelFormat == MTLPixelFormatBGRA8Unorm) {
+          // Read 32-bit and convert back to 24-bit BGR
+          uint32_t mtlPitch = m_Width * 4;
+          void *tmp = malloc(mtlPitch * m_Height);
+          if (tmp) {
+            MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
+            [tex getBytes:tmp bytesPerRow:mtlPitch fromRegion:region mipmapLevel:m_MipLevel];
+            
+            uint32_t *src = (uint32_t *)tmp;
+            uint8_t *dst = (uint8_t *)m_LockedData;
+            UINT pixels = m_Width * m_Height;
+            int nz = 0;
+            for (UINT i = 0; i < pixels; ++i) {
+              uint32_t c = src[i];
+              if (c) nz++;
+              dst[i*3 + 0] = c & 0xFF;         // B
+              dst[i*3 + 1] = (c >> 8) & 0xFF;  // G
+              dst[i*3 + 2] = (c >> 16) & 0xFF; // R
+            }
+            printf("[MetalSurface8] LockRect DOWN 24-bit %ux%u nz=%d/256 parent=%p\n", m_Width, m_Height, std::min(nz, 256), (void*)m_ParentTexture);
+            fflush(stdout);
+            free(tmp);
+          }
+        } else if (bpp == 2 && tex.pixelFormat == MTLPixelFormatBGRA8Unorm) {
+          // Read 32-bit and downconvert to 16-bit
+          uint32_t mtlPitch = m_Width * 4;
+          void *tmp = malloc(mtlPitch * m_Height);
+          if (tmp) {
+            MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
+            [tex getBytes:tmp bytesPerRow:mtlPitch fromRegion:region mipmapLevel:m_MipLevel];
+            
+            uint32_t *src = (uint32_t *)tmp;
+            uint16_t *dst = (uint16_t *)m_LockedData;
+            UINT pixels = m_Width * m_Height;
+            for (UINT i = 0; i < pixels; ++i) {
+              uint32_t c = src[i];
+              uint8_t B = c & 0xFF;
+              uint8_t G = (c >> 8) & 0xFF;
+              uint8_t R = (c >> 16) & 0xFF;
+              uint8_t A = (c >> 24) & 0xFF;
+              
+              if (m_Format == D3DFMT_A1R5G5B5) {
+                dst[i] = ((A >> 7) << 15) | ((R >> 3) << 10) | ((G >> 3) << 5) | (B >> 3);
+              } else if (m_Format == D3DFMT_R5G6B5) {
+                dst[i] = ((R >> 3) << 11) | ((G >> 2) << 5) | (B >> 3);
+              } else if (m_Format == D3DFMT_X1R5G5B5) {
+                dst[i] = ((R >> 3) << 10) | ((G >> 3) << 5) | (B >> 3);
+              } else if (m_Format == D3DFMT_A4R4G4B4) {
+                dst[i] = ((A >> 4) << 12) | ((R >> 4) << 8) | ((G >> 4) << 4) | (B >> 4);
+              }
+            }
+            free(tmp);
+          }
+        } else if (isCompressed) {
+          MTLRegion region = MTLRegionMake2D(0, 0, m_Width, m_Height);
+          [tex getBytes:m_LockedData bytesPerRow:pitch fromRegion:region mipmapLevel:m_MipLevel];
+        } else {
+          printf("[MetalSurface8] LockRect INFO: skipped download. bpp=%d format=%lu\n", bpp, (unsigned long)tex.pixelFormat);
+        }
+      } else {
+        printf("[MetalSurface8] LockRect WARN: tex=%p storageMode=%lu (not shared)\n", (__bridge void*)tex, (unsigned long)(tex ? tex.storageMode : 0));
+        fflush(stdout);
+      }
+    }
+  }
+
   pLockedRect->pBits = m_LockedData;
   pLockedRect->Pitch = pitch;
 

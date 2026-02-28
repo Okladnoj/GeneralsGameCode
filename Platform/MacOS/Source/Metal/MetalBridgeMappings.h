@@ -325,13 +325,12 @@ inline MTLPixelFormat MetalFormatFromD3D(D3DFORMAT fmt) {
   case D3DFMT_A4L4:
     return MTLPixelFormatRG8Unorm; // CPU conversion: 4+4 bits → 8+8 bits
 
-  // macOS Metal supports BC compression
   case D3DFMT_DXT1:
     return MTLPixelFormatBC1_RGBA;
-  case D3DFMT_DXT2: // premultiplied alpha DXT3
+  case D3DFMT_DXT2:
   case D3DFMT_DXT3:
     return MTLPixelFormatBC2_RGBA;
-  case D3DFMT_DXT4: // premultiplied alpha DXT5
+  case D3DFMT_DXT4:
   case D3DFMT_DXT5:
     return MTLPixelFormatBC3_RGBA;
 
