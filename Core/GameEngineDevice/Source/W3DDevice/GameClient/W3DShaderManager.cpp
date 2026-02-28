@@ -2910,6 +2910,12 @@ ChipsetType W3DShaderManager::getChipset()
 	if (TheGlobalData && TheGlobalData->m_chipSetType != DC_UNKNOWN)
 		return (ChipsetType)TheGlobalData->m_chipSetType;
 
+#ifdef __APPLE__
+	// On macOS, D3D adapter identifier returns zeros so vendor/device detection
+	// fails. Report PS 2.0 level hardware to enable pixel shader terrain/water paths.
+	return DC_GENERIC_PIXEL_SHADER_2_0;
+#endif
+
 	ChipsetType chip=DC_UNKNOWN;
 	IDirect3D8* d3d8Interface=DX8Wrapper::_Get_D3D8();
 
