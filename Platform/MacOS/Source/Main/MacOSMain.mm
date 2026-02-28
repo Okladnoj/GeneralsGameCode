@@ -847,5 +847,11 @@ int main(int argc, char *argv[]) {
     pos += len;
   }
 
-  return MacOS_Main(argc, argv);
+  int result = MacOS_Main(argc, argv);
+  // TheSuperHackers @fix macOS: Use _exit() to skip C++ static destructors.
+  // The game's memory pool system uses cross-referencing global statics.
+  // Normal exit() triggers __cxa_finalize_ranges which destroys pools in
+  // reverse order → SIGSEGV when one pool references an already-destroyed one.
+  // _exit() is safe here — the OS reclaims all process memory on termination.
+  _exit(result);
 }

@@ -11,6 +11,8 @@ struct ApplePlayingAudio {
   void *playerNode;
   std::string eventName;  // Copy of event name, NOT a pointer (avoids dangling)
   AudioHandle handle;     // DX8-style handle for isCurrentlyPlaying tracking
+  int soundType;          // AudioType (AT_Music/AT_SoundEffect/AT_Streaming)
+  float eventVolume;      // Per-event volume (from AudioEventRTS::getVolume)
 };
 
 class MacOSAudioManager : public AudioManager {

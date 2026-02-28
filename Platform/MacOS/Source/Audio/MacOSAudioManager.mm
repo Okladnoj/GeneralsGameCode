@@ -1,5 +1,6 @@
 #include "MacOSAudioManager.h"
 #include "Common/AudioAffect.h"
+#include "Common/AudioEventInfo.h"
 #include "Common/AudioEventRTS.h"
 #include "Common/AudioRequest.h"
 #include "Common/Debug.h"
@@ -103,6 +104,22 @@ void MacOSAudioManager::update() {
         (void)(__bridge_transfer AVAudioPlayer *)toRelease;
       });
     } else {
+      // TheSuperHackers @fix macOS: Update volume of playing sounds each frame
+      // so that Options slider changes take effect immediately.
+      float masterVol = 1.0f;
+      switch (it->soundType) {
+        case AT_Music:
+          masterVol = this->getVolume(AudioAffect_Music);
+          break;
+        case AT_Streaming:
+          masterVol = this->getVolume(AudioAffect_Speech);
+          break;
+        case AT_SoundEffect:
+        default:
+          masterVol = this->getVolume(AudioAffect_Sound);
+          break;
+      }
+      player.volume = it->eventVolume * masterVol;
       ++it;
     }
   }
@@ -423,8 +440,27 @@ void MacOSAudioManager::friend_forcePlayAudioEventRTS(
       return;
     }
 
-    // Volume
-    float baseVol = this->getVolume(AudioAffect_Sound);
+    // TheSuperHackers @fix macOS: Use correct volume category based on sound type.
+    // The game has separate volume sliders for Music, Sound, 3D Sound, and Speech.
+    // Determine the right master volume based on the event's AudioEventInfo.
+    float baseVol = 1.0f;
+    const AudioEventInfo *info = eventToPlay->getAudioEventInfo();
+    if (info) {
+      switch (info->m_soundType) {
+        case AT_Music:
+          baseVol = this->getVolume(AudioAffect_Music);
+          break;
+        case AT_Streaming:
+          baseVol = this->getVolume(AudioAffect_Speech);
+          break;
+        case AT_SoundEffect:
+        default:
+          baseVol = this->getVolume(AudioAffect_Sound);
+          break;
+      }
+    } else {
+      baseVol = this->getVolume(AudioAffect_Sound);
+    }
     player.volume = eventToPlay->getVolume() * baseVol;
 
     // Play the audio
@@ -435,6 +471,8 @@ void MacOSAudioManager::friend_forcePlayAudioEventRTS(
     playing.playerNode = (__bridge_retained void *)player;
     playing.eventName = eventToPlay->getEventName().str();
     playing.handle = const_cast<AudioEventRTS*>(eventToPlay)->getPlayingHandle();
+    playing.eventVolume = eventToPlay->getVolume();
+    playing.soundType = info ? info->m_soundType : AT_SoundEffect;
     m_playingAudio.push_back(playing);
     m_activeHandles.insert(playing.handle);
 
