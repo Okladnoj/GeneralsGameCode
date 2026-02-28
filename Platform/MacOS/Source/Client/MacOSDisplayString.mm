@@ -106,66 +106,81 @@ public:
     // Render text to bitmap and upload to texture
     D3DLOCKED_RECT lr;
     if (m_D3DTexture->LockRect(0, &lr, nullptr, 0) == D3D_OK) {
-      NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
-          initWithBitmapDataPlanes:NULL
-                        pixelsWide:m_Width
-                        pixelsHigh:m_Height
-                     bitsPerSample:8
-                   samplesPerPixel:4
-                          hasAlpha:YES
-                          isPlanar:NO
-                    colorSpaceName:NSDeviceRGBColorSpace
-                      bitmapFormat:0
-                       bytesPerRow:m_Width * 4
-                      bitsPerPixel:32];
+      // TheSuperHackers @fix macOS: Wrap AppKit text rendering in
+      // @autoreleasepool to prevent use-after-free crash.
+      // NSString drawInRect: internally queues deferred tasks via
+      // performSelector:onThread: that reference the NSBitmapImageRep and
+      // NSGraphicsContext. Without autoreleasepool + flushGraphics, these
+      // objects are ARC-released while tasks are still pending. On the next
+      // MacOS_PumpEvents(), RunLoop executes the dangling tasks → SIGSEGV
+      // in __NSThreadPerformPerform.
+      @autoreleasepool {
+        NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
+            initWithBitmapDataPlanes:NULL
+                          pixelsWide:m_Width
+                          pixelsHigh:m_Height
+                       bitsPerSample:8
+                     samplesPerPixel:4
+                            hasAlpha:YES
+                            isPlanar:NO
+                      colorSpaceName:NSDeviceRGBColorSpace
+                        bitmapFormat:0
+                         bytesPerRow:m_Width * 4
+                        bitsPerPixel:32];
 
-      unsigned char *src = [rep bitmapData];
-      memset(src, 0, m_Width * m_Height * 4);
+        unsigned char *src = [rep bitmapData];
+        memset(src, 0, m_Width * m_Height * 4);
 
-      [NSGraphicsContext saveGraphicsState];
-      NSGraphicsContext *context =
-          [NSGraphicsContext graphicsContextWithBitmapImageRep:rep];
-      [NSGraphicsContext setCurrentContext:context];
+        [NSGraphicsContext saveGraphicsState];
+        NSGraphicsContext *context =
+            [NSGraphicsContext graphicsContextWithBitmapImageRep:rep];
+        [NSGraphicsContext setCurrentContext:context];
 
-      [nsText drawInRect:NSMakeRect(2, 0, m_Width - 4, m_Height)
-          withAttributes:attrs];
-      [NSGraphicsContext restoreGraphicsState];
+        [nsText drawInRect:NSMakeRect(2, 0, m_Width - 4, m_Height)
+            withAttributes:attrs];
 
-      unsigned char *dst = (unsigned char *)lr.pBits;
-      if (!dst) {
-        m_D3DTexture->UnlockRect(0);
-        m_Stale = false;
-        return;
-      }
+        // Flush all deferred rendering operations before releasing the
+        // context and bitmap rep. This ensures no dangling performSelector
+        // tasks reference destroyed objects.
+        [context flushGraphics];
+        [NSGraphicsContext restoreGraphicsState];
 
-      // Copy row-by-row, respecting lr.Pitch (which may be larger than
-      // m_Width * 4 due to buffer-backed texture alignment).
-      int srcPitch = m_Width * 4;
-      int dstPitch = lr.Pitch;
-
-      for (int y = 0; y < m_Height; y++) {
-        unsigned char *srcRow = src + y * srcPitch;
-        unsigned char *dstRow = dst + y * dstPitch;
-
-        for (int x = 0; x < m_Width; x++) {
-          unsigned char r = srcRow[x * 4 + 0];
-          unsigned char g = srcRow[x * 4 + 1];
-          unsigned char b = srcRow[x * 4 + 2];
-          unsigned char a = srcRow[x * 4 + 3];
-
-          // Unpremultiply and convert to BGRA
-          if (a > 0 && a < 255) {
-            dstRow[x * 4 + 0] = (unsigned char)((int)b * 255 / a);
-            dstRow[x * 4 + 1] = (unsigned char)((int)g * 255 / a);
-            dstRow[x * 4 + 2] = (unsigned char)((int)r * 255 / a);
-          } else {
-            dstRow[x * 4 + 0] = b;
-            dstRow[x * 4 + 1] = g;
-            dstRow[x * 4 + 2] = r;
-          }
-          dstRow[x * 4 + 3] = a;
+        unsigned char *dst = (unsigned char *)lr.pBits;
+        if (!dst) {
+          m_D3DTexture->UnlockRect(0);
+          m_Stale = false;
+          return;
         }
-      }
+
+        // Copy row-by-row, respecting lr.Pitch (which may be larger than
+        // m_Width * 4 due to buffer-backed texture alignment).
+        int srcPitch = m_Width * 4;
+        int dstPitch = lr.Pitch;
+
+        for (int y = 0; y < m_Height; y++) {
+          unsigned char *srcRow = src + y * srcPitch;
+          unsigned char *dstRow = dst + y * dstPitch;
+
+          for (int x = 0; x < m_Width; x++) {
+            unsigned char r = srcRow[x * 4 + 0];
+            unsigned char g = srcRow[x * 4 + 1];
+            unsigned char b = srcRow[x * 4 + 2];
+            unsigned char a = srcRow[x * 4 + 3];
+
+            // Unpremultiply and convert to BGRA
+            if (a > 0 && a < 255) {
+              dstRow[x * 4 + 0] = (unsigned char)((int)b * 255 / a);
+              dstRow[x * 4 + 1] = (unsigned char)((int)g * 255 / a);
+              dstRow[x * 4 + 2] = (unsigned char)((int)r * 255 / a);
+            } else {
+              dstRow[x * 4 + 0] = b;
+              dstRow[x * 4 + 1] = g;
+              dstRow[x * 4 + 2] = r;
+            }
+            dstRow[x * 4 + 3] = a;
+          }
+        }
+      } // end @autoreleasepool — rep and context fully released here
       m_D3DTexture->UnlockRect(0);
     }
     m_Stale = false;

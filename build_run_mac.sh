@@ -3,13 +3,17 @@
 # Run:
 #   sh build_run_mac.sh                       # build + run
 #   sh build_run_mac.sh --clean               # clean + build + run
-#   sh build_run_mac.sh --screenshot          # build + run + screenshot after 15s
+#   sh build_run_mac.sh --screenshot          # build + run + screenshot after 12s
 #   sh build_run_mac.sh --screenshot=8.5      # build + run + screenshot after 8.5s
-# Run: sh build_run_mac.sh --test                # build + run tests
+#   sh build_run_mac.sh --test                # build + run tests
+#   sh build_run_mac.sh --zombie              # run with NSZombieEnabled (ObjC use-after-free)
+#   sh build_run_mac.sh --debug               # run with MallocScribble+GuardEdges (heap corruption)
 
 DO_CLEAN=false
 DO_SCREENSHOT=false
 DO_TEST=false
+DO_ZOMBIE=false
+DO_DEBUG_MALLOC=false
 TEST_FILTER=""
 SCREENSHOT_DELAY=""
 
@@ -31,6 +35,12 @@ for arg in "$@"; do
             ;;
         --screenshot)
             DO_SCREENSHOT=true
+            ;;
+        --zombie)
+            DO_ZOMBIE=true
+            ;;
+        --debug)
+            DO_DEBUG_MALLOC=true
             ;;
     esac
 done
@@ -87,14 +97,30 @@ export GENERALS_INSTALL_PATH="/Users/okji/dev/games/Command and Conquer - Genera
 # 30/120/240 = custom
 export GENERALS_FPS_LIMIT="${GENERALS_FPS_LIMIT:-60}"
 
-# Screenshot delay (default 15s)
+# Screenshot delay (default 12s)
 if [ -z "$SCREENSHOT_DELAY" ]; then
     SCREENSHOT_DELAY=12
 fi
 
+# ── Debug Environment ──
+GAME_ENV=""
+if [ "$DO_ZOMBIE" = true ]; then
+    GAME_ENV="NSZombieEnabled=YES OBJC_DEBUG_MISSING_POOLS=YES"
+    echo "Debug mode: NSZombieEnabled (ObjC zombie detection)"
+fi
+if [ "$DO_DEBUG_MALLOC" = true ]; then
+    GAME_ENV="$GAME_ENV MallocGuardEdges=1 MallocScribble=1"
+    echo "Debug mode: MallocScribble + GuardEdges (heap corruption detection)"
+fi
+
+GAME_CMD="build/macos/GeneralsMD/generalszh"
+if [ -n "$GAME_ENV" ]; then
+    GAME_CMD="env $GAME_ENV $GAME_CMD"
+fi
+
 echo "Starting game..."
 if [ "$DO_SCREENSHOT" = true ]; then
-    build/macos/GeneralsMD/generalszh > Platform/MacOS/Build/Logs/game.log 2>&1 &
+    $GAME_CMD > Platform/MacOS/Build/Logs/game.log 2>&1 &
     GAME_PID=$!
     echo "Waiting ${SCREENSHOT_DELAY}s for shell map to load..."
     sleep ${SCREENSHOT_DELAY}
@@ -103,5 +129,5 @@ if [ "$DO_SCREENSHOT" = true ]; then
     kill $GAME_PID 2>/dev/null
     wait $GAME_PID 2>/dev/null
 else
-    build/macos/GeneralsMD/generalszh > Platform/MacOS/Build/Logs/game.log 2>&1
+    $GAME_CMD > Platform/MacOS/Build/Logs/game.log 2>&1
 fi

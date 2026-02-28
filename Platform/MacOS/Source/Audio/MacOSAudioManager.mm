@@ -31,17 +31,25 @@ MacOSAudioManager::~MacOSAudioManager() {
   // Stop and release all playing audio
   for (auto &playing : m_playingAudio) {
     if (playing.playerNode) {
-      AVAudioPlayer *player = (__bridge_transfer AVAudioPlayer *)playing.playerNode;
+      AVAudioPlayer *player = (__bridge AVAudioPlayer *)playing.playerNode;
       [player stop];
+      void *toRelease = playing.playerNode;
+      dispatch_async(dispatch_get_main_queue(), ^{
+        (void)(__bridge_transfer AVAudioPlayer *)toRelease;
+      });
     }
   }
   m_playingAudio.clear();
   
   // Release the music player
   if (m_engine) {
-    AVAudioPlayer *musicPlayer = (__bridge_transfer AVAudioPlayer *)m_engine;
+    AVAudioPlayer *musicPlayer = (__bridge AVAudioPlayer *)m_engine;
     [musicPlayer stop];
+    void *toRelease = m_engine;
     m_engine = nullptr;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      (void)(__bridge_transfer AVAudioPlayer *)toRelease;
+    });
   }
 }
 
@@ -64,7 +72,10 @@ void MacOSAudioManager::reset() {
     if (playing.playerNode) {
       AVAudioPlayer *player = (__bridge AVAudioPlayer *)playing.playerNode;
       [player stop];
-      (void)(__bridge_transfer AVAudioPlayer *)playing.playerNode;
+      void *toRelease = playing.playerNode;
+      dispatch_async(dispatch_get_main_queue(), ^{
+        (void)(__bridge_transfer AVAudioPlayer *)toRelease;
+      });
     }
   }
   m_playingAudio.clear();
@@ -82,7 +93,15 @@ void MacOSAudioManager::update() {
       AudioHandle finishedHandle = it->handle;
       it = m_playingAudio.erase(it);
       m_activeHandles.erase(finishedHandle);
-      (void)(__bridge_transfer AVAudioPlayer *)toRelease;
+      // TheSuperHackers @fix macOS: Defer AVAudioPlayer release to the next
+      // RunLoop iteration. AVAudioPlayer internally schedules callbacks via
+      // performSelector:onMainThread: for audio session cleanup. If we
+      // release the player immediately here, those callbacks fire on a
+      // deallocated instance → SIGSEGV in __NSThreadPerformPerform.
+      // dispatch_async ensures all pending callbacks complete first.
+      dispatch_async(dispatch_get_main_queue(), ^{
+        (void)(__bridge_transfer AVAudioPlayer *)toRelease;
+      });
     } else {
       ++it;
     }
