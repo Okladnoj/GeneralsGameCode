@@ -86,7 +86,7 @@ struct FragmentUniforms {
     uint   hasTexture[4];
     uint   specularEnable;
     uint   texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX: which UV set each stage uses
-    uint   texFormatType[4]; // 0=Default, 1=Luminance(L8/P8), 2=Luminance+Alpha(A4L4/A8L8)
+    uint   texFormatType[4]; // 0=Default, 1=Luminance(L8/P8), 2=Luminance+Alpha(A4L4/A8L8), 3=DXT1(BC1)
     uint   blendEnabled;     // D3DRS_ALPHABLENDENABLE — used by black discard guard
 };
 
@@ -897,17 +897,15 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     if (fragUniforms.specularEnable != 0) {
         current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
     }
-    // Discard opaque black fragments from 3D textured geometry.
+    // Discard opaque black fragments from DXT1 (BC1) texture blocks only.
     // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
     // Skip when alpha test is enabled — alpha test handles transparency
     // for trees/particles, and their dark pixels are valid content.
-    // Also skip when TSS stage 0 colorOp is SELECTARG2 (==3), which means
-    // the texture is not actually used (e.g., untextured 2D overlays like
-    // the build clock). A stale texture may remain bound from a previous
-    // draw call, so hasTexture alone is not sufficient.
-    if (uniforms.useProjection == 1 && fragUniforms.hasTexture[0] != 0 &&
+    // Only applies to DXT1 textures (texFormatType==3) to avoid killing
+    // legitimate black pixels from other formats or untextured draws.
+    if (uniforms.useProjection == 1 &&
+        fragUniforms.texFormatType[0] == 3 && // DXT1/BC1 only
         fragUniforms.alphaTestEnable == 0 &&
-        fragUniforms.stages[0].colorOp != 3 && // D3DTOP_SELECTARG2 = texture unused
         dot(current.rgb, float3(1.0)) < 0.001) {
         discard_fragment();
     }

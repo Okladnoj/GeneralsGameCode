@@ -297,7 +297,7 @@ struct FragmentUniforms {
   uint32_t hasTexture[4];
   uint32_t specularEnable;
   uint32_t texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX per stage
-  uint32_t texFormatType[4]; // 0=Default, 1=Luminance(r,r,r,1), 2=Luminance+Alpha(r,r,r,g)
+  uint32_t texFormatType[4]; // 0=Default, 1=Luminance(r,r,r,1), 2=Luminance+Alpha(r,r,r,g), 3=DXT1(BC1)
   uint32_t blendEnabled;     // D3DRS_ALPHABLENDENABLE
 };
 
@@ -2269,6 +2269,8 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
         fu.texFormatType[s] = 1; // RGB = r, A = 1.0 (from R8Unorm)
       } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
         fu.texFormatType[s] = 2; // RGB = r, A = g (from RG8Unorm)
+      } else if (fmt == D3DFMT_DXT1) {
+        fu.texFormatType[s] = 3; // DXT1/BC1 — may have empty black blocks
       }
     }
   }
