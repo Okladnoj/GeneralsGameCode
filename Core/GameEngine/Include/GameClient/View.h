@@ -172,13 +172,17 @@ public:
 	virtual void zoomCamera( Real finalZoom, Int milliseconds, Real easeIn=0.0f, Real easeOut=0.0f ) {};
 	virtual void pitchCamera( Real finalPitch, Int milliseconds, Real easeIn=0.0f, Real easeOut=0.0f ) {};
 
+	virtual Bool isDoingScriptedCamera() = 0;
+	virtual void stopDoingScriptedCamera() = 0;
+
 	virtual void setAngle( Real radians );															///< Rotate the view around the vertical axis to the given angle (yaw)
 	virtual Real getAngle() { return m_angle; }										///< Return current camera angle
 	virtual void setPitch( Real radians );															///< Rotate the view around the horizontal axis to the given angle (pitch)
 	virtual Real getPitch() { return m_pitch; }										///< Return current camera pitch
 	virtual void setAngleToDefault();															///< Set the view angle back to default
 	virtual void setPitchToDefault();															///< Set the view pitch back to default
-	virtual void getPosition(Coord3D *pos)	{ *pos=m_pos;}							///< Returns position camera is looking at (z will be zero)
+	void setPosition( const Coord3D *pos ) { m_pos = *pos; }
+	void getPosition(Coord3D *pos) { *pos = m_pos;}							///< Returns position camera is looking at (z will be zero)
 
 	virtual const Coord3D& get3DCameraPosition() const = 0;							///< Returns the actual camera position
 
@@ -205,13 +209,9 @@ public:
 	virtual void getLocation ( ViewLocation *location );								///< write the view's current location in to the view location object
 	virtual void setLocation ( const ViewLocation *location );					///< set the view's current location from to the view location object
 
-
 	virtual void drawView() = 0;															///< Render the world visible in this view.
 	virtual void updateView() = 0;					///<called once per frame to determine the final camera and object transforms
 	virtual void stepView() = 0; ///< Update view for every fixed time step
-
-
-
 
 	virtual ObjectID getCameraLock() const { return m_cameraLock; }
 	virtual void setCameraLock(ObjectID id) { m_cameraLock = id; m_lockDist = 0.0f; m_lockType = LOCK_FOLLOW; }
@@ -241,14 +241,12 @@ protected:
 	virtual void xfer( Xfer *xfer );
 	virtual void loadPostProcess() { }
 
-	void setPosition( const Coord3D *pos ) { m_pos = *pos; }
 	const Coord3D *getPosition() const { return &m_pos; }
 
 	virtual View *prependViewToList( View *list );							///< Prepend this view to the given list, return the new list
 	virtual View *getNextView() { return m_next; }				///< Return next view in the set
 
-
-	// **********************************************************************************************
+protected:
 
 	View *m_next;																								///< List links used by the Display class
 
@@ -310,7 +308,9 @@ class ViewLocation
 		{
 			m_valid = FALSE;
 			m_pos.zero();
-			m_angle = m_pitch = m_zoom = 0.0;
+			m_angle = 0.0f;
+			m_pitch = 0.0f;
+			m_zoom = 0.0f;
 		}
 
 		const Coord3D& getPosition() const { return m_pos; }
