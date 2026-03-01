@@ -521,8 +521,10 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
   }
 
   // --- MSAA configuration ---
+  // Default to 1 (off) — MSAA causes vertical line artifacts on UI borders
+  // due to render pass restart behavior in Clear(). Enable via GENERALS_MSAA=4.
   const char *msaaEnv = getenv("GENERALS_MSAA");
-  m_MSAASampleCount = msaaEnv ? atoi(msaaEnv) : 4;
+  m_MSAASampleCount = msaaEnv ? atoi(msaaEnv) : 1;
   if (m_MSAASampleCount < 1) m_MSAASampleCount = 1;
   if (m_MSAASampleCount > 1 && ![device supportsTextureSampleCount:m_MSAASampleCount]) {
     fprintf(stderr, "[MetalDevice8] Device does not support %dx MSAA, disabling\n", m_MSAASampleCount);
