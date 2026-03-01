@@ -345,6 +345,11 @@ private:
   IDirect3DSurface8 *m_RTTSurface;   // currently active RTT surface (AddRef'd)
   UINT m_RTTWidth;           // RTT dimensions
   UINT m_RTTHeight;
+
+  // --- MSAA (Multi-Sample Anti-Aliasing) ---
+  int m_MSAASampleCount;     // 1 = off, 4 = 4xMSAA (default)
+  void *m_MSAAColorTexture;  // id<MTLTexture> — MSAA render target (sampleCount=4), or nullptr
+  void *m_MSAADepthTexture;  // id<MTLTexture> — MSAA depth (sampleCount=4), or nullptr
 };
 
 #endif // __APPLE__

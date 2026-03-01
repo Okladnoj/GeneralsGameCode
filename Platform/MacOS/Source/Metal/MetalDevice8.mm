@@ -76,7 +76,10 @@ MetalDevice8::MetalDevice8()
       m_DepthStencilState(nullptr), m_DepthStateDirty(true),
       m_ZeroBuffer(nullptr), m_FrameSemaphore(nullptr),
       m_DefaultRTSurface(nullptr),
-      m_DefaultDepthSurface(nullptr) {
+      m_DefaultDepthSurface(nullptr),
+      m_MSAASampleCount(4),
+      m_MSAAColorTexture(nullptr),
+      m_MSAADepthTexture(nullptr) {
   // Create frame semaphore for GPU-CPU sync (like DirectX's Present VSync)
   m_FrameSemaphore = (__bridge_retained void *)dispatch_semaphore_create(MAX_FRAMES_IN_FLIGHT);
   memset(m_RenderStates, 0, sizeof(m_RenderStates));
@@ -222,6 +225,16 @@ MetalDevice8::~MetalDevice8() {
   if (m_DepthTexture) {
     CFRelease(m_DepthTexture);
     m_DepthTexture = nullptr;
+  }
+
+  // Release MSAA textures
+  if (m_MSAAColorTexture) {
+    CFRelease(m_MSAAColorTexture);
+    m_MSAAColorTexture = nullptr;
+  }
+  if (m_MSAADepthTexture) {
+    CFRelease(m_MSAADepthTexture);
+    m_MSAADepthTexture = nullptr;
   }
 
   // Release PSO cache
@@ -506,6 +519,16 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
             m_ScreenWidth, m_ScreenHeight);
   }
 
+  // --- MSAA configuration ---
+  const char *msaaEnv = getenv("GENERALS_MSAA");
+  m_MSAASampleCount = msaaEnv ? atoi(msaaEnv) : 4;
+  if (m_MSAASampleCount < 1) m_MSAASampleCount = 1;
+  if (m_MSAASampleCount > 1 && ![device supportsTextureSampleCount:m_MSAASampleCount]) {
+    fprintf(stderr, "[MetalDevice8] Device does not support %dx MSAA, disabling\n", m_MSAASampleCount);
+    m_MSAASampleCount = 1;
+  }
+  fprintf(stderr, "[MetalDevice8] MSAA: %dx\n", m_MSAASampleCount);
+
   // Create depth texture matching the drawable size
   UINT depthW = (UINT)layer.drawableSize.width;
   UINT depthH = (UINT)layer.drawableSize.height;
@@ -547,6 +570,16 @@ void MetalDevice8::CreateDepthTexture(UINT width, UINT height) {
     m_DepthTexture = nullptr;
   }
 
+  // Release old MSAA textures if any
+  if (m_MSAAColorTexture) {
+    CFRelease(m_MSAAColorTexture);
+    m_MSAAColorTexture = nullptr;
+  }
+  if (m_MSAADepthTexture) {
+    CFRelease(m_MSAADepthTexture);
+    m_MSAADepthTexture = nullptr;
+  }
+
   // Also need to recreate PSOs since depthAttachmentPixelFormat changes
   for (auto &pair : m_PsoCache) {
     if (pair.second)
@@ -574,6 +607,46 @@ void MetalDevice8::CreateDepthTexture(UINT width, UINT height) {
     fprintf(stderr,
             "[MetalDevice8] ERROR: Failed to create depth texture %u x %u\n",
             width, height);
+  }
+
+  // --- Create MSAA textures ---
+  if (m_MSAASampleCount > 1) {
+    // MSAA Color texture
+    MTLTextureDescriptor *msaaColorDesc = [MTLTextureDescriptor
+        texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                     width:width
+                                    height:height
+                                 mipmapped:NO];
+    msaaColorDesc.textureType = MTLTextureType2DMultisample;
+    msaaColorDesc.sampleCount = m_MSAASampleCount;
+    msaaColorDesc.storageMode = MTLStorageModePrivate;
+    msaaColorDesc.usage = MTLTextureUsageRenderTarget;
+
+    id<MTLTexture> msaaColor = [MTL_DEVICE newTextureWithDescriptor:msaaColorDesc];
+    if (msaaColor) {
+      msaaColor.label = @"MetalDevice8 MSAA Color";
+      m_MSAAColorTexture = (__bridge_retained void *)msaaColor;
+    }
+
+    // MSAA Depth+Stencil texture
+    MTLTextureDescriptor *msaaDepthDesc = [MTLTextureDescriptor
+        texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float_Stencil8
+                                     width:width
+                                    height:height
+                                 mipmapped:NO];
+    msaaDepthDesc.textureType = MTLTextureType2DMultisample;
+    msaaDepthDesc.sampleCount = m_MSAASampleCount;
+    msaaDepthDesc.storageMode = MTLStorageModePrivate;
+    msaaDepthDesc.usage = MTLTextureUsageRenderTarget;
+
+    id<MTLTexture> msaaDepth = [MTL_DEVICE newTextureWithDescriptor:msaaDepthDesc];
+    if (msaaDepth) {
+      msaaDepth.label = @"MetalDevice8 MSAA Depth+Stencil";
+      m_MSAADepthTexture = (__bridge_retained void *)msaaDepth;
+    }
+
+    fprintf(stderr, "[MetalDevice8] MSAA %dx textures created: %u x %u\n",
+            m_MSAASampleCount, width, height);
   }
 
   // Force depth stencil state recreation
@@ -686,6 +759,11 @@ uint64_t MetalDevice8::BuildPSOKey(DWORD fvf, UINT stride) {
   if (!hasDepth) {
     key |= (uint64_t)1 << 63; // mark PSOs without depth
   }
+
+  // MSAA: PSO sampleCount must match render target
+  int sc = m_RTTColorTexture ? 1 : m_MSAASampleCount;
+  key |= (uint64_t)(sc & 0x7) << 60;
+
   return key;
 }
 
@@ -1377,14 +1455,20 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
   }
 
   MTLRenderPassDescriptor *rpd = [MTLRenderPassDescriptor renderPassDescriptor];
-  // --- Color attachment: RTT or Drawable ---
-  id<MTLTexture> colorTarget = nil;
+  // --- Color attachment: RTT, MSAA, or Drawable ---
+  bool useMSAA = (m_MSAASampleCount > 1 && !m_RTTColorTexture && m_MSAAColorTexture);
+
   if (m_RTTColorTexture) {
-    colorTarget = (__bridge id<MTLTexture>)m_RTTColorTexture;
+    // RTT: render directly to RTT texture (no MSAA)
+    rpd.colorAttachments[0].texture = (__bridge id<MTLTexture>)m_RTTColorTexture;
+  } else if (useMSAA) {
+    // MSAA: render to multisample texture, resolve to drawable
+    rpd.colorAttachments[0].texture = (__bridge id<MTLTexture>)m_MSAAColorTexture;
+    rpd.colorAttachments[0].resolveTexture = MTL_DRAWABLE.texture;
   } else {
-    colorTarget = MTL_DRAWABLE.texture;
+    // No MSAA: render directly to drawable
+    rpd.colorAttachments[0].texture = MTL_DRAWABLE.texture;
   }
-  rpd.colorAttachments[0].texture = colorTarget;
 
   if (Flags & D3DCLEAR_TARGET) {
     float r = ((Color >> 16) & 0xFF) / 255.0f;
@@ -1398,20 +1482,26 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
   } else {
     rpd.colorAttachments[0].loadAction = MTLLoadActionLoad;
   }
-  rpd.colorAttachments[0].storeAction = MTLStoreActionStore;
+  rpd.colorAttachments[0].storeAction = useMSAA
+      ? MTLStoreActionMultisampleResolve
+      : MTLStoreActionStore;
 
   // --- Depth attachment ---
-  // Use RTT depth if set, otherwise use default depth buffer
+  // Use RTT depth if set, MSAA depth if MSAA on, otherwise default depth
   id<MTLTexture> depthTarget = nil;
   if (m_RTTColorTexture && m_RTTDepthTexture) {
     depthTarget = (__bridge id<MTLTexture>)m_RTTDepthTexture;
+  } else if (useMSAA && m_MSAADepthTexture) {
+    depthTarget = (__bridge id<MTLTexture>)m_MSAADepthTexture;
   } else if (m_DepthTexture) {
     depthTarget = (__bridge id<MTLTexture>)m_DepthTexture;
   }
 
   if (depthTarget) {
     rpd.depthAttachment.texture = depthTarget;
-    rpd.depthAttachment.storeAction = MTLStoreActionStore;
+    rpd.depthAttachment.storeAction = useMSAA
+        ? MTLStoreActionDontCare  // MSAA depth doesn't need resolve
+        : MTLStoreActionStore;
 
     if (Flags & D3DCLEAR_ZBUFFER) {
       rpd.depthAttachment.loadAction = MTLLoadActionClear;
@@ -1421,7 +1511,9 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
     }
 
     rpd.stencilAttachment.texture = depthTarget;
-    rpd.stencilAttachment.storeAction = MTLStoreActionStore;
+    rpd.stencilAttachment.storeAction = useMSAA
+        ? MTLStoreActionDontCare
+        : MTLStoreActionStore;
     if (Flags & D3DCLEAR_STENCIL) {
       rpd.stencilAttachment.loadAction = MTLLoadActionClear;
       rpd.stencilAttachment.clearStencil = Stencil;
@@ -1703,6 +1795,9 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
   pd.vertexFunction = (__bridge id<MTLFunction>)m_FunctionVertex;
   pd.fragmentFunction = (__bridge id<MTLFunction>)m_FunctionFragment;
   pd.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+
+  // MSAA: PSO sampleCount must match render target
+  pd.rasterSampleCount = m_RTTColorTexture ? 1 : m_MSAASampleCount;
 
   // Depth attachment pixel format must match the render pass depth attachment
   bool hasDepth = false;
