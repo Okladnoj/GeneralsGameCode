@@ -704,17 +704,18 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         uint psType = psUniforms.psType;
 
         if (psType == 1) {
-            // PS_TERRAIN: lrp r0, v0.a, t0, t1  =>  lerp from t1 to t0 by vertex alpha
-            // Then modulate by diffuse RGB
+            // PS_TERRAIN: lrp r0, v0.a, t1, t0 => r0 = t1*a + t0*(1-a)
+            // DX8 lrp dest, factor, src1, src2 = src1*factor + src2*(1-factor)
             float a = diffuse.a;
-            result.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb;
+            result.rgb = mix(t0.rgb, t1.rgb, a) * diffuse.rgb;
             result.a = 1.0;
         }
         else if (psType == 2) {
             // PS_TERRAIN_NOISE1: terrain + cloud texture on stage 2
+            // lrp r0, v0.a, t1, t0 => t1*a + t0*(1-a)
             float a = diffuse.a;
             float4 terrainBlend;
-            terrainBlend.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb;
+            terrainBlend.rgb = mix(t0.rgb, t1.rgb, a) * diffuse.rgb;
             terrainBlend.a = 1.0;
             // Multiply by cloud/noise texture
             result.rgb = terrainBlend.rgb * t2.rgb;
@@ -722,9 +723,10 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         }
         else if (psType == 3) {
             // PS_TERRAIN_NOISE2: terrain + cloud + noise
+            // lrp r0, v0.a, t1, t0 => t1*a + t0*(1-a)
             float a = diffuse.a;
             float4 terrainBlend;
-            terrainBlend.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb;
+            terrainBlend.rgb = mix(t0.rgb, t1.rgb, a) * diffuse.rgb;
             terrainBlend.a = 1.0;
             // Multiply by cloud * noise
             result.rgb = terrainBlend.rgb * t2.rgb * t3.rgb;
@@ -751,22 +753,24 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
             result.rgb = t1.rgb * reflFactor.rgb;
             result.a = 1.0;
         }
-        else if (psType == 7 || psType == 8) {
-            // PS_FLAT_TERRAIN / PS_FLAT_TERRAIN0: similar to terrain
-            float a = diffuse.a;
-            result.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb;
+        else if (psType == 7) {
+            // PS_FLAT_TERRAIN (fterrain.pso): mul r0, t1, t0; mul r0, r0, v0
+            result.rgb = t1.rgb * t0.rgb * diffuse.rgb;
+            result.a = 1.0;
+        }
+        else if (psType == 8) {
+            // PS_FLAT_TERRAIN0 (fterrain0.pso): mov r0, t1; mul r0, r0, v0
+            result.rgb = t1.rgb * diffuse.rgb;
             result.a = 1.0;
         }
         else if (psType == 9) {
-            // PS_FLAT_TERRAIN_NOISE1
-            float a = diffuse.a;
-            result.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb * t2.rgb;
+            // PS_FLAT_TERRAIN_NOISE1 (fterrainnoise.pso): mul chain
+            result.rgb = t1.rgb * t0.rgb * diffuse.rgb * t2.rgb;
             result.a = 1.0;
         }
         else if (psType == 10) {
-            // PS_FLAT_TERRAIN_NOISE2
-            float a = diffuse.a;
-            result.rgb = mix(t1.rgb, t0.rgb, a) * diffuse.rgb * t2.rgb * t3.rgb;
+            // PS_FLAT_TERRAIN_NOISE2 (fterrainnoise2.pso): mul chain
+            result.rgb = t1.rgb * t0.rgb * diffuse.rgb * t2.rgb * t3.rgb;
             result.a = 1.0;
         }
         else if (psType == 11) {

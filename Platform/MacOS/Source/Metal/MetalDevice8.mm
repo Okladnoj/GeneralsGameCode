@@ -2105,6 +2105,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
   fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
 
+
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
     fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value: bits 0-1=UV set, bits 16-17=TCI mode
@@ -2355,6 +2356,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   }
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
   fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
+
 
   // Texture coordinate index and luminance format flags
   for (int s = 0; s < 4; ++s) {
@@ -2995,6 +2997,7 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
 
   if (func) {
     DWORD version = func[0];
+
     if ((version & 0xFFFF0000) == 0xFFFF0000) {
       uint32_t numTex = 0;
       uint32_t numArith = 0;
@@ -3005,33 +3008,142 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
       bool hasAdd = false;
       bool hasTexbem = false;
 
-      for (int i = 1; i < 256; i++) {
+      // PS 1.x bytecode format:
+      //   DWORD 0: version token (0xFFFF0101 for ps_1_1, etc.)
+      //   Then instruction tokens until END token (0x0000FFFF).
+      //   Each instruction: opcode DWORD, then operand DWORDs.
+      //   For PS 1.x, instruction length is NOT encoded in the opcode token
+      //   (that's only ps_2_0+). Instead we use known operand counts per opcode.
+      int i = 1;
+      while (i < 256) {
         DWORD token = func[i];
-        if (token == 0x0000FFFF) break;
-        if (token & 0x80000000) continue;
+        if (token == 0x0000FFFF) break; // END token
+        i++; // consume opcode token
 
         uint32_t opcode = token & 0xFFFF;
-        uint32_t skip = 0;
 
-        if (opcode >= 0x40 && opcode <= 0x5F) {
-          numTex++;
-          if (opcode == 0x41) hasTexbem = true;
-          skip = (opcode == 0x40) ? 1 : 2;
-        } else if (opcode >= 0x02 && opcode <= 0x3F) {
+        // Determine operand count for PS 1.x instructions
+        int operandCount = 0;
+
+        if (opcode == 0x00) {
+          // nop
+          operandCount = 0;
+        } else if (opcode == 0x01) {
+          // mov: dest, src
+          operandCount = 2;
+        } else if (opcode == 0x02) {
+          // add: dest, src0, src1
+          hasAdd = true; numArith++;
+          operandCount = 3;
+        } else if (opcode == 0x03) {
+          // sub: dest, src0, src1
           numArith++;
-          if (opcode == 0x02) hasAdd = true;  // add
-          if (opcode == 0x04) hasMad = true;  // mad
-          if (opcode == 0x05) hasMul = true;  // mul
-          if (opcode == 0x09) hasDp3 = true;  // dp3
-          if (opcode == 0x12) hasLrp = true;  // lrp
-          if (opcode == 0x04 || opcode == 0x12 || opcode == 0x32)
-            skip = 4;  // mad, lrp, and other 4-arg instructions
-          else if (opcode == 0x02)
-            skip = 2;  // add: dest + src (but may have more args in PS1.1 — 3)
-          else
-            skip = 3;
+          operandCount = 3;
+        } else if (opcode == 0x04) {
+          // mad: dest, src0, src1, src2
+          hasMad = true; numArith++;
+          operandCount = 4;
+        } else if (opcode == 0x05) {
+          // mul: dest, src0, src1
+          hasMul = true; numArith++;
+          operandCount = 3;
+        } else if (opcode == 0x06) {
+          // rcp: dest, src
+          numArith++;
+          operandCount = 2;
+        } else if (opcode == 0x08) {
+          // dp3: dest, src0, src1
+          hasDp3 = true; numArith++;
+          operandCount = 3;
+        } else if (opcode == 0x09) {
+          // dp3 (alternative encoding)
+          hasDp3 = true; numArith++;
+          operandCount = 3;
+        } else if (opcode == 0x0A) {
+          // dp4: dest, src0, src1
+          numArith++;
+          operandCount = 3;
+        } else if (opcode == 0x12) {
+          // lrp: dest, src0, src1, src2
+          hasLrp = true; numArith++;
+          operandCount = 4;
+        } else if (opcode == 0x40) {
+          // tex / texcoord: dest only in ps_1_1-1_3
+          numTex++;
+          operandCount = 1;
+        } else if (opcode == 0x41) {
+          // texbem: dest, src
+          hasTexbem = true; numTex++;
+          operandCount = 2;
+        } else if (opcode == 0x42) {
+          // In ps_1_1/1_2/1_3: tex = dest only (1 operand)
+          // In ps_1_4: texld = dest, src (2 operands)
+          numTex++;
+          uint32_t minor = version & 0xFF;
+          operandCount = (minor <= 3) ? 1 : 2;
+        } else if (opcode == 0x43) {
+          // texreg2gb: dest, src
+          numTex++;
+          operandCount = 2;
+        } else if (opcode == 0x44) {
+          // texm3x2pad: dest, src
+          numTex++;
+          operandCount = 2;
+        } else if (opcode == 0x45) {
+          // texm3x2tex: dest, src
+          numTex++;
+          operandCount = 2;
+        } else if (opcode == 0x46) {
+          // texm3x3pad: dest, src
+          numTex++;
+          operandCount = 2;
+        } else if (opcode == 0x47) {
+          // texm3x3tex: dest, src
+          numTex++;
+          operandCount = 2;
+        } else if (opcode == 0x48) {
+          // reserved
+          numTex++;
+          operandCount = 2;
+        } else if (opcode == 0x49) {
+          // texm3x3spec: dest, src0, src1
+          numTex++;
+          operandCount = 3;
+        } else if (opcode == 0x4A) {
+          // texm3x3vspec: dest, src
+          numTex++;
+          operandCount = 2;
+        } else if (opcode == 0x50) {
+          // cnd: dest, src0, src1, src2
+          numArith++;
+          operandCount = 4;
+        } else if (opcode == 0x51) {
+          // def: dest, float, float, float, float (constant definition)
+          // NOT a tex instruction! 5 DWORDs follow opcode
+          operandCount = 5;
+        } else if (opcode == 0x58) {
+          // cmp: dest, src0, src1, src2
+          numArith++;
+          operandCount = 4;
+        } else if (opcode >= 0x4B && opcode <= 0x5F) {
+          // other tex ops (but not def/cnd/cmp already handled)
+          numTex++;
+          operandCount = 2;
+        } else if (opcode == 0xFFFE) {
+          // comment: next DWORD is length in DWORDs
+          uint32_t commentLen = (token >> 16) & 0xFFFF;
+          i += commentLen;
+          continue;
+        } else if (opcode >= 0x02 && opcode <= 0x3F) {
+          // Other arithmetic — assume dest + 2 src
+          numArith++;
+          operandCount = 3;
+        } else {
+          // Unknown — skip conservatively
+          operandCount = 0;
         }
-        i += skip;
+
+        i += operandCount; // skip operands
       }
 
       info.numTexStages = numTex;
@@ -3040,11 +3152,8 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
       if (numTex == 1 && hasDp3) {
         info.psType = PS_MONOCHROME;
       } else if (hasTexbem && numTex >= 3) {
-        // 3 tex stages with texbem = bump water (environment mapped reflection)
-        // from D3DXAssembleShader in W3DWater.cpp (m_waterPixelShader)
         info.psType = PS_WATER_BUMP;
       } else if (hasTexbem) {
-        // 2 tex stages with texbem = wave.pso (vertex shader water)
         info.psType = PS_WAVE;
       } else if (numTex == 2 && hasLrp) {
         info.psType = PS_TERRAIN;
@@ -3057,11 +3166,8 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
       } else if (numTex == 2 && !hasLrp && !hasDp3) {
         info.psType = PS_FLAT_TERRAIN;
       } else if (numTex == 4 && !hasLrp && hasMad) {
-        // 4 tex + mad = trapezoid water (standing water with sparkles + shroud)
         info.psType = PS_WATER_TRAPEZOID;
       } else if (numTex == 4 && !hasLrp && !hasMad) {
-        // 4 tex, no mad, no lrp = could be river water or flat terrain noise2
-        // River water uses add but not mad; flat terrain noise2 uses neither
         if (hasAdd) {
           info.psType = PS_WATER_RIVER;
         } else {
@@ -3071,9 +3177,7 @@ STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
         info.psType = PS_TERRAIN;
       }
 
-      printf("[PS] CreatePixelShader: handle=0x%x tex=%u arith=%u dp3=%d lrp=%d mad=%d mul=%d add=%d texbem=%d -> type=%u\n",
-             h, numTex, numArith, hasDp3, hasLrp, hasMad, hasMul, hasAdd, hasTexbem, info.psType);
-      fflush(stdout);
+
     }
   }
 

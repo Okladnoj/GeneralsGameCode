@@ -234,6 +234,7 @@ public:
 
   // Metal Accessor
   void *GetMTLDevice() const { return m_Device; }
+  void *GetMTLCommandQueue() const { return m_CommandQueue; }
 
   /// Called by MacOSDisplayManager when resolution changes.
   /// Updates m_ScreenWidth/Height, recreates depth texture,

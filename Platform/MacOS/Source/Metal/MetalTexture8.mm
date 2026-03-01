@@ -465,6 +465,24 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
   m_LockedLevels.erase(it);
   MarkWritten(); // sets m_HasBeenWritten + increments m_Generation for texture cache
 
+  // Auto-generate mipmaps for multi-level textures after writing to level 0.
+  // DX8 on Windows auto-generates mipmaps; Metal requires explicit blit commands.
+  // Without this, mip levels remain empty → trilinear filtering produces dark pixels.
+  if (Level == 0 && m_Levels > 1 && m_Device && !isCompressed) {
+    void *queuePtr = m_Device->GetMTLCommandQueue();
+    if (queuePtr) {
+      id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)queuePtr;
+      id<MTLCommandBuffer> cmdBuf = [queue commandBuffer];
+      if (cmdBuf) {
+        id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
+        [blit generateMipmapsForTexture:tex];
+        [blit endEncoding];
+        [cmdBuf commit];
+        [cmdBuf waitUntilCompleted];
+      }
+    }
+  }
+
   return D3D_OK;
 }
 
