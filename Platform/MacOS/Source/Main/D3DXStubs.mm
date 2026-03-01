@@ -687,6 +687,14 @@ HRESULT WINAPI D3DXAssembleShader(const void *pSrcData, UINT SrcDataLen,
     if (line.empty() || line[0] == '\0') continue;
     if (line.substr(0, 2) == "ps") continue; // ps.1.1 version line
 
+    // Handle co-issue prefix '+' (e.g. "+mul r0.a, r0, t3")
+    if (line[0] == '+') {
+      line = line.substr(1);
+      // Strip whitespace after '+'
+      first = line.find_first_not_of(" \t");
+      if (first != std::string::npos) line = line.substr(first);
+    }
+
     // Check for opcodes
     if (line.substr(0, 6) == "texbem") { hasTexbem = true; texCount++; }
     else if (line.substr(0, 3) == "tex") { texCount++; }
@@ -745,8 +753,9 @@ HRESULT WINAPI D3DXAssembleShader(const void *pSrcData, UINT SrcDataLen,
   }
   if (hasAdd) {
     bytecode.push_back(0x00000002); // add
-    bytecode.push_back(0x800F0800); // dest
-    bytecode.push_back(0x80E40800); // src
+    bytecode.push_back(0x800F0000); // dest r0
+    bytecode.push_back(0x80E40000); // src r0
+    bytecode.push_back(0x80E40001); // src r1
   }
   if (hasLrp) {
     bytecode.push_back(0x00000012); // lrp
