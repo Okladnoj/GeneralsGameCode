@@ -77,3 +77,6 @@ test_bgra.*
 *.rej
 .agent/
 .agent/NEXT_STEPS_PROMPT*.md
+
+# Auto-generated large test data
+Platform/MacOS/Tests/captured_textures_data.cpp
