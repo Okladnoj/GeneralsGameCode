@@ -481,6 +481,7 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
   layer.device = device;
   layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
   layer.framebufferOnly = NO;
+  layer.opaque = YES; // Ignore backbuffer alpha for window compositing — DX8 uses dest alpha for soft water edges
 
   // === VSync / Frame Rate Control ===
   // Always disable displaySync — it causes nextDrawable to block on VSync,
@@ -1471,14 +1472,16 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
   }
 
   if (Flags & D3DCLEAR_TARGET) {
+    float a = ((Color >> 24) & 0xFF) / 255.0f;
     float r = ((Color >> 16) & 0xFF) / 255.0f;
     float g = ((Color >> 8) & 0xFF) / 255.0f;
     float b = ((Color >> 0) & 0xFF) / 255.0f;
-    // Force alpha=1.0: DX8 framebuffer alpha is unused for window compositing,
-    // but macOS CAMetalLayer composites with alpha. Without this, cleared areas
-    // appear transparent on macOS desktop.
+    // Use alpha from D3DCOLOR: DX8 soft water edges depend on backbuffer
+    // destination alpha being cleared to 0. The game passes Color with
+    // alpha=0 so that shoreline tiles can write alpha gradients later.
+    // layer.opaque=YES ensures macOS ignores alpha for window compositing.
     rpd.colorAttachments[0].loadAction = MTLLoadActionClear;
-    rpd.colorAttachments[0].clearColor = MTLClearColorMake(r, g, b, 1.0);
+    rpd.colorAttachments[0].clearColor = MTLClearColorMake(r, g, b, a);
   } else {
     rpd.colorAttachments[0].loadAction = MTLLoadActionLoad;
   }
