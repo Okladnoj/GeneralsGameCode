@@ -961,6 +961,15 @@ void WaterTracksRenderSystem::saveTracks()
 	char path[256];
 
 	strlcpy(path, fileName.str(), ARRAY_SIZE(path));
+	// TheSuperHackers @fix Restore original EA behavior: replace .map extension
+	// with .wak (not append). The original code used strcpy(path+len-4, ".wak")
+	// to overwrite ".map" with ".wak", but commit 038f51f1 (#1808) changed it
+	// to strlcat which appends ".wak" after ".map", producing an invalid path.
+	{
+		char *dot = strrchr(path, '.');
+		if (dot && stricmp(dot, ".map") == 0)
+			*dot = '\0';
+	}
 	strlcat(path, ".wak", ARRAY_SIZE(path));
 
 	WaterTracksObj *umod;
@@ -997,6 +1006,15 @@ void WaterTracksRenderSystem::loadTracks()
 	char path[256];
 
 	strlcpy(path, fileName.str(), ARRAY_SIZE(path));
+	// TheSuperHackers @fix Restore original EA behavior: replace .map extension
+	// with .wak (not append). The original code used strcpy(path+len-4, ".wak")
+	// to overwrite ".map" with ".wak", but commit 038f51f1 (#1808) changed it
+	// to strlcat which appends ".wak" after ".map", producing an invalid path.
+	{
+		char *dot = strrchr(path, '.');
+		if (dot && stricmp(dot, ".map") == 0)
+			*dot = '\0';
+	}
 	strlcat(path, ".wak", ARRAY_SIZE(path));
 
 	File *file = TheFileSystem->openFile(path, File::READ | File::BINARY);
