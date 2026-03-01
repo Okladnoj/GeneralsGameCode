@@ -1476,17 +1476,19 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
     float r = ((Color >> 16) & 0xFF) / 255.0f;
     float g = ((Color >> 8) & 0xFF) / 255.0f;
     float b = ((Color >> 0) & 0xFF) / 255.0f;
-    // Use alpha from D3DCOLOR: DX8 soft water edges depend on backbuffer
-    // destination alpha being cleared to 0. The game passes Color with
-    // alpha=0 so that shoreline tiles can write alpha gradients later.
+    // Use alpha from D3DCOLOR (typically 1.0 from D3DCOLOR_XRGB).
     // layer.opaque=YES ensures macOS ignores alpha for window compositing.
     rpd.colorAttachments[0].loadAction = MTLLoadActionClear;
     rpd.colorAttachments[0].clearColor = MTLClearColorMake(r, g, b, a);
   } else {
     rpd.colorAttachments[0].loadAction = MTLLoadActionLoad;
   }
+  // Use StoreAndMultisampleResolve so MSAA texture content survives across
+  // render pass boundaries (Clear calls end+restart the render pass).
+  // Without this, shoreline alpha gradients written in one pass would be lost
+  // before the water rendering pass can read them via destination alpha blend.
   rpd.colorAttachments[0].storeAction = useMSAA
-      ? MTLStoreActionMultisampleResolve
+      ? MTLStoreActionStoreAndMultisampleResolve
       : MTLStoreActionStore;
 
   // --- Depth attachment ---

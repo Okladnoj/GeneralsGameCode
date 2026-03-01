@@ -672,11 +672,7 @@ GlobalData::GlobalData()
 	m_waterExtentX = 0.0f;
 	m_waterExtentY = 0.0f;
 	m_waterType = 0;
-#ifdef __APPLE__
-	m_featherWater = 3;  // 3 semi-transparent layers for soft shoreline edges
-#else
 	m_featherWater = FALSE;
-#endif
 	m_showSoftWaterEdge = TRUE;	//display soft water edge
 	m_usingWaterTrackEditor = FALSE;
 	m_isWorldBuilder = FALSE;
