@@ -2121,6 +2121,8 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
         fu.texFormatType[s] = 1; // RGB = r, A = 1.0 (from R8Unorm)
       } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
         fu.texFormatType[s] = 2; // RGB = r, A = g (from RG8Unorm)
+      } else if (fmt == D3DFMT_DXT1) {
+        fu.texFormatType[s] = 3; // DXT1/BC1 — may have empty black blocks
       }
     } 
   }

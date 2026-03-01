@@ -943,6 +943,9 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     }
     // Discard opaque black fragments from DXT1 (BC1) texture blocks only.
     // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
+    // Skip when alpha blending is enabled — with blending, black DXT1 pixels
+    // render correctly as semi-transparent dark overlays (e.g. menu buttons
+    // use SRC_ALPHA/ONE_MINUS_SRC_ALPHA blending and need dark backgrounds).
     // Skip when alpha test is enabled — alpha test handles transparency
     // for trees/particles, and their dark pixels are valid content.
     // Only applies to DXT1 textures (texFormatType==3) to avoid killing
@@ -950,6 +953,7 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     if (uniforms.useProjection == 1 &&
         fragUniforms.texFormatType[0] == 3 && // DXT1/BC1 only
         fragUniforms.alphaTestEnable == 0 &&
+        fragUniforms.blendEnabled == 0 &&     // opaque draws only
         dot(current.rgb, float3(1.0)) < 0.001) {
         discard_fragment();
     }
