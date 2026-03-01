@@ -3258,12 +3258,20 @@ void WaterRenderObjClass::drawTrapezoidWater(Vector3 points[4])
 
 	setupFlatWaterShader();// lorenzen sez use the alpha shader
 
-	//If video card supports it and it's enabled, feather the water edge using destination alpha
+	//If video card supports it and it's enabled, feather the water edge using destination alpha.
+	// TheSuperHackers @fix macOS: DESTALPHA relies on the RTT alpha pipeline (startRenderToTexture
+	// clears alpha, COLORWRITEENABLE protects it during terrain rendering, shoreline tiles write
+	// depth-based gradients, then the fullscreen quad copies alpha to the main framebuffer).
+	// On Metal this pipeline doesn't produce correct alpha in the main framebuffer yet
+	// (likely MSAA resolve or opaque quad blit discards alpha), causing horizontal bands.
+	// Disable until RTT alpha pipeline is fully implemented for Metal.
+#ifndef __APPLE__
 	if (DX8Wrapper::getBackBufferFormat() == WW3D_FORMAT_A8R8G8B8 && TheGlobalData->m_showSoftWaterEdge && TheWaterTransparency->m_transparentWaterDepth !=0)
 	{		DX8Wrapper::Set_DX8_Render_State(D3DRS_SRCBLEND, D3DBLEND_DESTALPHA );
 			if (!TheWaterTransparency->m_additiveBlend)
 				DX8Wrapper::Set_DX8_Render_State(D3DRS_DESTBLEND, D3DBLEND_INVDESTALPHA );
 	}
+#endif
 
 
  	DWORD cull;
