@@ -73,7 +73,10 @@ public:
       fontSize = (float)m_font->pointSize;
 
     // Create CoreText font and attributes
-    CTFontRef ctFont = CTFontCreateWithName(CFSTR("Arial-BoldMT"), fontSize, NULL);
+    // Use font's bold flag to match the original Windows rendering
+    bool useBold = (m_font && m_font->bold);
+    CTFontRef ctFont = CTFontCreateWithName(
+        useBold ? CFSTR("Arial-BoldMT") : CFSTR("ArialMT"), fontSize, NULL);
     if (!ctFont)
       ctFont = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, fontSize, NULL);
 
