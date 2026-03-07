@@ -1148,6 +1148,112 @@ STDMETHODIMP MetalDevice8::CopyRects(IDirect3DSurface8 *src, const void *sr,
 
   // Get destination Metal texture
   MetalTexture8 *dstTex = dstSurf->GetParentTexture();
+  MetalTexture8 *srcTex = srcSurf->GetParentTexture();
+
+  // ── Case 1: GPU src → GPU dst (both have parent textures) ──
+  if (srcTex && srcTex->HasBeenWritten() && srcTex->GetMTLTexture() &&
+      dstTex && dstTex->GetMTLTexture()) {
+    id<MTLTexture> mtlSrc = srcTex->GetMTLTexture();
+    id<MTLTexture> mtlDst = dstTex->GetMTLTexture();
+    void *queuePtr = m_CommandQueue;
+    if (queuePtr) {
+      id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)queuePtr;
+      id<MTLCommandBuffer> cmdBuf = [queue commandBuffer];
+      if (cmdBuf) {
+        id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
+        UINT copyW = std::min((UINT)mtlSrc.width, (UINT)mtlDst.width);
+        UINT copyH = std::min((UINT)mtlSrc.height, (UINT)mtlDst.height);
+        [blit copyFromTexture:mtlSrc sourceSlice:0 sourceLevel:0
+              sourceOrigin:MTLOriginMake(0, 0, 0) sourceSize:MTLSizeMake(copyW, copyH, 1)
+              toTexture:mtlDst destinationSlice:0 destinationLevel:0
+              destinationOrigin:MTLOriginMake(0, 0, 0)];
+        [blit endEncoding];
+        [cmdBuf commit];
+        [cmdBuf waitUntilCompleted];
+      }
+    }
+    dstTex->MarkWritten();
+    return D3D_OK;
+  }
+
+  // ── Case 2: GPU src → standalone dst (no parent texture) ──
+  // Read back GPU texture data into dst surface's locked buffer.
+  // This is used by Recolor_Texture_One_Time to copy texture data before remapping.
+  if (srcTex && srcTex->HasBeenWritten() && srcTex->GetMTLTexture() && !dstTex) {
+    id<MTLTexture> mtlSrc = srcTex->GetMTLTexture();
+    UINT srcW = (UINT)mtlSrc.width;
+    UINT srcH = (UINT)mtlSrc.height;
+    UINT dstW = dstSurf->GetWidth();
+    UINT dstH = dstSurf->GetHeight();
+    UINT copyW = std::min(srcW, dstW);
+    UINT copyH = std::min(srcH, dstH);
+
+    D3DLOCKED_RECT dstLocked;
+    HRESULT hr = dstSurf->LockRect(&dstLocked, nullptr, 0);
+    if (FAILED(hr)) return hr;
+
+    D3DFORMAT dstFmt = dstSurf->GetD3DFormat();
+    UINT dstBpp = BytesPerPixelFromD3D(dstFmt);
+    bool is16bit = Is16BitFormat(dstFmt);
+
+    UINT mtlPitch = copyW * 4;
+    void *tmpBuf = malloc(mtlPitch * copyH);
+    if (tmpBuf) {
+      MTLRegion region = MTLRegionMake2D(0, 0, copyW, copyH);
+      [mtlSrc getBytes:tmpBuf bytesPerRow:mtlPitch fromRegion:region mipmapLevel:0];
+
+      if (is16bit) {
+        const uint32_t *src32 = (const uint32_t *)tmpBuf;
+        uint8_t *dstRow = (uint8_t *)dstLocked.pBits;
+        for (UINT y = 0; y < copyH; y++) {
+          uint16_t *dst16 = (uint16_t *)dstRow;
+          for (UINT x = 0; x < copyW; x++) {
+            uint32_t px = src32[y * copyW + x];
+            uint8_t B = (px >>  0) & 0xFF;
+            uint8_t G = (px >>  8) & 0xFF;
+            uint8_t R = (px >> 16) & 0xFF;
+            uint8_t A = (px >> 24) & 0xFF;
+            uint16_t out = 0;
+            switch (dstFmt) {
+            case D3DFMT_R5G6B5:
+              out = ((R & 0xF8) << 8) | ((G & 0xFC) << 3) | ((B & 0xF8) >> 3);
+              break;
+            case D3DFMT_X1R5G5B5:
+              out = ((R & 0xF8) << 7) | ((G & 0xF8) << 2) | ((B & 0xF8) >> 3);
+              break;
+            case D3DFMT_A1R5G5B5:
+              out = ((A >> 7) << 15) | ((R & 0xF8) << 7) | ((G & 0xF8) << 2) | ((B & 0xF8) >> 3);
+              break;
+            case D3DFMT_A4R4G4B4:
+              out = ((A & 0xF0) << 8) | ((R & 0xF0) << 4) | (G & 0xF0) | ((B & 0xF0) >> 4);
+              break;
+            default:
+              break;
+            }
+            dst16[x] = out;
+          }
+          dstRow += dstLocked.Pitch;
+        }
+      } else {
+        const uint8_t *srcRow = (const uint8_t *)tmpBuf;
+        uint8_t *dstRow = (uint8_t *)dstLocked.pBits;
+        UINT rowBytes = copyW * dstBpp;
+        if (dstBpp == 4) rowBytes = copyW * 4;
+        for (UINT y = 0; y < copyH; y++) {
+          memcpy(dstRow, srcRow, rowBytes);
+          srcRow += mtlPitch;
+          dstRow += dstLocked.Pitch;
+        }
+      }
+      free(tmpBuf);
+    }
+
+    dstSurf->UnlockRect();
+    return D3D_OK;
+  }
+
+  // ── Case 3 & 4: CPU src → GPU/standalone dst ──
+  // Need destination GPU texture for upload path
   if (!dstTex) return E_FAIL;
   id<MTLTexture> mtlDst = dstTex->GetMTLTexture();
   if (!mtlDst) return E_FAIL;

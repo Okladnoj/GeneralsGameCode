@@ -18,6 +18,7 @@
 #include "GameClient/Snow.h"
 #include "GameClient/TerrainVisual.h"
 #include "GameClient/VideoPlayer.h"
+#include "W3DDevice/GameClient/W3DStatusCircle.h"
 #include "GameClient/View.h"
 #include "GameClient/Shell.h"
 #include "Common/GlobalData.h"
@@ -161,14 +162,7 @@ void MacOSGameClient::createRayEffectByTemplate(const Coord3D *start,
 }
 
 void MacOSGameClient::setTeamColor(Int red, Int green, Int blue) {
-  // W3DGameClient calls W3DDisplay::setTeamColor
-  // Delegate if display supports it
-  static bool logged = false;
-  if (!logged) {
-    printf("[MacOSGameClient] setTeamColor(%d,%d,%d)\n", red, green, blue);
-    fflush(stdout);
-    logged = true;
-  }
+  W3DStatusCircle::setColor(red, green, blue);
 }
 
 void MacOSGameClient::setTextureLOD(Int level) {

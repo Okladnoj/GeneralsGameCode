@@ -58,6 +58,7 @@ private:
   D3DFORMAT m_Format;
   void *m_LockedData = nullptr;
   UINT m_LockedPitch = 0;
+  bool m_LockedReadOnly = false;
   MetalTexture8 *m_ParentTexture = nullptr; // if from GetSurfaceLevel
   UINT m_MipLevel = 0;
 };

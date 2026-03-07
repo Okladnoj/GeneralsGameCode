@@ -106,8 +106,14 @@ STDMETHODIMP MetalSurface8::LockRect(D3DLOCKED_RECT *pLockedRect,
                                      CONST RECT *pRect, DWORD Flags) {
   if (!pLockedRect)
     return E_POINTER;
-  if (m_LockedData)
+  if (m_LockedData) {
+    if (!m_ParentTexture) {
+      pLockedRect->pBits = m_LockedData;
+      pLockedRect->Pitch = m_LockedPitch;
+      return D3D_OK;
+    }
     return D3DERR_INVALIDCALL; // already locked
+  }
 
   // Calculate bytes per pixel based on format
   UINT bpp = 4; // default: 32-bit
@@ -168,6 +174,7 @@ STDMETHODIMP MetalSurface8::LockRect(D3DLOCKED_RECT *pLockedRect,
 
   memset(m_LockedData, 0, dataSize);
   m_LockedPitch = pitch;
+  m_LockedReadOnly = (Flags & D3DLOCK_READONLY) != 0;
 
   pLockedRect->pBits = m_LockedData;
   pLockedRect->Pitch = pitch;
@@ -179,8 +186,9 @@ STDMETHODIMP MetalSurface8::UnlockRect() {
   if (!m_LockedData)
     return D3DERR_INVALIDCALL;
 
-  // If this surface came from GetSurfaceLevel, upload data to the parent texture
-  if (m_ParentTexture && m_ParentTexture->GetMetalTexture()) {
+  // If this surface came from GetSurfaceLevel and was NOT locked read-only,
+  // upload data to the parent texture
+  if (m_ParentTexture && m_ParentTexture->GetMetalTexture() && !m_LockedReadOnly) {
     id<MTLTexture> tex = (__bridge id<MTLTexture>)m_ParentTexture->GetMetalTexture();
     
     // Calculate bytes per pixel matching the surface format
