@@ -37,12 +37,12 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
   desc.usage = MTLTextureUsageShaderRead;
   if (usage & D3DUSAGE_RENDERTARGET) {
     desc.usage |= MTLTextureUsageRenderTarget;
-    // Render targets keep default storage (Managed) for compatibility
-  } else {
-    // Non-RT textures use Shared so replaceRegion is immediately GPU-visible
-    // Default (Managed) requires synchronizeResource which we don't do
-    desc.storageMode = MTLStorageModeShared;
   }
+  // All textures use Shared storage on Apple Silicon:
+  // - Non-RT: so replaceRegion is immediately GPU-visible (no synchronizeResource needed)
+  // - RT: so zero-fill at creation is GPU-visible, and after rendering to an RT texture
+  //   it can be sampled as a shader input (e.g., RTT → fullscreen blit for soft water edges)
+  desc.storageMode = MTLStorageModeShared;
 
   id<MTLDevice> mtlDev = (__bridge id<MTLDevice>)m_Device->GetMTLDevice();
   id<MTLTexture> tex = [mtlDev newTextureWithDescriptor:desc];

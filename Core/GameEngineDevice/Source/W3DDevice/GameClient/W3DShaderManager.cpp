@@ -2869,6 +2869,16 @@ IDirect3DTexture8 *W3DShaderManager::endRenderToTexture()
 {
 	DEBUG_ASSERTCRASH(m_renderingToTexture, ("Not rendering to texture."));
 	if (!m_renderingToTexture) return nullptr;
+
+	// TheSuperHackers @fix macOS: Restore color write mask to all channels before
+	// blitting RTT to the main framebuffer. startRenderToTexture() sets
+	// COLORWRITEENABLE=RGB to protect the alpha channel during terrain rendering.
+	// Without restoring it here, the fullscreen blit that copies the RTT (which
+	// contains shoreline alpha gradients) onto the backbuffer skips the alpha
+	// channel, making DESTALPHA water blending read stale/zero alpha.
+	DX8Wrapper::Set_DX8_Render_State(D3DRS_COLORWRITEENABLE,
+		D3DCOLORWRITEENABLE_RED|D3DCOLORWRITEENABLE_GREEN|D3DCOLORWRITEENABLE_BLUE|D3DCOLORWRITEENABLE_ALPHA);
+
 	HRESULT hr = DX8Wrapper::_Get_D3D_Device8()->SetRenderTarget(m_oldRenderSurface,m_oldDepthSurface);	//restore original render target
 	DEBUG_ASSERTCRASH(hr==S_OK, ("Set target failed unexpectedly."));
 	if (hr == S_OK)
