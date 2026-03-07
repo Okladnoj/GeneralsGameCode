@@ -39,7 +39,10 @@ struct Uniforms {
 #define D3DTOP_MODULATEALPHA_ADDCOLOR   18
 #define D3DTOP_MODULATECOLOR_ADDALPHA   19
 #define D3DTOP_MODULATEINVALPHA_ADDCOLOR 20
-#define D3DTOP_DOTPRODUCT3       22
+#define D3DTOP_MODULATEINVCOLOR_ADDALPHA 21
+#define D3DTOP_DOTPRODUCT3       24
+#define D3DTOP_MULTIPLYADD       25
+#define D3DTOP_LERP              26
 
 // D3DTA source selectors (low 4 bits)
 #define D3DTA_DIFFUSE  0
@@ -68,7 +71,7 @@ struct TextureStageConfig {
     uint alphaOp;     // D3DTOP enum
     uint alphaArg1;   // D3DTA enum
     uint alphaArg2;   // D3DTA enum
-    uint _pad0;
+    uint colorArg0;   // D3DTA enum (3rd arg for MULTIPLYADD, LERP)
     uint _pad1;
 };
 
@@ -547,10 +550,10 @@ float4 resolveArg(uint argId,
 //  Stage 7: TSS Operation Evaluator
 //  Computes result for both color (.rgb) and alpha (.a)
 // ─────────────────────────────────────────────────────
-float4 evaluateOp(uint op, float4 arg1, float4 arg2) {
+float4 evaluateOp(uint op, float4 arg1, float4 arg2, float4 arg0) {
     switch (op) {
         case D3DTOP_DISABLE:
-            return arg1; // Shouldn't normally be called for disabled stages
+            return arg1;
         case D3DTOP_SELECTARG1:
             return arg1;
         case D3DTOP_SELECTARG2:
@@ -572,18 +575,16 @@ float4 evaluateOp(uint op, float4 arg1, float4 arg2) {
         case D3DTOP_ADDSMOOTH:
             return clamp(arg1 + arg2 - arg1 * arg2, 0.0, 1.0);
         case D3DTOP_BLENDDIFFUSEALPHA: {
-            // Uses arg1's alpha as blend factor... but actually it should be
-            // the diffuse alpha. We handle this specially in fragment_main.
-            return arg1; // Placeholder
+            return arg1; // Handled in evaluateBlendOp
         }
         case D3DTOP_BLENDTEXTUREALPHA: {
-            return arg1; // Handled in fragment_main with texture alpha
+            return arg1; // Handled in evaluateBlendOp
         }
         case D3DTOP_BLENDFACTORALPHA: {
-            return arg1; // Handled in fragment_main with factor alpha
+            return arg1; // Handled in evaluateBlendOp
         }
         case D3DTOP_BLENDCURRENTALPHA: {
-            return arg1; // Handled in fragment_main with current alpha
+            return arg1; // Handled in evaluateBlendOp
         }
         case D3DTOP_MODULATEALPHA_ADDCOLOR:
             return float4(arg1.rgb + arg1.a * arg2.rgb, arg1.a);
@@ -591,12 +592,18 @@ float4 evaluateOp(uint op, float4 arg1, float4 arg2) {
             return float4(arg1.rgb * arg2.rgb + arg1.a, arg1.a);
         case D3DTOP_MODULATEINVALPHA_ADDCOLOR:
             return float4((1.0 - arg1.a) * arg2.rgb + arg1.rgb, arg1.a);
+        case D3DTOP_MODULATEINVCOLOR_ADDALPHA:
+            return float4((1.0 - arg1.rgb) * arg2.rgb + float3(arg1.a), arg1.a);
         case D3DTOP_DOTPRODUCT3: {
             float d = dot(arg1.rgb * 2.0 - 1.0, arg2.rgb * 2.0 - 1.0);
             return float4(d, d, d, d);
         }
+        case D3DTOP_MULTIPLYADD:
+            return clamp(arg0 + arg1 * arg2, 0.0, 1.0);
+        case D3DTOP_LERP:
+            return clamp(arg1 * arg2 + (1.0 - arg1) * arg0, 0.0, 1.0);
         default:
-            return arg1 * arg2; // Fallback: modulate
+            return arg1 * arg2;
     }
 }
 
@@ -604,7 +611,7 @@ float4 evaluateOp(uint op, float4 arg1, float4 arg2) {
 //  Stage 7: Blend operation helper
 //  For BLENDDIFFUSEALPHA, BLENDTEXTUREALPHA, etc.
 // ─────────────────────────────────────────────────────
-float4 evaluateBlendOp(uint op, float4 arg1, float4 arg2,
+float4 evaluateBlendOp(uint op, float4 arg1, float4 arg2, float4 arg0,
                        float4 diffuse, float4 stageTexColor, float4 tFactor,
                        float4 current) {
     float alpha;
@@ -626,7 +633,7 @@ float4 evaluateBlendOp(uint op, float4 arg1, float4 arg2,
             return float4(mix(arg2.rgb, arg1.rgb, alpha),
                          mix(arg2.a, arg1.a, alpha));
         default:
-            return evaluateOp(op, arg1, arg2);
+            return evaluateOp(op, arg1, arg2, arg0);
     }
 }
 
@@ -908,7 +915,8 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
 
         float4 cArg1 = resolveArg(fragUniforms.stages[i].colorArg1, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
         float4 cArg2 = resolveArg(fragUniforms.stages[i].colorArg2, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
-        float4 colorResult = evaluateBlendOp(colorOp, cArg1, cArg2, diffuse, stageTexColor, tFactor, current);
+        float4 cArg0 = resolveArg(fragUniforms.stages[i].colorArg0, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
+        float4 colorResult = evaluateBlendOp(colorOp, cArg1, cArg2, cArg0, diffuse, stageTexColor, tFactor, current);
         
         uint alphaOp = fragUniforms.stages[i].alphaOp;
         float alphaVal;
@@ -918,7 +926,7 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         } else {
             float4 aArg1 = resolveArg(fragUniforms.stages[i].alphaArg1, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
             float4 aArg2 = resolveArg(fragUniforms.stages[i].alphaArg2, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
-            float4 alphaResult = evaluateBlendOp(alphaOp, aArg1, aArg2, diffuse, stageTexColor, tFactor, current);
+            float4 alphaResult = evaluateBlendOp(alphaOp, aArg1, aArg2, current, diffuse, stageTexColor, tFactor, current);
             alphaVal = alphaResult.a;
         }
         

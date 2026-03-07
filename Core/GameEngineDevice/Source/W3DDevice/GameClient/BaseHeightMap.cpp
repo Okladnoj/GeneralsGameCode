@@ -2629,17 +2629,12 @@ void BaseHeightMapRenderObjClass::renderShoreLinesSorted(CameraClass *pCamera)
 	if (DX8Wrapper::getBackBufferFormat() != WW3D_FORMAT_A8R8G8B8)
 		return;	//can't apply effect on cards without destination alpha
 
-#ifdef __APPLE__
-	// TheSuperHackers @fix macOS: DESTALPHA blending is disabled on Metal (see W3DWater.cpp).
-	// Skip shoreline alpha writes since nothing reads dest alpha.
-	return;
-#endif
-
-	static int s_shorelineLogLimit = 0;
-	if (s_shorelineLogLimit < 10) {
-		printf("[BaseHeightMap] renderShoreLinesSorted: rendering active! m_numShoreLineTiles=%d m_transparentWaterDepth=%d\n", m_numShoreLineTiles, TheWaterTransparency->m_transparentWaterDepth);
+	static int s_shorelineLogFrame = 0;
+	if ((s_shorelineLogFrame++ % 60) == 0) {
+		printf("[BaseHeightMap] renderShoreLinesSorted: active! tiles=%d depth=%.1f minOpacity=%.3f\n",
+			m_numShoreLineTiles, TheWaterTransparency->m_transparentWaterDepth,
+			TheWaterTransparency->m_minWaterOpacity);
 		fflush(stdout);
-		s_shorelineLogLimit++;
 	}
 
 	Int vertexCount = 0;

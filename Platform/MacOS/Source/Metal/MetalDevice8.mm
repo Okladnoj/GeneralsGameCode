@@ -292,7 +292,7 @@ struct TextureStageConfig {
   uint32_t alphaOp;
   uint32_t alphaArg1;
   uint32_t alphaArg2;
-  uint32_t _pad0;
+  uint32_t colorArg0;
   uint32_t _pad1;
 };
 
@@ -901,8 +901,23 @@ STDMETHODIMP MetalDevice8::ResourceManagerDiscardBytes(DWORD Bytes) {
 
 STDMETHODIMP MetalDevice8::GetAdapterIdentifier(UINT a, DWORD f,
                                                 D3DADAPTER_IDENTIFIER8 *i) {
-  if (i)
-    memset(i, 0, sizeof(*i));
+  if (!i)
+    return E_POINTER;
+  memset(i, 0, sizeof(*i));
+
+  // TheSuperHackers @feature macOS: Emulate GeForce4 Ti 4600 — the best
+  // consumer GPU of the Generals era. This enables all engine rendering
+  // features and triggers known-good Vendor_Specific_Hacks for NVIDIA.
+  strncpy(i->Description, "Apple Metal (GeForce4 Ti 4600 emulated)",
+          sizeof(i->Description) - 1);
+  strncpy(i->Driver, "metal.dll", sizeof(i->Driver) - 1);
+  i->VendorId = 0x10DE;  // NVIDIA
+  i->DeviceId = 0x0250;  // GeForce4 Ti 4600
+  i->SubSysId = 0;
+  i->Revision = 1;
+  i->DriverVersion.HighPart = (1 << 16) | 0;  // Product=1, Version=0
+  i->DriverVersion.LowPart  = (53 << 16) | 3;  // SubVersion=53, Build=3
+
   return D3D_OK;
 }
 
@@ -927,8 +942,14 @@ STDMETHODIMP MetalDevice8::GetDeviceCaps(D3DCAPS8 *pCaps) {
   pCaps->TextureCaps = 0x00000001 | 0x00000002 | 0x00000004;
   pCaps->TextureOpCaps =
       D3DTEXOPCAPS_DISABLE | D3DTEXOPCAPS_SELECTARG1 | D3DTEXOPCAPS_SELECTARG2 |
-      D3DTEXOPCAPS_MODULATE | D3DTEXOPCAPS_MODULATE2X | D3DTEXOPCAPS_ADD |
-      D3DTEXOPCAPS_BLENDDIFFUSEALPHA | D3DTEXOPCAPS_BLENDTEXTUREALPHA;
+      D3DTEXOPCAPS_MODULATE | D3DTEXOPCAPS_MODULATE2X | D3DTEXOPCAPS_MODULATE4X |
+      D3DTEXOPCAPS_ADD | D3DTEXOPCAPS_ADDSIGNED | D3DTEXOPCAPS_ADDSIGNED2X |
+      D3DTEXOPCAPS_SUBTRACT | D3DTEXOPCAPS_ADDSMOOTH |
+      D3DTEXOPCAPS_BLENDDIFFUSEALPHA | D3DTEXOPCAPS_BLENDTEXTUREALPHA |
+      D3DTEXOPCAPS_BLENDFACTORALPHA | D3DTEXOPCAPS_BLENDCURRENTALPHA |
+      D3DTEXOPCAPS_MODULATEALPHA_ADDCOLOR | D3DTEXOPCAPS_MODULATECOLOR_ADDALPHA |
+      D3DTEXOPCAPS_MODULATEINVALPHA_ADDCOLOR | D3DTEXOPCAPS_MODULATEINVCOLOR_ADDALPHA |
+      D3DTEXOPCAPS_DOTPRODUCT3 | D3DTEXOPCAPS_MULTIPLYADD | D3DTEXOPCAPS_LERP;
   pCaps->PrimitiveMiscCaps = D3DPMISCCAPS_COLORWRITEENABLE;
   pCaps->Caps2 = D3DCAPS2_FULLSCREENGAMMA;
   pCaps->SrcBlendCaps = 0x1FFF;
@@ -2095,6 +2116,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
     fu.stages[s].alphaOp = m_TextureStageStates[s][D3DTSS_ALPHAOP];
     fu.stages[s].alphaArg1 = m_TextureStageStates[s][D3DTSS_ALPHAARG1];
     fu.stages[s].alphaArg2 = m_TextureStageStates[s][D3DTSS_ALPHAARG2];
+    fu.stages[s].colorArg0 = m_TextureStageStates[s][D3DTSS_COLORARG0];
   }
 
   // Texture Factor (ARGB DWORD -> float4 RGBA)
@@ -2359,6 +2381,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
     fu.stages[s].alphaOp = m_TextureStageStates[s][D3DTSS_ALPHAOP];
     fu.stages[s].alphaArg1 = m_TextureStageStates[s][D3DTSS_ALPHAARG1];
     fu.stages[s].alphaArg2 = m_TextureStageStates[s][D3DTSS_ALPHAARG2];
+    fu.stages[s].colorArg0 = m_TextureStageStates[s][D3DTSS_COLORARG0];
   }
   DWORD tf = m_RenderStates[D3DRS_TEXTUREFACTOR];
   fu.textureFactor.x = ((tf >> 16) & 0xFF) / 255.0f;
@@ -2726,6 +2749,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
     fu.stages[s].alphaOp = m_TextureStageStates[s][D3DTSS_ALPHAOP];
     fu.stages[s].alphaArg1 = m_TextureStageStates[s][D3DTSS_ALPHAARG1];
     fu.stages[s].alphaArg2 = m_TextureStageStates[s][D3DTSS_ALPHAARG2];
+    fu.stages[s].colorArg0 = m_TextureStageStates[s][D3DTSS_COLORARG0];
   }
   DWORD tf = m_RenderStates[D3DRS_TEXTUREFACTOR];
   fu.textureFactor.x = ((tf >> 16) & 0xFF) / 255.0f;

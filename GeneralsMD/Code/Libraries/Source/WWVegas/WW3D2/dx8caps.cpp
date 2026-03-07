@@ -664,7 +664,12 @@ void DX8Caps::Compute_Caps(WW3DFormat display_format, const D3DADAPTER_IDENTIFIE
 
 	DXLOG(("Max textures per pass: %d\r\n",MaxTexturesPerPass));
 
+	// TheSuperHackers @feature macOS: Skip Vendor_Specific_Hacks on Metal because
+	// these workarounds target real DX8-era GPU bugs (broken DXT1 on NVIDIA, bad
+	// multitexturing on ATI Rage Pro, etc.) that don't apply to Metal.
+#ifndef __APPLE__
 	Vendor_Specific_Hacks(adapter_id);
+#endif
 	CapsWorkString="";
 }
 

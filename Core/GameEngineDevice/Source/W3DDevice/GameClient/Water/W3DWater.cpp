@@ -3258,19 +3258,23 @@ void WaterRenderObjClass::drawTrapezoidWater(Vector3 points[4])
 
 	setupFlatWaterShader();// lorenzen sez use the alpha shader
 
-	// TheSuperHackers @fix macOS: Disable DESTALPHA blending on Metal.
-	// On Metal, dest alpha is unreliable: shoreline alpha tiles only cover near-shore areas,
-	// leaving deep water with uniform minWaterOpacity alpha. Combined with Z-precision
-	// differences, this causes terrain tile boundaries to appear as horizontal bands.
-	// TODO(PS_PATH): Implement proper soft water edges on Metal (e.g. via depth-based
-	// transparency in the water shader itself, rather than framebuffer dest alpha).
-#ifndef __APPLE__
+	//If video card supports it and it's enabled, feather the water edge using destination alpha.
+	// TheSuperHackers @info macOS: DESTALPHA causes horizontal bands on the water surface.
+	// See .agent/tasks/fix_water_shoreline_alpha.md for full investigation.
 	if (DX8Wrapper::getBackBufferFormat() == WW3D_FORMAT_A8R8G8B8 && TheGlobalData->m_showSoftWaterEdge && TheWaterTransparency->m_transparentWaterDepth !=0)
-	{		DX8Wrapper::Set_DX8_Render_State(D3DRS_SRCBLEND, D3DBLEND_DESTALPHA );
+	{
+			static int s_destalpha_frame = 0;
+			if ((s_destalpha_frame++ % 60) == 0) {
+				printf("[Water] DESTALPHA active: minOpacity=%.3f depth=%.1f additive=%d\n",
+					TheWaterTransparency->m_minWaterOpacity,
+					TheWaterTransparency->m_transparentWaterDepth,
+					(int)TheWaterTransparency->m_additiveBlend);
+				fflush(stdout);
+			}
+			DX8Wrapper::Set_DX8_Render_State(D3DRS_SRCBLEND, D3DBLEND_DESTALPHA );
 			if (!TheWaterTransparency->m_additiveBlend)
 				DX8Wrapper::Set_DX8_Render_State(D3DRS_DESTBLEND, D3DBLEND_INVDESTALPHA );
 	}
-#endif
 
 
  	DWORD cull;
