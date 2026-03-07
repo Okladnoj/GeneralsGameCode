@@ -744,6 +744,16 @@ uint64_t MetalDevice8::BuildPSOKey(DWORD fvf, UINT stride) {
   DWORD dwAlphaEn = m_RenderStates[D3DRS_ALPHATESTENABLE] ? 1 : 0;
   DWORD cwMask = m_RenderStates[D3DRS_COLORWRITEENABLE] & 0xF;
   if (cwMask == 0) cwMask = 0xF;
+
+  // TheSuperHackers @fix macOS: Protect destination alpha from accidental overwrites.
+  // On DX8 with X8R8G8B8 backbuffer, cwMask=0xF doesn't write alpha (X channel).
+  // On Metal (BGRA8), cwMask=0xF DOES write alpha, which destroys the shoreline
+  // alpha gradient used by water DESTALPHA blending.
+  // Strip alpha from "write all" mask when rendering to main framebuffer.
+  // Only explicit alpha-only writes (cwMask=0x8 from renderShoreLinesSorted) pass through.
+  if (!m_RTTColorTexture && cwMask == 0xF) {
+    cwMask = 0x7; // RGB only, preserve destination alpha
+  }
   
   key |= (uint64_t)(blendEn) << 32;
   key |= (uint64_t)(srcBlend) << 33;
@@ -800,6 +810,20 @@ void MetalDevice8::ApplyPerDrawState() {
         [MTL_ENCODER setStencilReferenceValue:
                          (uint32_t)(m_RenderStates[D3DRS_STENCILREF] & 0xFF)];
       }
+    }
+
+    // TheSuperHackers @feature macOS: D3DRS_ZBIAS → Metal setDepthBias
+    // DX8 ZBIAS range 0..16 biases primitives closer to the camera.
+    // Used by: water tracks (8), decal overlays (7-8), scene passes (7).
+    // Metal depthBias: negative = push toward camera. slopeScale handles
+    // oblique surfaces (like water viewed at shallow angles).
+    DWORD zBias = m_RenderStates[D3DRS_ZBIAS];
+    if (zBias != 0) {
+      float bias = -(float)zBias;
+      float slopeScale = -2.0f;
+      [MTL_ENCODER setDepthBias:bias slopeScale:slopeScale clamp:0.0f];
+    } else {
+      [MTL_ENCODER setDepthBias:0.0f slopeScale:0.0f clamp:0.0f];
     }
   }
 }
@@ -1825,6 +1849,10 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
   DWORD cwMask = m_RenderStates[D3DRS_COLORWRITEENABLE];
   if (cwMask == 0)
     cwMask = 0xF; // default: write all
+  // TheSuperHackers @fix macOS: Same dest alpha protection as in BuildPSOKey
+  if (!m_RTTColorTexture && cwMask == 0xF) {
+    cwMask = 0x7; // RGB only, preserve destination alpha
+  }
 
   pd.colorAttachments[0].blendingEnabled = (blendEn != 0) ? YES : NO;
   pd.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
