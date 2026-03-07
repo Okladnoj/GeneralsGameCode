@@ -6,7 +6,11 @@ else()
 endif()
 
 # Use a binary name that doesn't conflict with original game.
-set_target_properties(z_generals PROPERTIES OUTPUT_NAME generalszh)
+if("${CMAKE_SYSTEM}" MATCHES "Windows")
+    set_target_properties(z_generals PROPERTIES OUTPUT_NAME "generalszh${RTS_BUILD_OUTPUT_SUFFIX}")
+else()
+    set_target_properties(z_generals PROPERTIES OUTPUT_NAME "generalszh${RTS_BUILD_OUTPUT_SUFFIX}")
+endif()
 
 target_link_libraries(z_generals PRIVATE
     core_debug
@@ -102,7 +106,7 @@ if(MSVC)
 endif()
 
 # Strip debug symbols to separate file for MinGW Release builds
-# This creates generalszh.exe.debug (similar to MSVC .pdb files)
+# This creates generalszh${RTS_BUILD_OUTPUT_SUFFIX}.exe.debug (similar to MSVC .pdb files)
 if(MINGW AND COMMAND add_debug_strip_target)
     add_debug_strip_target(z_generals)
 endif()
