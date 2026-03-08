@@ -238,17 +238,20 @@ const DeathTypeFlags DEATH_TYPE_FLAGS_NONE = 0x00000000;
 
 inline Bool getDeathTypeFlag(DeathTypeFlags flags, DeathType dt)
 {
-	return (flags & (1UL << (dt - 1))) != 0;
+	unsigned int bit = (dt == 0) ? 31u : (unsigned int)(dt - 1);
+	return (flags & (1u << bit)) != 0;
 }
 
 inline DeathTypeFlags setDeathTypeFlag(DeathTypeFlags flags, DeathType dt)
 {
-	return (flags | (1UL << (dt - 1)));
+	unsigned int bit = (dt == 0) ? 31u : (unsigned int)(dt - 1);
+	return (flags | (1u << bit));
 }
 
 inline DeathTypeFlags clearDeathTypeFlag(DeathTypeFlags flags, DeathType dt)
 {
-	return (flags & ~(1UL << (dt - 1)));
+	unsigned int bit = (dt == 0) ? 31u : (unsigned int)(dt - 1);
+	return (flags & ~(1u << bit));
 }
 
 //-------------------------------------------------------------------------------------------------

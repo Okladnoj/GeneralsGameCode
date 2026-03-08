@@ -289,17 +289,20 @@ const VeterancyLevelFlags VETERANCY_LEVEL_FLAGS_NONE = 0x00000000;
 
 inline Bool getVeterancyLevelFlag(VeterancyLevelFlags flags, VeterancyLevel dt)
 {
-	return (flags & (1UL << (dt - 1))) != 0;
+	unsigned int bit = (dt == 0) ? 31u : (unsigned int)(dt - 1);
+	return (flags & (1u << bit)) != 0;
 }
 
 inline VeterancyLevelFlags setVeterancyLevelFlag(VeterancyLevelFlags flags, VeterancyLevel dt)
 {
-	return (flags | (1UL << (dt - 1)));
+	unsigned int bit = (dt == 0) ? 31u : (unsigned int)(dt - 1);
+	return (flags | (1u << bit));
 }
 
 inline VeterancyLevelFlags clearVeterancyLevelFlag(VeterancyLevelFlags flags, VeterancyLevel dt)
 {
-	return (flags & ~(1UL << (dt - 1)));
+	unsigned int bit = (dt == 0) ? 31u : (unsigned int)(dt - 1);
+	return (flags & ~(1u << bit));
 }
 
 // ----------------------------------------------------------------------------------------------

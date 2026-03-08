@@ -3114,8 +3114,11 @@ void Drawable::drawUIText()
 		return;
 
 	const Object *obj = getObject();
+	if (!obj) return;
 
 	Player *owner = obj->getControllingPlayer();
+	if (!owner) return;
+
 	Int groupNum = owner->getSquadNumberForObject(obj);
 
 	Color color = TheDrawGroupInfo->m_usePlayerColor ? owner->getPlayerColor() : TheDrawGroupInfo->m_colorForText;
@@ -3139,8 +3142,8 @@ void Drawable::drawUIText()
 
 		m_groupNumber = TheDisplayStringManager->getGroupNumeralString(groupNum);
 
-
-		m_groupNumber->draw(xPos, yPos, color,
+		if (m_groupNumber)
+			m_groupNumber->draw(xPos, yPos, color,
 												TheDrawGroupInfo->m_colorForTextDropShadow,
 												TheDrawGroupInfo->m_dropShadowOffsetX,
 												TheDrawGroupInfo->m_dropShadowOffsetY);
