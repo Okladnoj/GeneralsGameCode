@@ -89,7 +89,7 @@ killall generalszh 2>/dev/null
 
 sleep 1
 
-export GENERALS_INSTALL_PATH="/Users/okji/dev/games/Command and Conquer - Generals/Command and Conquer Generals/"
+export GENERALS_INSTALL_PATH="/Users/okji/dev/games/Command and Conquer - Generals"
 
 # Metal frame rate control:
 # 60 = VSync (default)

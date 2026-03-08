@@ -32,7 +32,9 @@
 #include "StdDevice/Common/StdLocalFileSystem.h"
 #include "StdDevice/Common/StdLocalFile.h"
 
+#include <algorithm>
 #include <filesystem>
+#include <strings.h>
 
 StdLocalFileSystem::StdLocalFileSystem() : LocalFileSystem()
 {
@@ -41,114 +43,131 @@ StdLocalFileSystem::StdLocalFileSystem() : LocalFileSystem()
 StdLocalFileSystem::~StdLocalFileSystem() {
 }
 
+void StdLocalFileSystem::addSearchPath(const AsciiString& path) {
+	if (path.isEmpty()) {
+		return;
+	}
+
+	std::string normalized = path.str();
+	if (normalized.back() != '/' && normalized.back() != '\\') {
+		normalized += '/';
+	}
+
+	for (const auto& existing : m_searchPaths) {
+		if (existing == normalized) {
+			return;
+		}
+	}
+
+	printf("StdLocalFileSystem::addSearchPath - '%s'\n", normalized.c_str());
+	fflush(stdout);
+	m_searchPaths.push_back(std::move(normalized));
+}
+
 //DECLARE_PERF_TIMER(StdLocalFileSystem_openFile)
 static std::filesystem::path fixFilenameFromWindowsPath(const Char *filename, Int access)
 {
 	std::string fixedFilename(filename);
 
 #ifndef _WIN32
-	// Replace backslashes with forward slashes on unix
 	std::replace(fixedFilename.begin(), fixedFilename.end(), '\\', '/');
 #endif
 
-	// Convert the filename to a std::filesystem::path and pass that
-	std::filesystem::path path(std::move(fixedFilename));
-
-#ifndef _WIN32
-	// check if the file exists to see if fixup is required
-	// if it's not found try to match disregarding case sensitivity
-	// For cases where a write is happening, we should check if the parent path exists, if so, let it through, since the file may not exist yet.
 	std::error_code ec;
-	if (!std::filesystem::exists(path, ec) &&
-		((!(access & File::WRITE)) || ((access & File::WRITE) && !std::filesystem::exists(path.parent_path(), ec))))
-	{
-		// Traverse path to try and match case-insensitively
-		std::filesystem::path parent = path.parent_path();
+	std::filesystem::path p(fixedFilename);
 
-		std::filesystem::path pathFixed;
-		std::filesystem::path pathCurrent;
-		for (const auto& p : path)
-		{
-			std::filesystem::path pathFixedPart;
-			if (pathCurrent.empty())
-			{
-				// Load the first part of the path
-				pathFixed /= p;
-				pathCurrent /= p;
-				continue;
-			}
-
-			if (std::filesystem::exists(pathCurrent / p, ec))
-			{
-				pathFixedPart = p;
-			}
-			else if (std::filesystem::exists(pathFixed / p, ec))
-			{
-				pathFixedPart = p;
-			}
-			else
-			{
-				// Check if the subpath exists using case-insensitive comparison
-				for (auto& entry : std::filesystem::directory_iterator(pathFixed, ec))
-				{
-					if (strcasecmp(entry.path().filename().string().c_str(), p.string().c_str()) == 0)
-					{
-						pathFixedPart = entry.path().filename();
-						break;
-					}
-				}
-			}
-
-			if (pathFixedPart.empty())
-			{
-				// Required to allow creation of new files
-				if (!(access & File::WRITE))
-				{
-					DEBUG_LOG(("StdLocalFileSystem::fixFilenameFromWindowsPath - Error finding file %s", filename.string().c_str()));
-					DEBUG_LOG(("StdLocalFileSystem::fixFilenameFromWindowsPath - Got so far %s", pathCurrent.string().c_str()));
-
-					return std::filesystem::path();
-				}
-
-				// Use the last known good path
-				pathFixed = p;
-			}
-
-			// Copy of the current path to mirror the current depth
-			pathFixed /= pathFixedPart;
-			pathCurrent /= p;
-		}
-		path = pathFixed;
+	if (std::filesystem::exists(p, ec)) {
+		return p;
 	}
+
+	std::filesystem::path currentPath = ".";
+	bool isAbsolute = p.is_absolute();
+	if (isAbsolute) {
+		currentPath = p.root_path();
+	}
+
+	for (auto const &component : p) {
+		if (component.empty() || component == "/" || component == "." ||
+			component == "..")
+			continue;
+
+		bool found = false;
+		if (std::filesystem::exists(currentPath, ec) &&
+			std::filesystem::is_directory(currentPath, ec)) {
+			for (auto const &entry :
+				 std::filesystem::directory_iterator(currentPath, ec)) {
+				std::string filenameStr = entry.path().filename().string();
+				if (strcasecmp(filenameStr.c_str(), component.string().c_str()) == 0) {
+					currentPath /= entry.path().filename();
+					found = true;
+					break;
+				}
+			}
+		}
+
+		if (!found) {
+			if (access & File::WRITE) {
+				currentPath /= component;
+			} else {
+				return std::filesystem::path();
+			}
+		}
+	}
+
+	return currentPath;
+}
+
+static std::filesystem::path resolveWithSearchPaths(
+	const Char *filename,
+	Int access,
+	const std::vector<std::string>& searchPaths) {
+
+	std::filesystem::path path = fixFilenameFromWindowsPath(filename, access);
+	if (!path.empty()) {
+		return path;
+	}
+
+	if (access & File::WRITE) {
+		return path;
+	}
+
+	std::string fixedRelative(filename);
+#ifndef _WIN32
+	std::replace(fixedRelative.begin(), fixedRelative.end(), '\\', '/');
 #endif
 
-	return path;
+	for (const auto& searchPath : searchPaths) {
+		std::string fullPath = searchPath + fixedRelative;
+		std::filesystem::path resolved = fixFilenameFromWindowsPath(fullPath.c_str(), access);
+		if (!resolved.empty()) {
+			return resolved;
+		}
+	}
+
+	return std::filesystem::path();
 }
 
 File * StdLocalFileSystem::openFile(const Char *filename, Int access, size_t bufferSize)
 {
-	//USE_PERF_TIMER(StdLocalFileSystem_openFile)
-
-	// sanity check
 	if (strlen(filename) <= 0) {
 		return nullptr;
 	}
 
-	std::filesystem::path path = fixFilenameFromWindowsPath(filename, access);
+	std::filesystem::path path = resolveWithSearchPaths(filename, access, m_searchPaths);
 
 	if (path.empty()) {
 		return nullptr;
 	}
 
 	if (access & File::WRITE) {
-		// if opening the file for writing, we need to make sure the directory is there
-		// before we try to create the file.
 		std::filesystem::path dir = path.parent_path();
-		std::error_code ec;
-		if (!std::filesystem::exists(dir, ec) || ec) {
-			if(!std::filesystem::create_directories(dir, ec) || ec) {
-				DEBUG_LOG(("StdLocalFileSystem::openFile - Error creating directory %s", dir.string().c_str()));
-				return nullptr;
+		if (!dir.empty()) {
+			std::error_code ec;
+			if (!std::filesystem::exists(dir, ec) || ec) {
+				if(!std::filesystem::create_directories(dir, ec) || ec) {
+					DEBUG_LOG(("StdLocalFileSystem::openFile - Error creating directory %s", dir.string().c_str()));
+					return nullptr;
+				}
 			}
 		}
 	}
@@ -161,25 +180,6 @@ File * StdLocalFileSystem::openFile(const Char *filename, Int access, size_t buf
 	} else {
 		file->deleteOnClose();
 	}
-
-// this will also need to play nice with the STREAMING type that I added, if we ever enable this
-
-// srj sez: this speeds up INI loading, but makes BIG files unusable.
-// don't enable it without further tweaking.
-//
-// unless you like running really slowly.
-//	if (!(access&File::WRITE)) {
-//		// Return a ramfile.
-//		RAMFile *ramFile = newInstance( RAMFile );
-//		if (ramFile->open(file)) {
-//			file->close(); // is deleteonclose, so should delete.
-//			ramFile->deleteOnClose();
-//			return ramFile;
-//		}	else {
-//			ramFile->close();
-//			deleteInstance(ramFile);
-//		}
-//	}
 
 	return file;
 }
@@ -199,7 +199,7 @@ void StdLocalFileSystem::reset()
 //DECLARE_PERF_TIMER(StdLocalFileSystem_doesFileExist)
 Bool StdLocalFileSystem::doesFileExist(const Char *filename) const
 {
-	std::filesystem::path path = fixFilenameFromWindowsPath(filename, 0);
+	std::filesystem::path path = resolveWithSearchPaths(filename, 0, m_searchPaths);
 	if(path.empty()) {
 		return FALSE;
 	}
@@ -283,7 +283,7 @@ void StdLocalFileSystem::getFileListInDirectory(const AsciiString& currentDirect
 
 Bool StdLocalFileSystem::getFileInfo(const AsciiString& filename, FileInfo *fileInfo) const
 {
-	std::filesystem::path path = fixFilenameFromWindowsPath(filename.str(), 0);
+	std::filesystem::path path = resolveWithSearchPaths(filename.str(), 0, m_searchPaths);
 
 	if(path.empty()) {
 		return FALSE;

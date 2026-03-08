@@ -17,10 +17,10 @@
 */
 
 ////////////////////////////////////////////////////////////////////////////////
-//																																						//
+//																			  //
 //  (c) 2001-2003 Electronic Arts Inc.
 //  //
-//																																						//
+//																			  //
 ////////////////////////////////////////////////////////////////////////////////
 
 ///////// StdLocalFileSystem.cpp /////////////////////////
@@ -40,6 +40,26 @@
 StdLocalFileSystem::StdLocalFileSystem() : LocalFileSystem() {}
 
 StdLocalFileSystem::~StdLocalFileSystem() {}
+
+void StdLocalFileSystem::addSearchPath(const AsciiString& path) {
+  if (path.isEmpty()) {
+    return;
+  }
+
+  std::string normalized = path.str();
+  if (normalized.back() != '/' && normalized.back() != '\\') {
+    normalized += '/';
+  }
+
+  for (const auto& existing : m_searchPaths) {
+    if (existing == normalized) {
+      return;
+    }
+  }
+
+  fprintf(stderr, "StdLocalFileSystem::addSearchPath - '%s'\n", normalized.c_str());
+  m_searchPaths.push_back(std::move(normalized));
+}
 
 // DECLARE_PERF_TIMER(StdLocalFileSystem_openFile)
 static std::filesystem::path fixFilenameFromWindowsPath(const Char *filename,
@@ -105,6 +125,36 @@ static std::filesystem::path fixFilenameFromWindowsPath(const Char *filename,
   return currentPath;
 }
 
+static std::filesystem::path resolveWithSearchPaths(
+    const Char *filename,
+    Int access,
+    const std::vector<std::string>& searchPaths) {
+
+  std::filesystem::path path = fixFilenameFromWindowsPath(filename, access);
+  if (!path.empty()) {
+    return path;
+  }
+
+  if (access & File::WRITE) {
+    return path;
+  }
+
+  std::string fixedRelative(filename);
+#ifndef _WIN32
+  std::replace(fixedRelative.begin(), fixedRelative.end(), '\\', '/');
+#endif
+
+  for (const auto& searchPath : searchPaths) {
+    std::string fullPath = searchPath + fixedRelative;
+    std::filesystem::path resolved = fixFilenameFromWindowsPath(fullPath.c_str(), access);
+    if (!resolved.empty()) {
+      return resolved;
+    }
+  }
+
+  return std::filesystem::path();
+}
+
 File *StdLocalFileSystem::openFile(const Char *filename, Int access,
                                    size_t bufferSize) {
   // USE_PERF_TIMER(StdLocalFileSystem_openFile)
@@ -114,7 +164,7 @@ File *StdLocalFileSystem::openFile(const Char *filename, Int access,
     return nullptr;
   }
 
-  std::filesystem::path path = fixFilenameFromWindowsPath(filename, access);
+  std::filesystem::path path = resolveWithSearchPaths(filename, access, m_searchPaths);
 
   if (path.empty()) {
     return nullptr;
@@ -177,7 +227,7 @@ void StdLocalFileSystem::reset() {}
 
 // DECLARE_PERF_TIMER(StdLocalFileSystem_doesFileExist)
 Bool StdLocalFileSystem::doesFileExist(const Char *filename) const {
-  std::filesystem::path path = fixFilenameFromWindowsPath(filename, 0);
+  std::filesystem::path path = resolveWithSearchPaths(filename, 0, m_searchPaths);
   if (path.empty()) {
     return FALSE;
   }
@@ -191,7 +241,6 @@ void StdLocalFileSystem::getFileListInDirectory(
     const AsciiString &searchName, FilenameList &filenameList,
     Bool searchSubdirectories) const {
 
-
   AsciiString asciisearch;
   asciisearch = originalDirectory;
   asciisearch.concat(currentDirectory);
@@ -201,7 +250,11 @@ void StdLocalFileSystem::getFileListInDirectory(
   }
 
   std::filesystem::path fixedPath =
-      fixFilenameFromWindowsPath(asciisearch.str(), 0);
+      resolveWithSearchPaths(asciisearch.str(), 0, m_searchPaths);
+  
+  fprintf(stderr, "StdLocalFileSystem::getFileListInDirectory - asciisearch: '%s', fixedPath: '%s'\n", 
+          asciisearch.str(), fixedPath.string().c_str());
+          
   if (fixedPath.empty()) {
     return;
   }
@@ -211,7 +264,6 @@ void StdLocalFileSystem::getFileListInDirectory(
   std::error_code ec;
 
   auto iter = std::filesystem::directory_iterator(fixedPath, ec);
-  // The default iterator constructor creates an end iterator
   done = iter == std::filesystem::directory_iterator();
 
   if (ec) {
@@ -221,15 +273,16 @@ void StdLocalFileSystem::getFileListInDirectory(
     return;
   }
 
+  int count = 0;
   while (!done) {
     std::string filenameStr = iter->path().filename().string();
     auto ext = iter->path().extension();
     bool extMatch = strcasecmp(ext.c_str(), searchExt.c_str()) == 0;
+    count++;
+    
     if (!iter->is_directory() && extMatch &&
         (strcmp(filenameStr.c_str(), ".") != 0 &&
          strcmp(filenameStr.c_str(), "..") != 0)) {
-      // if we haven't already, add this filename to the list.
-      // a stl set should only allow one copy of each filename
       std::string pathStr = iter->path().string();
       std::replace(pathStr.begin(), pathStr.end(), '/', '\\');
       AsciiString newFilename = pathStr.c_str();
@@ -241,6 +294,9 @@ void StdLocalFileSystem::getFileListInDirectory(
     iter++;
     done = iter == std::filesystem::directory_iterator();
   }
+  
+  fprintf(stderr, "StdLocalFileSystem::getFileListInDirectory - iterated %d items in %s, matched %d\n", 
+          count, fixedDirectory.c_str(), (int)filenameList.size());
 
   if (searchSubdirectories) {
     auto iter = std::filesystem::directory_iterator(fixedDirectory, ec);
@@ -277,7 +333,7 @@ void StdLocalFileSystem::getFileListInDirectory(
 
 Bool StdLocalFileSystem::getFileInfo(const AsciiString &filename,
                                      FileInfo *fileInfo) const {
-  std::filesystem::path path = fixFilenameFromWindowsPath(filename.str(), 0);
+  std::filesystem::path path = resolveWithSearchPaths(filename.str(), 0, m_searchPaths);
 
   if (path.empty()) {
     return FALSE;

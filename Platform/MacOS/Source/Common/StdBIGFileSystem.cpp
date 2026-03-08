@@ -40,6 +40,7 @@
 #endif
 
 #include "StdBIGFile.h"
+#include "StdLocalFileSystem.h"
 #include "StdBIGFileSystem.h"
 #include "Utility/endian_compat.h"
 
@@ -57,29 +58,44 @@ void StdBIGFileSystem::init() {
     return;
   }
 
-  printf("StdBIGFileSystem::init: calling loadBigFilesFromDirectory(\"\", "
-         "\"*.big\")...\n");
-  fflush(stdout);
-  loadBigFilesFromDirectory("", "*.big");
-  printf("StdBIGFileSystem::init: loadBigFilesFromDirectory returned.\n");
-  fflush(stdout);
+  StdLocalFileSystem* localFS = static_cast<StdLocalFileSystem*>(TheLocalFileSystem);
 
-#if RTS_ZEROHOUR
-  // load original Generals assets
-  // On macOS there's no registry, so use env var or relative path
   AsciiString installPath;
   const char* envPath = getenv("GENERALS_INSTALL_PATH");
   if (envPath && envPath[0]) {
     installPath = envPath;
-    fprintf(stderr, "StdBIGFileSystem::init - Generals InstallPath from env: '%s'\n", installPath.str());
+    fprintf(stderr, "StdBIGFileSystem::init - Base path from env: '%s'\n", installPath.str());
   } else {
     // Try common relative path
-    installPath = "../Command and Conquer - Generals/Command and Conquer Generals/";
-    fprintf(stderr, "StdBIGFileSystem::init - trying relative Generals path: '%s'\n", installPath.str());
+    installPath = "../Command and Conquer - Generals";
+    fprintf(stderr, "StdBIGFileSystem::init - trying relative Base path: '%s'\n", installPath.str());
   }
-  if (!installPath.isEmpty()) {
-    loadBigFilesFromDirectory(installPath, "*.big");
+
+  std::string baseStr = installPath.str();
+  if (!baseStr.empty() && baseStr.back() != '/' && baseStr.back() != '\\') {
+    baseStr += "/";
   }
+
+#if RTS_ZEROHOUR
+  std::string zhPath = baseStr + "Command and Conquer Generals Zero Hour";
+  fprintf(stderr, "StdBIGFileSystem::init - ZH path: '%s'\n", zhPath.c_str());
+  localFS->addSearchPath(zhPath.c_str());
+#else
+  std::string genPath = baseStr + "Command and Conquer Generals";
+  localFS->addSearchPath(genPath.c_str());
+#endif
+
+  loadBigFilesFromDirectory("", "*.big");
+
+#if RTS_ZEROHOUR
+  loadBigFilesFromDirectory(zhPath.c_str(), "*.big");
+
+  std::string genBasePath = baseStr + "Command and Conquer Generals";
+  fprintf(stderr, "StdBIGFileSystem::init - Generals Base Path: '%s'\n", genBasePath.c_str());
+  localFS->addSearchPath(genBasePath.c_str());
+  loadBigFilesFromDirectory(genBasePath.c_str(), "*.big");
+#else
+  loadBigFilesFromDirectory(genPath.c_str(), "*.big");
 #endif
 }
 

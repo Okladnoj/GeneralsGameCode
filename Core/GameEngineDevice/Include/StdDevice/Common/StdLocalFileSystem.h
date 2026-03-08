@@ -30,11 +30,18 @@
 
 #include "Common/LocalFileSystem.h"
 
+#include <string>
+#include <vector>
+
 class StdLocalFileSystem : public LocalFileSystem
 {
+	std::vector<std::string> m_searchPaths;
+
 public:
 	StdLocalFileSystem();
 	virtual ~StdLocalFileSystem();
+
+	void addSearchPath(const AsciiString& path);
 
 	virtual void init();
 	virtual void reset();

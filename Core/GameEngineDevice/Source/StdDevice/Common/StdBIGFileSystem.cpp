@@ -52,40 +52,68 @@ StdBIGFileSystem::~StdBIGFileSystem() {
 
 void StdBIGFileSystem::init() {
 	DEBUG_ASSERTCRASH(TheLocalFileSystem != nullptr, ("TheLocalFileSystem must be initialized before TheArchiveFileSystem."));
-	fprintf(stderr, "StdBIGFileSystem::init() - TheLocalFileSystem=%p\n", (void*)TheLocalFileSystem);
+	printf("StdBIGFileSystem::init() - TheLocalFileSystem=%p\n", (void*)TheLocalFileSystem);
+	fflush(stdout);
 	if (TheLocalFileSystem == nullptr) {
-		fprintf(stderr, "StdBIGFileSystem::init() - ABORT: TheLocalFileSystem is null!\n");
+		printf("StdBIGFileSystem::init() - ABORT: TheLocalFileSystem is null!\n");
+		fflush(stdout);
 		return;
 	}
 
-	fprintf(stderr, "StdBIGFileSystem::init() - loading .big files from root...\n");
-	loadBigFilesFromDirectory("", "*.big");
-	fprintf(stderr, "StdBIGFileSystem::init() - root loading done\n");
-
 #if RTS_ZEROHOUR
-    // load original Generals assets
     AsciiString installPath;
 #ifdef __APPLE__
     // On macOS there's no Windows registry, use env var or relative path
     const char* envPath = getenv("GENERALS_INSTALL_PATH");
     if (envPath && envPath[0]) {
         installPath = envPath;
-        fprintf(stderr, "StdBIGFileSystem::init() - Generals InstallPath from env: '%s'\n", installPath.str());
+        printf("StdBIGFileSystem::init() - Generals InstallPath from env: '%s'\n", installPath.str());
+        fflush(stdout);
     } else {
-        // Try common relative path (CWD is ZH dir, Generals is sibling)
-        installPath = "../Command and Conquer Generals/";
-        fprintf(stderr, "StdBIGFileSystem::init() - trying relative Generals path: '%s'\n", installPath.str());
+        // Try common relative path
+        installPath = "../Command and Conquer - Generals";
+        printf("StdBIGFileSystem::init() - trying relative Generals path: '%s'\n", installPath.str());
+        fflush(stdout);
+    }
+    
+    if (!installPath.isEmpty()) {
+        std::string baseStr = installPath.str();
+        if (baseStr.back() != '/' && baseStr.back() != '\\') {
+            baseStr += "/";
+        }
+        
+        std::string zhPath = baseStr + "Command and Conquer Generals Zero Hour";
+        printf("StdBIGFileSystem::init() - ZH path: '%s'\n", zhPath.c_str());
+        fflush(stdout);
+        TheLocalFileSystem->addSearchPath(zhPath.c_str());
+
+        std::string genBasePath = baseStr + "Command and Conquer Generals";
+        printf("StdBIGFileSystem::init() - Generals Base Path: '%s'\n", genBasePath.c_str());
+        fflush(stdout);
+        TheLocalFileSystem->addSearchPath(genBasePath.c_str());
+
+	printf("StdBIGFileSystem::init() - loading .big files from root...\n");
+	fflush(stdout);
+	loadBigFilesFromDirectory("", "*.big");
+	printf("StdBIGFileSystem::init() - root loading done\n");
+	fflush(stdout);
+
+        loadBigFilesFromDirectory(zhPath.c_str(), "*.big");
+        loadBigFilesFromDirectory(genBasePath.c_str(), "*.big");
     }
 #else
     GetStringFromGeneralsRegistry("", "InstallPath", installPath);
-    fprintf(stderr, "StdBIGFileSystem::init() - Generals InstallPath='%s'\n", installPath.str());
-#endif
+    printf("StdBIGFileSystem::init() - Generals InstallPath='%s'\n", installPath.str());
+    fflush(stdout);
     //@todo this will need to be ramped up to a crash for release
     DEBUG_ASSERTCRASH(!installPath.isEmpty(), ("Be 1337! Go install Generals!"));
     if (!installPath.isEmpty())
       loadBigFilesFromDirectory(installPath, "*.big");
 #endif
-	fprintf(stderr, "StdBIGFileSystem::init() - COMPLETE\n");
+#endif
+
+	printf("StdBIGFileSystem::init() - COMPLETE\n");
+	fflush(stdout);
 }
 
 void StdBIGFileSystem::reset() {

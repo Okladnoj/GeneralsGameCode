@@ -46,6 +46,7 @@ public:
 	virtual Bool getFileInfo(const AsciiString& filename, FileInfo *fileInfo) const = 0; ///< see FileSystem.h
 	virtual Bool createDirectory(AsciiString directory) = 0; ///< see FileSystem.h
 	virtual AsciiString normalizePath(const AsciiString& filePath) const = 0;	///< see FileSystem.h
+	virtual void addSearchPath(const AsciiString& path) {}	///< add directory to search path
 
 protected:
 };
