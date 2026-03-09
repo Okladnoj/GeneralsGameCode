@@ -7,6 +7,12 @@
 
 #include "GameClient/Mouse.h"
 
+#ifdef __OBJC__
+@class NSCursor;
+#else
+typedef void NSCursor;
+#endif
+
 class CameraClass;
 class RenderObjClass;
 class HAnimClass;
@@ -49,9 +55,14 @@ protected:
   unsigned int m_nextGetIndex;
 
 private:
-  // W3D 3D model cursor support
   void initW3DAssets();
   void freeW3DAssets();
+
+  void loadANICursors();
+  void freeANICursors();
+  int loadANIFrames(const char *path, NSCursor * __strong outCursors[], int maxFrames, int *outStepRatesMs, int *outCycleTotalMs);
+  NSCursor *parseCURData(uint8_t *iconData, int iconSize, int *outHotX, int *outHotY);
+  void setCursorDirection(MouseCursor cursor);
 
   CameraClass *m_w3dCamera;
   MouseCursor m_currentW3DCursor;
@@ -59,13 +70,18 @@ private:
   HAnimClass *m_cursorAnims[NUM_MOUSE_CURSORS];
   bool m_w3dAssetsLoaded;
 
+  NSCursor *m_nsCursors[NUM_MOUSE_CURSORS][MAX_2D_CURSOR_ANIM_FRAMES];
+  int m_nsCursorFrameCount[NUM_MOUSE_CURSORS];
+  int m_nsCursorStepRateMs[NUM_MOUSE_CURSORS][MAX_2D_CURSOR_ANIM_FRAMES];
+  int m_nsCursorCycleMs[NUM_MOUSE_CURSORS];
+  bool m_aniCursorsLoaded;
+  int m_directionFrame;
+
 public:
-  // This will be called from the macOS event loop bridge
   void addEvent(int type, int x, int y, int button, int wheelDelta,
                 unsigned int time);
 };
 
-// Types for bridge
 enum MacOSMouseEventType {
   MACOS_MOUSE_MOVE,
   MACOS_MOUSE_LBUTTON_DOWN,
