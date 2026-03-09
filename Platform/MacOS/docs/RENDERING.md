@@ -445,6 +445,39 @@ MacOSGameClient::update()  (callCount == 0)
 
 ---
 
+## Семплеры и фильтрация текстур (Texture Filtering)
+
+### TextureFilterCaps
+
+`MetalDevice8::GetDeviceCaps` заполняет `TextureFilterCaps` (POINT + LINEAR + ANISOTROPIC для min/mag/mip).
+Это нужно чтобы `TextureFilterClass::_Init_Filters` выставил `FILTER_TYPE_BEST = D3DTEXF_LINEAR`.
+
+> **Без `TextureFilterCaps`:**  `FILTER_TYPE_BEST = POINT`, `DEFAULT = BEST = POINT` →
+> shroud (туман войны) рендерится с POINT → квадратные блоки по краям видимости.
+
+### Проблема DEFAULT = BEST = LINEAR для DXT1 UI
+
+После заполнения `TextureFilterCaps` → `DEFAULT = BEST = LINEAR`. При этом `Render2DClass`
+использует `D3DFVF_XYZ` с identity-матрицами (не `XYZRHW`!) — его нельзя отличить от 3D в путях
+`Draw*`. DXT1 (BC1) кнопки меню получали LINEAR → видимые границы 4×4 блоков = вертикальные полосы.
+
+### Решение (три правки, `#ifdef __APPLE__`)
+
+| Файл | Правка | Эффект |
+|------|--------|--------|
+| `MetalDevice8::GetDeviceCaps` | Добавлен `TextureFilterCaps` | `FILTER_TYPE_BEST = LINEAR` работает |
+| `texturefilter.cpp` `_Init_Filters` | `#ifdef __APPLE__`: `DEFAULT = POINT` после всего init | Все текстуры по умолчанию POINT — кнопки без артефактов |
+| `ShroudTextureShader::set()` | `#ifdef __APPLE__`: прямой `SetTextureStageState(LINEAR)` | Туман войны получает LINEAR через явный вызов, обходя DEFAULT |
+
+**Почему на Windows это не было проблемой:**
+На Windows `GetDeviceCaps` / caps detector также давал `DEFAULT = LINEAR`, и кнопки тоже
+использовали LINEAR. Артефактов не было — потому что UI-текстуры там loaded как uncompressed
+(из `.tga` → `ARGB8`), а не DXT1. На macOS из-за `CheckDeviceFormat → D3D_OK` для всех форматов,
+DXT1 текстуры остаются DXT1, и bilinear на DXT1 даёт BC1-block artifacts.
+
+---
+
+
 ## Рендеринг виджетов UI (W3D Gadgets)
 
 ### Архитектура

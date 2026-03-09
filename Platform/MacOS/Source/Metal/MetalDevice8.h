@@ -310,7 +310,7 @@ private:
   void *GetDepthStencilState();
   void CreateDepthTexture(UINT width, UINT height);
   void ApplyPerDrawState();           // cull mode, depth/stencil
-  void *GetSamplerState(DWORD stage); // Stage 7: sampler cache
+  void *GetSamplerState(DWORD stage);      // sampler cache (filter from m_TextureStageStates)
 
   // --- Metal Render Pipeline State ---
   void *m_Library;                       // id<MTLLibrary>

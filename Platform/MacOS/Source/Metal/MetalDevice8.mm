@@ -866,6 +866,7 @@ void *MetalDevice8::GetSamplerState(DWORD stage) {
   return nullptr;
 }
 
+
 // ─────────────────────────────────────────────────────
 //  IUnknown
 // ─────────────────────────────────────────────────────
@@ -957,6 +958,14 @@ STDMETHODIMP MetalDevice8::GetDeviceCaps(D3DCAPS8 *pCaps) {
   pCaps->ZCmpCaps = 0xFF;
   pCaps->AlphaCmpCaps = 0xFF;
   pCaps->StencilCaps = 0xFF;
+  // TextureFilterCaps: lets _Init_Filters set FILTER_TYPE_BEST=LINEAR.
+  // FILTER_TYPE_DEFAULT is then overridden back to POINT in texturefilter.cpp (#ifdef __APPLE__)
+  // to prevent DXT1 BC1-block boundary artifacts on UI buttons drawn via Render2DClass.
+  pCaps->TextureFilterCaps =
+      D3DPTFILTERCAPS_MINFPOINT | D3DPTFILTERCAPS_MINFLINEAR |
+      D3DPTFILTERCAPS_MINFANISOTROPIC |
+      D3DPTFILTERCAPS_MAGFPOINT | D3DPTFILTERCAPS_MAGFLINEAR |
+      D3DPTFILTERCAPS_MIPFPOINT | D3DPTFILTERCAPS_MIPFLINEAR;
   return D3D_OK;
 }
 
@@ -2382,8 +2391,6 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
     } else if (s == 0) {
       DLOG_RFLOW(18, "BindTex stage=0 m_Textures=NULL");
     }
-    // Always bind a sampler (even if no texture) to avoid Metal validation
-    // errors
     void *samplerState = GetSamplerState(s);
     if (samplerState) {
       [MTL_ENCODER

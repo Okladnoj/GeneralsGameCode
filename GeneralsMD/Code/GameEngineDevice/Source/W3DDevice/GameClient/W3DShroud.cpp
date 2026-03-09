@@ -254,6 +254,10 @@ Bool W3DShroud::ReAcquireResources()
 		m_pDstTexture->Get_Filter().Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
 		m_pDstTexture->Get_Filter().Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
 		m_pDstTexture->Get_Filter().Set_Mip_Mapping(TextureFilterClass::FILTER_TYPE_NONE);
+		// macOS: DEFAULT filter is POINT (no TextureFilterCaps declared) to keep DXT1 UI crisp.
+		// Shroud texture needs LINEAR for smooth fog-of-war edges — set explicitly here.
+		m_pDstTexture->Get_Filter().Set_Mag_Filter(TextureFilterClass::FILTER_TYPE_BEST);
+		m_pDstTexture->Get_Filter().Set_Min_Filter(TextureFilterClass::FILTER_TYPE_BEST);
 		m_clearDstTexture = TRUE;	//force clearing of destination texture first time it's used.
 
 		return TRUE;

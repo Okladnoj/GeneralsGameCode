@@ -196,8 +196,18 @@ void TextureFilterClass::_Init_Filters(TextureFilterMode filter_type)
 		DX8Wrapper::Set_DX8_Texture_Stage_State(i,D3DTSS_MAXANISOTROPY,2);
 	}
 
-}
+#ifdef __APPLE__
+	// macOS: BEST=LINEAR (needed for smooth fog-of-war via explicit Set_Mag_Filter(FILTER_TYPE_BEST))
+	// but DEFAULT must remain POINT to avoid DXT1 BC1-block boundary artifacts on UI buttons
+	// (Render2DClass uses XYZ+identity and is not distinguishable from 3D in the sampler path).
+	for (i=0;i<MAX_TEXTURE_STAGES;++i) {
+		_MinTextureFilters[i][FILTER_TYPE_DEFAULT]=D3DTEXF_POINT;
+		_MagTextureFilters[i][FILTER_TYPE_DEFAULT]=D3DTEXF_POINT;
+		_MipMapFilters[i][FILTER_TYPE_DEFAULT]=D3DTEXF_POINT;
+	}
+#endif
 
+}
 
 //**********************************************************************************************
 //! Set mip mapping filter (legacy)

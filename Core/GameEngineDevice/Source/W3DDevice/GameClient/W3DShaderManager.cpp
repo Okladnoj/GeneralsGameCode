@@ -1225,6 +1225,13 @@ Int ShroudTextureShader::set(Int stage)
 	}
 	DX8Wrapper::Apply_Render_State_Changes();
 
+#ifdef __APPLE__
+	// macOS: FILTER_TYPE_DEFAULT=POINT to prevent DXT1 UI artifacts.
+	// Shroud texture needs LINEAR for smooth fog-of-war cell transitions.
+	DX8Wrapper::_Get_D3D_Device8()->SetTextureStageState(stage, D3DTSS_MAGFILTER, D3DTEXF_LINEAR);
+	DX8Wrapper::_Get_D3D_Device8()->SetTextureStageState(stage, D3DTSS_MINFILTER, D3DTEXF_LINEAR);
+#endif
+
 	DX8Wrapper::Set_DX8_Texture_Stage_State(stage,  D3DTSS_TEXCOORDINDEX, D3DTSS_TCI_CAMERASPACEPOSITION);
 	DX8Wrapper::Set_DX8_Texture_Stage_State(stage,  D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
 	DX8Wrapper::Set_DX8_Render_State(D3DRS_ZFUNC,D3DCMP_EQUAL);
