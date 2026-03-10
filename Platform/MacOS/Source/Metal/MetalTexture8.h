@@ -89,6 +89,12 @@ private:
   // TheSuperHackers @fix Cache surfaces per mip level (D3D8 behavior).
   // GetSurfaceLevel returns the same surface object with AddRef.
   std::map<UINT, class MetalSurface8*> m_CachedSurfaces;
+
+  // TheSuperHackers @perf Reusable format conversion buffer (grow-only).
+  // Avoids malloc/free per UnlockRect for R8G8B8, A4L4, 16-bit formats.
+  void *m_ConvertBuf = nullptr;
+  uint32_t m_ConvertBufSize = 0;
+  void EnsureConvertBuffer(uint32_t needed);
 };
 
 // Internal Helper for Format Mapping

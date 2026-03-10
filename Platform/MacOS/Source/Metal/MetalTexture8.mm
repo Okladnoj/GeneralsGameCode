@@ -139,11 +139,20 @@ MetalTexture8::~MetalTexture8() {
   }
 
   if (m_Texture) {
-    CFRelease(m_Texture); // Specific matching retain/release
+    CFRelease(m_Texture);
     m_Texture = nullptr;
   }
+  free(m_ConvertBuf);
   if (m_Device)
     m_Device->Release();
+}
+
+void MetalTexture8::EnsureConvertBuffer(uint32_t needed) {
+  if (m_ConvertBufSize >= needed)
+    return;
+  free(m_ConvertBuf);
+  m_ConvertBuf = malloc(needed);
+  m_ConvertBufSize = m_ConvertBuf ? needed : 0;
 }
 
 STDMETHODIMP MetalTexture8::QueryInterface(REFIID riid, void **ppvObj) {
@@ -394,32 +403,32 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
            bytesPerRow:bytesPerRow
          bytesPerImage:bytesPerImage];
   } else if (m_Format == D3DFMT_R8G8B8) {
-    // Convert 24-bit BGR to 32-bit BGRA (add alpha=255)
     UINT dstPitch = width * 4;
-    uint8_t *converted = (uint8_t *)malloc(dstPitch * height);
+    uint32_t needed = dstPitch * height;
+    EnsureConvertBuffer(needed);
+    uint8_t *converted = (uint8_t *)m_ConvertBuf;
     if (converted) {
       const uint8_t *src = (const uint8_t *)lvl.ptr;
       for (UINT y = 0; y < height; y++) {
         const uint8_t *srow = src + y * lvl.pitch;
         uint8_t *drow = converted + y * dstPitch;
         for (UINT x = 0; x < width; x++) {
-          drow[x * 4 + 0] = srow[x * 3 + 0]; // B
-          drow[x * 4 + 1] = srow[x * 3 + 1]; // G
-          drow[x * 4 + 2] = srow[x * 3 + 2]; // R
-          drow[x * 4 + 3] = 255;              // A
+          drow[x * 4 + 0] = srow[x * 3 + 0];
+          drow[x * 4 + 1] = srow[x * 3 + 1];
+          drow[x * 4 + 2] = srow[x * 3 + 2];
+          drow[x * 4 + 3] = 255;
         }
       }
       [tex replaceRegion:region
              mipmapLevel:Level
                withBytes:converted
              bytesPerRow:dstPitch];
-      free(converted);
     }
   } else if (m_Format == D3DFMT_A4L4) {
-    // Convert A4L4 (8-bit) to RG8Unorm (16-bit)
-    // Low 4 bits = luminance → R, high 4 bits = alpha → G
     UINT dstPitch = width * 2;
-    uint8_t *converted = (uint8_t *)malloc(dstPitch * height);
+    uint32_t needed = dstPitch * height;
+    EnsureConvertBuffer(needed);
+    uint8_t *converted = (uint8_t *)m_ConvertBuf;
     if (converted) {
       const uint8_t *src = (const uint8_t *)lvl.ptr;
       for (UINT y = 0; y < height; y++) {
@@ -427,15 +436,14 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
         uint8_t *drow = converted + y * dstPitch;
         for (UINT x = 0; x < width; x++) {
           uint8_t px = srow[x];
-          drow[x * 2 + 0] = (uint8_t)(((px     ) & 0x0F) * 255 / 15); // luminance
-          drow[x * 2 + 1] = (uint8_t)(((px >> 4) & 0x0F) * 255 / 15); // alpha
+          drow[x * 2 + 0] = (uint8_t)(((px     ) & 0x0F) * 255 / 15);
+          drow[x * 2 + 1] = (uint8_t)(((px >> 4) & 0x0F) * 255 / 15);
         }
       }
       [tex replaceRegion:region
              mipmapLevel:Level
                withBytes:converted
              bytesPerRow:dstPitch];
-      free(converted);
     }
   } else if (Is16BitFormat(m_Format)) {
     // Convert 16-bit source data to 32-bit BGRA8 before uploading to Metal
@@ -460,9 +468,10 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
   m_LockedLevels.erase(it);
   MarkWritten(); // sets m_HasBeenWritten + increments m_Generation for texture cache
 
-  // Auto-generate mipmaps for multi-level textures after writing to level 0.
-  // DX8 on Windows auto-generates mipmaps; Metal requires explicit blit commands.
-  // Without this, mip levels remain empty → trilinear filtering produces dark pixels.
+  // TheSuperHackers @perf Async mipmap generation.
+  // Metal guarantees command buffer ordering within a queue — the blit
+  // will complete before any subsequent render pass that uses this texture.
+  // No need for waitUntilCompleted (which was blocking CPU per texture).
   if (Level == 0 && m_Levels > 1 && m_Device && !isCompressed) {
     void *queuePtr = m_Device->GetMTLCommandQueue();
     if (queuePtr) {
@@ -473,7 +482,6 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
         [blit generateMipmapsForTexture:tex];
         [blit endEncoding];
         [cmdBuf commit];
-        [cmdBuf waitUntilCompleted];
       }
     }
   }
