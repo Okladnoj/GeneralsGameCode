@@ -664,6 +664,11 @@ TextureClass::TextureClass
 }
 
 
+// TheSuperHackers @perf Release cached SurfaceClass wrapper on destruction.
+TextureClass::~TextureClass()
+{
+	Invalidate_Cached_Surface();
+}
 
 // ----------------------------------------------------------------------------
 TextureClass::TextureClass
@@ -951,6 +956,9 @@ void TextureClass::Apply_New_Surface
 	bool disable_auto_invalidation
 )
 {
+	// TheSuperHackers @perf Invalidate cached SurfaceClass wrapper when D3D texture changes.
+	Invalidate_Cached_Surface();
+
 	static int s_applyCount = 0;
 	s_applyCount++;
 	if (s_applyCount <= 200) {
@@ -1030,12 +1038,34 @@ SurfaceClass *TextureClass::Get_Surface_Level(unsigned int level)
 		return nullptr;
 	}
 
+	// TheSuperHackers @perf Return cached SurfaceClass wrapper if available.
+	if (CachedSurface && CachedSurfaceLevel == level)
+	{
+		CachedSurface->Add_Ref();
+		return CachedSurface;
+	}
+
+	Invalidate_Cached_Surface();
+
 	IDirect3DSurface8 *d3d_surface = nullptr;
 	DX8_ErrorCode(Peek_D3D_Texture()->GetSurfaceLevel(level, &d3d_surface));
 	SurfaceClass *surface = new SurfaceClass(d3d_surface);
 	d3d_surface->Release();
 
+	CachedSurface = surface;
+	CachedSurface->Add_Ref();
+	CachedSurfaceLevel = level;
+
 	return surface;
+}
+
+void TextureClass::Invalidate_Cached_Surface()
+{
+	if (CachedSurface)
+	{
+		CachedSurface->Release_Ref();
+		CachedSurface = nullptr;
+	}
 }
 
 //**********************************************************************************************

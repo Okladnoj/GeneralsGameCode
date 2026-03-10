@@ -317,6 +317,7 @@ public:
 
 	virtual TexAssetType Get_Asset_Type() const { return TEX_REGULAR; }
 
+	virtual ~TextureClass();
 	virtual void Init();
 
 	// Background texture loader will call this when texture has been loaded
@@ -343,6 +344,12 @@ protected:
 
 	// legacy
 	TextureFilterClass	Filter;
+
+	// TheSuperHackers @perf Cached SurfaceClass wrapper per mip level.
+	// Avoids new/delete SurfaceClass on every Get_Surface_Level call.
+	SurfaceClass *CachedSurface = nullptr;
+	unsigned int CachedSurfaceLevel = 0;
+	void Invalidate_Cached_Surface();
 };
 
 class ZTextureClass : public TextureBaseClass
