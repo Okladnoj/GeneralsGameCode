@@ -309,8 +309,10 @@ private:
   uint64_t BuildPSOKey(DWORD fvf, UINT stride); // computes PSO cache key
   void *GetDepthStencilState();
   void CreateDepthTexture(UINT width, UINT height);
-  void ApplyPerDrawState();           // cull mode, depth/stencil
-  void *GetSamplerState(DWORD stage);      // sampler cache (filter from m_TextureStageStates)
+  void ApplyPerDrawState();
+  void *GetSamplerState(DWORD stage);
+  void BindUniforms(DWORD fvf);
+  void BindCustomVSUniforms();
 
   // --- Metal Render Pipeline State ---
   void *m_Library;                       // id<MTLLibrary>

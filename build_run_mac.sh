@@ -9,8 +9,8 @@
 
 # ── Game Command-Line Flags ──
 # Toggle on/off: true = pass to game, false = skip
-GAME_FLAG_NOSHELLMAP=true
-GAME_FLAG_QUICKSTART=true
+GAME_FLAG_NOSHELLMAP=false
+GAME_FLAG_QUICKSTART=false
 GAME_FLAG_NOAUDIO=false
 GAME_FLAG_WIN=false
 GAME_FLAG_XRES=""       # e.g. "1024"

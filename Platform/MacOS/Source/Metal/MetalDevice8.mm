@@ -832,6 +832,178 @@ void MetalDevice8::ApplyPerDrawState() {
   }
 }
 
+void MetalDevice8::BindUniforms(DWORD fvf) {
+  MetalUniforms u;
+  memcpy(&u.world, &m_Transforms[D3DTS_WORLD], 64);
+  memcpy(&u.view, &m_Transforms[D3DTS_VIEW], 64);
+  memcpy(&u.projection, &m_Transforms[D3DTS_PROJECTION], 64);
+  u.screenSize.x = m_ScreenWidth;
+  u.screenSize.y = m_ScreenHeight;
+  u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
+  u.shaderSettings = 0;
+  for (int s = 0; s < 4; ++s) {
+    memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
+    u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
+  }
+  [MTL_ENCODER setVertexBytes:&u length:sizeof(u) atIndex:1];
+  [MTL_ENCODER setFragmentBytes:&u length:sizeof(u) atIndex:1];
+
+  FragmentUniforms fu;
+  memset(&fu, 0, sizeof(fu));
+  for (int s = 0; s < 4; s++) {
+    fu.stages[s].colorOp = m_TextureStageStates[s][D3DTSS_COLOROP];
+    fu.stages[s].colorArg1 = m_TextureStageStates[s][D3DTSS_COLORARG1];
+    fu.stages[s].colorArg2 = m_TextureStageStates[s][D3DTSS_COLORARG2];
+    fu.stages[s].alphaOp = m_TextureStageStates[s][D3DTSS_ALPHAOP];
+    fu.stages[s].alphaArg1 = m_TextureStageStates[s][D3DTSS_ALPHAARG1];
+    fu.stages[s].alphaArg2 = m_TextureStageStates[s][D3DTSS_ALPHAARG2];
+    fu.stages[s].colorArg0 = m_TextureStageStates[s][D3DTSS_COLORARG0];
+  }
+  DWORD tf = m_RenderStates[D3DRS_TEXTUREFACTOR];
+  fu.textureFactor.x = ((tf >> 16) & 0xFF) / 255.0f;
+  fu.textureFactor.y = ((tf >> 8) & 0xFF) / 255.0f;
+  fu.textureFactor.z = ((tf >> 0) & 0xFF) / 255.0f;
+  fu.textureFactor.w = ((tf >> 24) & 0xFF) / 255.0f;
+  fu.alphaTestEnable = m_RenderStates[D3DRS_ALPHATESTENABLE];
+  fu.alphaFunc = m_RenderStates[D3DRS_ALPHAFUNC];
+  fu.alphaRef = m_RenderStates[D3DRS_ALPHAREF] / 255.0f;
+  {
+    DWORD fogEnable = m_RenderStates[D3DRS_FOGENABLE];
+    if (fogEnable) {
+      uint32_t mode = m_RenderStates[D3DRS_FOGTABLEMODE];
+      if (mode == D3DFOG_NONE)
+        mode = m_RenderStates[D3DRS_FOGVERTEXMODE];
+      fu.fogMode = mode;
+    } else {
+      fu.fogMode = 0;
+    }
+    DWORD fc = m_RenderStates[D3DRS_FOGCOLOR];
+    fu.fogColor =
+        simd::float4{((fc >> 16) & 0xFF) / 255.0f, ((fc >> 8) & 0xFF) / 255.0f,
+                     ((fc >> 0) & 0xFF) / 255.0f, ((fc >> 24) & 0xFF) / 255.0f};
+    memcpy(&fu.fogStart, &m_RenderStates[D3DRS_FOGSTART], 4);
+    memcpy(&fu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
+    memcpy(&fu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
+  }
+  for (int s = 0; s < 4; ++s) {
+    fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
+  }
+  fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
+  fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
+  for (int s = 0; s < 4; ++s) {
+    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX];
+    fu.texFormatType[s] = 0;
+    if (m_Textures[s]) {
+      D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
+      if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
+        fu.texFormatType[s] = 1;
+      } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
+        fu.texFormatType[s] = 2;
+      } else if (fmt == D3DFMT_DXT1) {
+        fu.texFormatType[s] = 3;
+      }
+    }
+  }
+  [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
+
+  LightingUniforms lu;
+  memset(&lu, 0, sizeof(lu));
+  for (int i = 0; i < MAX_LIGHTS; i++) {
+    lu.lights[i].enabled = m_LightEnabled[i] ? 1 : 0;
+    if (m_LightEnabled[i]) {
+      const D3DLIGHT8 &l = m_Lights[i];
+      lu.lights[i].type = (uint32_t)l.Type;
+      lu.lights[i].diffuse =
+          simd::float4{l.Diffuse.r, l.Diffuse.g, l.Diffuse.b, l.Diffuse.a};
+      lu.lights[i].ambient =
+          simd::float4{l.Ambient.r, l.Ambient.g, l.Ambient.b, l.Ambient.a};
+      lu.lights[i].specular =
+          simd::float4{l.Specular.r, l.Specular.g, l.Specular.b, l.Specular.a};
+      lu.lights[i].position =
+          simd::float3{l.Position.x, l.Position.y, l.Position.z};
+      lu.lights[i].direction =
+          simd::float3{l.Direction.x, l.Direction.y, l.Direction.z};
+      lu.lights[i].range = l.Range;
+      lu.lights[i].falloff = l.Falloff;
+      lu.lights[i].attenuation0 = l.Attenuation0;
+      lu.lights[i].attenuation1 = l.Attenuation1;
+      lu.lights[i].attenuation2 = l.Attenuation2;
+      lu.lights[i].theta = l.Theta;
+      lu.lights[i].phi = l.Phi;
+    }
+  }
+  lu.materialDiffuse = simd::float4{m_Material.Diffuse.r, m_Material.Diffuse.g,
+                                    m_Material.Diffuse.b, m_Material.Diffuse.a};
+  lu.materialAmbient = simd::float4{m_Material.Ambient.r, m_Material.Ambient.g,
+                                    m_Material.Ambient.b, m_Material.Ambient.a};
+  lu.materialSpecular =
+      simd::float4{m_Material.Specular.r, m_Material.Specular.g,
+                   m_Material.Specular.b, m_Material.Specular.a};
+  lu.materialEmissive =
+      simd::float4{m_Material.Emissive.r, m_Material.Emissive.g,
+                   m_Material.Emissive.b, m_Material.Emissive.a};
+  lu.materialPower = m_Material.Power;
+  DWORD ga = m_RenderStates[D3DRS_AMBIENT];
+  lu.globalAmbient =
+      simd::float4{((ga >> 16) & 0xFF) / 255.0f, ((ga >> 8) & 0xFF) / 255.0f,
+                   ((ga >> 0) & 0xFF) / 255.0f, ((ga >> 24) & 0xFF) / 255.0f};
+  lu.lightingEnabled = m_RenderStates[D3DRS_LIGHTING];
+  lu.diffuseSource = m_RenderStates[D3DRS_DIFFUSEMATERIALSOURCE];
+  lu.ambientSource = m_RenderStates[D3DRS_AMBIENTMATERIALSOURCE];
+  lu.specularSource = m_RenderStates[D3DRS_SPECULARMATERIALSOURCE];
+  lu.emissiveSource = m_RenderStates[D3DRS_EMISSIVEMATERIALSOURCE];
+  lu.hasNormals = (fvf & D3DFVF_NORMAL) ? 1 : 0;
+  {
+    DWORD fogEnable = m_RenderStates[D3DRS_FOGENABLE];
+    if (fogEnable) {
+      uint32_t mode = m_RenderStates[D3DRS_FOGTABLEMODE];
+      if (mode == D3DFOG_NONE)
+        mode = m_RenderStates[D3DRS_FOGVERTEXMODE];
+      lu.fogMode = mode;
+    } else {
+      lu.fogMode = 0;
+    }
+    memcpy(&lu.fogStart, &m_RenderStates[D3DRS_FOGSTART], 4);
+    memcpy(&lu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
+    memcpy(&lu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
+  }
+  [MTL_ENCODER setVertexBytes:&lu length:sizeof(lu) atIndex:3];
+}
+
+void MetalDevice8::BindCustomVSUniforms() {
+  CustomVSUniforms cvu;
+  memset(&cvu, 0, sizeof(cvu));
+  if (m_VertexShader & 0x80000000) {
+    auto it = m_VSHandleMap.find(m_VertexShader);
+    if (it != m_VSHandleMap.end()) {
+      cvu.shaderType = it->second.shaderType;
+    }
+    for (int r = 0; r < 34; ++r) {
+      cvu.c[r] = simd::float4{m_VSConstants[r][0], m_VSConstants[r][1],
+                              m_VSConstants[r][2], m_VSConstants[r][3]};
+    }
+  }
+  [MTL_ENCODER setVertexBytes:&cvu length:sizeof(cvu) atIndex:4];
+
+  struct {
+    uint32_t psType;
+    uint32_t _pad[3];
+    simd::float4 c[8];
+  } psu;
+  memset(&psu, 0, sizeof(psu));
+  if (m_PixelShader != 0) {
+    auto it = m_PSHandleMap.find(m_PixelShader);
+    if (it != m_PSHandleMap.end()) {
+      psu.psType = it->second.psType;
+    }
+    for (int r = 0; r < MAX_PS_CONSTANTS; ++r) {
+      psu.c[r] = simd::float4{m_PSConstants[r][0], m_PSConstants[r][1],
+                              m_PSConstants[r][2], m_PSConstants[r][3]};
+    }
+  }
+  [MTL_ENCODER setFragmentBytes:&psu length:sizeof(psu) atIndex:5];
+}
+
 // ─────────────────────────────────────────────────────
 //  Stage 7: Get or Create MTLSamplerState for a texture stage
 // ─────────────────────────────────────────────────────
@@ -2209,177 +2381,9 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
                          atIndex:30];
   }
 
-  // 4. Bind Vertex Uniforms (buffer 1)
-  MetalUniforms u;
-  memcpy(&u.world, &m_Transforms[D3DTS_WORLD], 64);
-  memcpy(&u.view, &m_Transforms[D3DTS_VIEW], 64);
-  memcpy(&u.projection, &m_Transforms[D3DTS_PROJECTION], 64);
-  u.screenSize.x = m_ScreenWidth;
-  u.screenSize.y = m_ScreenHeight;
-  u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
-  u.shaderSettings = 0; // legacy (unused by new shader)
 
-  // Texture transform matrices and flags
-  for (int s = 0; s < 4; ++s) {
-    memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
-    u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
-  }
-
-  [MTL_ENCODER setVertexBytes:&u length:sizeof(u) atIndex:1];
-  [MTL_ENCODER setFragmentBytes:&u length:sizeof(u) atIndex:1];
-
-  // 5. Build Fragment Uniforms (buffer 2) — Stage 7 TSS
-  FragmentUniforms fu;
-  memset(&fu, 0, sizeof(fu));
-
-  // Copy TSS config for stages 0 to 3
-  for (int s = 0; s < 4; s++) {
-    fu.stages[s].colorOp = m_TextureStageStates[s][D3DTSS_COLOROP];
-    fu.stages[s].colorArg1 = m_TextureStageStates[s][D3DTSS_COLORARG1];
-    fu.stages[s].colorArg2 = m_TextureStageStates[s][D3DTSS_COLORARG2];
-    fu.stages[s].alphaOp = m_TextureStageStates[s][D3DTSS_ALPHAOP];
-    fu.stages[s].alphaArg1 = m_TextureStageStates[s][D3DTSS_ALPHAARG1];
-    fu.stages[s].alphaArg2 = m_TextureStageStates[s][D3DTSS_ALPHAARG2];
-    fu.stages[s].colorArg0 = m_TextureStageStates[s][D3DTSS_COLORARG0];
-  }
-
-  // Texture Factor (ARGB DWORD -> float4 RGBA)
-  DWORD tf = m_RenderStates[D3DRS_TEXTUREFACTOR];
-  fu.textureFactor.x = ((tf >> 16) & 0xFF) / 255.0f; // R
-  fu.textureFactor.y = ((tf >> 8) & 0xFF) / 255.0f;  // G
-  fu.textureFactor.z = ((tf >> 0) & 0xFF) / 255.0f;  // B
-  fu.textureFactor.w = ((tf >> 24) & 0xFF) / 255.0f; // A
-
-  // Alpha Test
-  fu.alphaTestEnable = m_RenderStates[D3DRS_ALPHATESTENABLE];
-  fu.alphaFunc = m_RenderStates[D3DRS_ALPHAFUNC];
-  fu.alphaRef = m_RenderStates[D3DRS_ALPHAREF] / 255.0f;
-
-  // Fog — Stage 9
-  {
-    DWORD fogEnable = m_RenderStates[D3DRS_FOGENABLE];
-    if (fogEnable) {
-      // Determine fog mode: prefer table fog, fall back to vertex fog
-      uint32_t mode = m_RenderStates[D3DRS_FOGTABLEMODE];
-      if (mode == D3DFOG_NONE) {
-        mode = m_RenderStates[D3DRS_FOGVERTEXMODE];
-      }
-      fu.fogMode = mode; // 0=NONE, 1=EXP, 2=EXP2, 3=LINEAR
-    } else {
-      fu.fogMode = 0;
-    }
-    // Fog color (ARGB DWORD -> float4 RGBA)
-    DWORD fc = m_RenderStates[D3DRS_FOGCOLOR];
-    fu.fogColor =
-        simd::float4{((fc >> 16) & 0xFF) / 255.0f, ((fc >> 8) & 0xFF) / 255.0f,
-                     ((fc >> 0) & 0xFF) / 255.0f, ((fc >> 24) & 0xFF) / 255.0f};
-    // Fog start/end/density are stored as DWORD bit-casts of float
-    memcpy(&fu.fogStart, &m_RenderStates[D3DRS_FOGSTART], 4);
-    memcpy(&fu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
-    memcpy(&fu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
-  }
-
-  // Texture presence flags
-  for (int s = 0; s < 4; ++s) {
-    fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
-  }
-  fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
-  fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
-
-
-  // Texture coordinate index and luminance format flags
-  for (int s = 0; s < 4; ++s) {
-    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value: bits 0-1=UV set, bits 16-17=TCI mode
-    fu.texFormatType[s] = 0;
-    if (m_Textures[s]) {
-      D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
-      if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
-        fu.texFormatType[s] = 1; // RGB = r, A = 1.0 (from R8Unorm)
-      } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
-        fu.texFormatType[s] = 2; // RGB = r, A = g (from RG8Unorm)
-      } else if (fmt == D3DFMT_DXT1) {
-        fu.texFormatType[s] = 3; // DXT1/BC1 — may have empty black blocks
-      }
-    } 
-  }
-
-
-  [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
-
-  // 5b. Build Lighting Uniforms (buffer 3) — Stage 8 Lighting
-  LightingUniforms lu;
-  memset(&lu, 0, sizeof(lu));
-
-  for (int i = 0; i < MAX_LIGHTS; i++) {
-    lu.lights[i].enabled = m_LightEnabled[i] ? 1 : 0;
-    if (m_LightEnabled[i]) {
-      const D3DLIGHT8 &l = m_Lights[i];
-      lu.lights[i].type = (uint32_t)l.Type;
-      lu.lights[i].diffuse =
-          simd::float4{l.Diffuse.r, l.Diffuse.g, l.Diffuse.b, l.Diffuse.a};
-      lu.lights[i].ambient =
-          simd::float4{l.Ambient.r, l.Ambient.g, l.Ambient.b, l.Ambient.a};
-      lu.lights[i].specular =
-          simd::float4{l.Specular.r, l.Specular.g, l.Specular.b, l.Specular.a};
-      lu.lights[i].position =
-          simd::float3{l.Position.x, l.Position.y, l.Position.z};
-      lu.lights[i].direction =
-          simd::float3{l.Direction.x, l.Direction.y, l.Direction.z};
-      lu.lights[i].range = l.Range;
-      lu.lights[i].falloff = l.Falloff;
-      lu.lights[i].attenuation0 = l.Attenuation0;
-      lu.lights[i].attenuation1 = l.Attenuation1;
-      lu.lights[i].attenuation2 = l.Attenuation2;
-      lu.lights[i].theta = l.Theta;
-      lu.lights[i].phi = l.Phi;
-    }
-  }
-
-  // Material
-  lu.materialDiffuse = simd::float4{m_Material.Diffuse.r, m_Material.Diffuse.g,
-                                    m_Material.Diffuse.b, m_Material.Diffuse.a};
-  lu.materialAmbient = simd::float4{m_Material.Ambient.r, m_Material.Ambient.g,
-                                    m_Material.Ambient.b, m_Material.Ambient.a};
-  lu.materialSpecular =
-      simd::float4{m_Material.Specular.r, m_Material.Specular.g,
-                   m_Material.Specular.b, m_Material.Specular.a};
-  lu.materialEmissive =
-      simd::float4{m_Material.Emissive.r, m_Material.Emissive.g,
-                   m_Material.Emissive.b, m_Material.Emissive.a};
-  lu.materialPower = m_Material.Power;
-
-  // Global ambient: D3DRS_AMBIENT is an ARGB DWORD
-  DWORD ga = m_RenderStates[D3DRS_AMBIENT];
-  lu.globalAmbient =
-      simd::float4{((ga >> 16) & 0xFF) / 255.0f, ((ga >> 8) & 0xFF) / 255.0f,
-                   ((ga >> 0) & 0xFF) / 255.0f, ((ga >> 24) & 0xFF) / 255.0f};
-
-  // Lighting enable
-  lu.lightingEnabled = m_RenderStates[D3DRS_LIGHTING];
-  lu.diffuseSource = m_RenderStates[D3DRS_DIFFUSEMATERIALSOURCE];
-  lu.ambientSource = m_RenderStates[D3DRS_AMBIENTMATERIALSOURCE];
-  lu.specularSource = m_RenderStates[D3DRS_SPECULARMATERIALSOURCE];
-  lu.emissiveSource = m_RenderStates[D3DRS_EMISSIVEMATERIALSOURCE];
-  lu.hasNormals = (fvf & D3DFVF_NORMAL) ? 1 : 0;
-
-  // Fog parameters for vertex fog computation (Stage 9)
-  {
-    DWORD fogEnable = m_RenderStates[D3DRS_FOGENABLE];
-    if (fogEnable) {
-      uint32_t mode = m_RenderStates[D3DRS_FOGTABLEMODE];
-      if (mode == D3DFOG_NONE) {
-        mode = m_RenderStates[D3DRS_FOGVERTEXMODE];
-      }
-      lu.fogMode = mode;
-    } else {
-      lu.fogMode = 0;
-    }
-    memcpy(&lu.fogStart, &m_RenderStates[D3DRS_FOGSTART], 4);
-    memcpy(&lu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
-    memcpy(&lu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
-  }
-
-  [MTL_ENCODER setVertexBytes:&lu length:sizeof(lu) atIndex:3];
+  BindUniforms(fvf);
+  BindCustomVSUniforms();
 
   // 6. Bind Textures and Samplers
   for (int s = 0; s < 4; s++) {
@@ -2471,213 +2475,8 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
                          atIndex:30];
   }
 
-  // 4. Bind Vertex Uniforms (buffer 1)
-  MetalUniforms u;
-  memcpy(&u.world, &m_Transforms[D3DTS_WORLD], 64);
-  memcpy(&u.view, &m_Transforms[D3DTS_VIEW], 64);
-  memcpy(&u.projection, &m_Transforms[D3DTS_PROJECTION], 64);
-  u.screenSize.x = m_ScreenWidth;
-  u.screenSize.y = m_ScreenHeight;
-  u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
-  u.shaderSettings = 0; // legacy
-
-  // Texture transform matrices and flags
-  for (int s = 0; s < 4; ++s) {
-    memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
-    u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
-  }
-
-
-
-
-  [MTL_ENCODER setVertexBytes:&u length:sizeof(u) atIndex:1];
-  [MTL_ENCODER setFragmentBytes:&u length:sizeof(u) atIndex:1];
-
-  // 5. Build Fragment Uniforms (buffer 2) — Stage 7 TSS
-  FragmentUniforms fu;
-  memset(&fu, 0, sizeof(fu));
-  for (int s = 0; s < 4; s++) {
-    fu.stages[s].colorOp = m_TextureStageStates[s][D3DTSS_COLOROP];
-    fu.stages[s].colorArg1 = m_TextureStageStates[s][D3DTSS_COLORARG1];
-    fu.stages[s].colorArg2 = m_TextureStageStates[s][D3DTSS_COLORARG2];
-    fu.stages[s].alphaOp = m_TextureStageStates[s][D3DTSS_ALPHAOP];
-    fu.stages[s].alphaArg1 = m_TextureStageStates[s][D3DTSS_ALPHAARG1];
-    fu.stages[s].alphaArg2 = m_TextureStageStates[s][D3DTSS_ALPHAARG2];
-    fu.stages[s].colorArg0 = m_TextureStageStates[s][D3DTSS_COLORARG0];
-  }
-  DWORD tf = m_RenderStates[D3DRS_TEXTUREFACTOR];
-  fu.textureFactor.x = ((tf >> 16) & 0xFF) / 255.0f;
-  fu.textureFactor.y = ((tf >> 8) & 0xFF) / 255.0f;
-  fu.textureFactor.z = ((tf >> 0) & 0xFF) / 255.0f;
-  fu.textureFactor.w = ((tf >> 24) & 0xFF) / 255.0f;
-  fu.alphaTestEnable = m_RenderStates[D3DRS_ALPHATESTENABLE];
-  fu.alphaFunc = m_RenderStates[D3DRS_ALPHAFUNC];
-  fu.alphaRef = m_RenderStates[D3DRS_ALPHAREF] / 255.0f;
-  // Fog — Stage 9
-  {
-    DWORD fogEnable = m_RenderStates[D3DRS_FOGENABLE];
-    if (fogEnable) {
-      uint32_t mode = m_RenderStates[D3DRS_FOGTABLEMODE];
-      if (mode == D3DFOG_NONE) {
-        mode = m_RenderStates[D3DRS_FOGVERTEXMODE];
-      }
-      fu.fogMode = mode;
-    } else {
-      fu.fogMode = 0;
-    }
-    DWORD fc = m_RenderStates[D3DRS_FOGCOLOR];
-    fu.fogColor =
-        simd::float4{((fc >> 16) & 0xFF) / 255.0f, ((fc >> 8) & 0xFF) / 255.0f,
-                     ((fc >> 0) & 0xFF) / 255.0f, ((fc >> 24) & 0xFF) / 255.0f};
-    memcpy(&fu.fogStart, &m_RenderStates[D3DRS_FOGSTART], 4);
-    memcpy(&fu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
-    memcpy(&fu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
-  }
-  for (int s = 0; s < 4; ++s) {
-    fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
-  }
-  fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
-  fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
-
-
-  // Texture coordinate index and luminance format flags
-  for (int s = 0; s < 4; ++s) {
-    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value incl TCI bits
-    fu.texFormatType[s] = 0;
-    if (m_Textures[s]) {
-      D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
-      if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
-        fu.texFormatType[s] = 1; // RGB = r, A = 1.0 (from R8Unorm)
-      } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
-        fu.texFormatType[s] = 2; // RGB = r, A = g (from RG8Unorm)
-      } else if (fmt == D3DFMT_DXT1) {
-        fu.texFormatType[s] = 3; // DXT1/BC1 — may have empty black blocks
-      }
-    }
-  }
-
-  [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
-
-  // 5b. Build Lighting Uniforms (buffer 3) — Stage 8 Lighting
-  LightingUniforms lu;
-  memset(&lu, 0, sizeof(lu));
-  for (int i = 0; i < MAX_LIGHTS; i++) {
-    lu.lights[i].enabled = m_LightEnabled[i] ? 1 : 0;
-    if (m_LightEnabled[i]) {
-      const D3DLIGHT8 &l = m_Lights[i];
-      lu.lights[i].type = (uint32_t)l.Type;
-      lu.lights[i].diffuse =
-          simd::float4{l.Diffuse.r, l.Diffuse.g, l.Diffuse.b, l.Diffuse.a};
-      lu.lights[i].ambient =
-          simd::float4{l.Ambient.r, l.Ambient.g, l.Ambient.b, l.Ambient.a};
-      lu.lights[i].specular =
-          simd::float4{l.Specular.r, l.Specular.g, l.Specular.b, l.Specular.a};
-      lu.lights[i].position =
-          simd::float3{l.Position.x, l.Position.y, l.Position.z};
-      lu.lights[i].direction =
-          simd::float3{l.Direction.x, l.Direction.y, l.Direction.z};
-      lu.lights[i].range = l.Range;
-      lu.lights[i].falloff = l.Falloff;
-      lu.lights[i].attenuation0 = l.Attenuation0;
-      lu.lights[i].attenuation1 = l.Attenuation1;
-      lu.lights[i].attenuation2 = l.Attenuation2;
-      lu.lights[i].theta = l.Theta;
-      lu.lights[i].phi = l.Phi;
-    }
-  }
-  lu.materialDiffuse = simd::float4{m_Material.Diffuse.r, m_Material.Diffuse.g,
-                                    m_Material.Diffuse.b, m_Material.Diffuse.a};
-  lu.materialAmbient = simd::float4{m_Material.Ambient.r, m_Material.Ambient.g,
-                                    m_Material.Ambient.b, m_Material.Ambient.a};
-  lu.materialSpecular =
-      simd::float4{m_Material.Specular.r, m_Material.Specular.g,
-                   m_Material.Specular.b, m_Material.Specular.a};
-  lu.materialEmissive =
-      simd::float4{m_Material.Emissive.r, m_Material.Emissive.g,
-                   m_Material.Emissive.b, m_Material.Emissive.a};
-  lu.materialPower = m_Material.Power;
-  DWORD ga2 = m_RenderStates[D3DRS_AMBIENT];
-  lu.globalAmbient =
-      simd::float4{((ga2 >> 16) & 0xFF) / 255.0f, ((ga2 >> 8) & 0xFF) / 255.0f,
-                   ((ga2 >> 0) & 0xFF) / 255.0f, ((ga2 >> 24) & 0xFF) / 255.0f};
-  lu.lightingEnabled = m_RenderStates[D3DRS_LIGHTING];
-  lu.diffuseSource = m_RenderStates[D3DRS_DIFFUSEMATERIALSOURCE];
-  lu.ambientSource = m_RenderStates[D3DRS_AMBIENTMATERIALSOURCE];
-  lu.specularSource = m_RenderStates[D3DRS_SPECULARMATERIALSOURCE];
-  lu.emissiveSource = m_RenderStates[D3DRS_EMISSIVEMATERIALSOURCE];
-  lu.hasNormals = (fvf & D3DFVF_NORMAL) ? 1 : 0;
-
-  // Fog parameters for vertex fog computation (Stage 9)
-  {
-    DWORD fogEnable = m_RenderStates[D3DRS_FOGENABLE];
-    if (fogEnable) {
-      uint32_t mode = m_RenderStates[D3DRS_FOGTABLEMODE];
-      if (mode == D3DFOG_NONE) {
-        mode = m_RenderStates[D3DRS_FOGVERTEXMODE];
-      }
-      lu.fogMode = mode;
-    } else {
-      lu.fogMode = 0;
-    }
-    memcpy(&lu.fogStart, &m_RenderStates[D3DRS_FOGSTART], 4);
-    memcpy(&lu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
-    memcpy(&lu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
-  }
-
-
-
-
-  [MTL_ENCODER setVertexBytes:&lu length:sizeof(lu) atIndex:3];
-
-  // 6b. Bind Custom VS Uniforms (buffer 4) — when custom vertex shader is active
-  {
-    CustomVSUniforms cvu;
-    memset(&cvu, 0, sizeof(cvu));
-    if (m_VertexShader & 0x80000000) {
-      auto it = m_VSHandleMap.find(m_VertexShader);
-      if (it != m_VSHandleMap.end()) {
-        cvu.shaderType = it->second.shaderType;
-      }
-      // Copy VS constant registers c0..c33
-      for (int r = 0; r < 34; ++r) {
-        cvu.c[r] = simd::float4{m_VSConstants[r][0], m_VSConstants[r][1],
-                                m_VSConstants[r][2], m_VSConstants[r][3]};
-      }
-    }
-    [MTL_ENCODER setVertexBytes:&cvu length:sizeof(cvu) atIndex:4];
-  }
-
-  // 6c. Bind Custom PS Uniforms (buffer 5) — when custom pixel shader is active
-  {
-    struct {
-      uint32_t psType;
-      uint32_t _pad[3];
-      simd::float4 c[8];
-    } psu;
-    memset(&psu, 0, sizeof(psu));
-
-    if (m_PixelShader != 0) {
-      auto it = m_PSHandleMap.find(m_PixelShader);
-      if (it != m_PSHandleMap.end()) {
-        psu.psType = it->second.psType;
-        static int psDrawCount = 0;
-        if (psDrawCount < 5) {
-          printf("[PS] DRAW with PS active! handle=0x%x type=%u\n",
-                  m_PixelShader, psu.psType);
-          fflush(stdout);
-        }
-        psDrawCount++;
-      }
-      // Copy PS constant registers c0..c7
-      for (int r = 0; r < MAX_PS_CONSTANTS; ++r) {
-        psu.c[r] = simd::float4{m_PSConstants[r][0], m_PSConstants[r][1],
-                                m_PSConstants[r][2], m_PSConstants[r][3]};
-      }
-    }
-    [MTL_ENCODER setFragmentBytes:&psu length:sizeof(psu) atIndex:5];
-  }
-
-  // 7. Bind Textures and Samplers
+  BindUniforms(fvf);
+  BindCustomVSUniforms();
   for (int s = 0; s < 4; s++) {
     if (m_Textures[s]) {
       MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
@@ -2862,142 +2661,9 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
                          atIndex:30];
   }
 
-  // Uniforms, fragment uniforms, lighting — same as DrawPrimitive
-  MetalUniforms u;
-  memcpy(&u.world, &m_Transforms[D3DTS_WORLD], 64);
-  memcpy(&u.view, &m_Transforms[D3DTS_VIEW], 64);
-  memcpy(&u.projection, &m_Transforms[D3DTS_PROJECTION], 64);
-  u.screenSize.x = m_ScreenWidth;
-  u.screenSize.y = m_ScreenHeight;
-  u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
-  u.shaderSettings = 0;
 
-  // Texture transform matrices and flags
-  for (int s = 0; s < 4; ++s) {
-    memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
-    u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
-  }
-  [MTL_ENCODER setVertexBytes:&u length:sizeof(u) atIndex:1];
-  [MTL_ENCODER setFragmentBytes:&u length:sizeof(u) atIndex:1];
-
-  // Fragment Uniforms
-  FragmentUniforms fu;
-  memset(&fu, 0, sizeof(fu));
-  for (int s = 0; s < 4; s++) {
-    fu.stages[s].colorOp = m_TextureStageStates[s][D3DTSS_COLOROP];
-    fu.stages[s].colorArg1 = m_TextureStageStates[s][D3DTSS_COLORARG1];
-    fu.stages[s].colorArg2 = m_TextureStageStates[s][D3DTSS_COLORARG2];
-    fu.stages[s].alphaOp = m_TextureStageStates[s][D3DTSS_ALPHAOP];
-    fu.stages[s].alphaArg1 = m_TextureStageStates[s][D3DTSS_ALPHAARG1];
-    fu.stages[s].alphaArg2 = m_TextureStageStates[s][D3DTSS_ALPHAARG2];
-    fu.stages[s].colorArg0 = m_TextureStageStates[s][D3DTSS_COLORARG0];
-  }
-  DWORD tf = m_RenderStates[D3DRS_TEXTUREFACTOR];
-  fu.textureFactor.x = ((tf >> 16) & 0xFF) / 255.0f;
-  fu.textureFactor.y = ((tf >> 8) & 0xFF) / 255.0f;
-  fu.textureFactor.z = ((tf >> 0) & 0xFF) / 255.0f;
-  fu.textureFactor.w = ((tf >> 24) & 0xFF) / 255.0f;
-  fu.alphaTestEnable = m_RenderStates[D3DRS_ALPHATESTENABLE];
-  fu.alphaFunc = m_RenderStates[D3DRS_ALPHAFUNC];
-  fu.alphaRef = m_RenderStates[D3DRS_ALPHAREF] / 255.0f;
-  {
-    DWORD fogEnable = m_RenderStates[D3DRS_FOGENABLE];
-    if (fogEnable) {
-      uint32_t mode = m_RenderStates[D3DRS_FOGTABLEMODE];
-      if (mode == D3DFOG_NONE)
-        mode = m_RenderStates[D3DRS_FOGVERTEXMODE];
-      fu.fogMode = mode;
-    } else {
-      fu.fogMode = 0;
-    }
-    DWORD fc = m_RenderStates[D3DRS_FOGCOLOR];
-    fu.fogColor =
-        simd::float4{((fc >> 16) & 0xFF) / 255.0f, ((fc >> 8) & 0xFF) / 255.0f,
-                     ((fc >> 0) & 0xFF) / 255.0f, ((fc >> 24) & 0xFF) / 255.0f};
-    memcpy(&fu.fogStart, &m_RenderStates[D3DRS_FOGSTART], 4);
-    memcpy(&fu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
-    memcpy(&fu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
-  }
-  for (int s = 0; s < 4; ++s) {
-    fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
-  }
-  fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
-  fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
-
-  // Texture coordinate index and luminance format flags
-  for (int s = 0; s < 4; ++s) {
-    fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX]; // full value incl TCI bits
-    fu.texFormatType[s] = 0;
-    if (m_Textures[s]) {
-      D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
-      if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
-        fu.texFormatType[s] = 1; // RGB = r, A = 1.0 (from R8Unorm)
-      } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
-        fu.texFormatType[s] = 2; // RGB = r, A = g (from RG8Unorm)
-      }
-    }
-  }
-  [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
-
-  // Lighting Uniforms
-  LightingUniforms lu;
-  memset(&lu, 0, sizeof(lu));
-  lu.lightingEnabled = m_RenderStates[D3DRS_LIGHTING];
-  lu.hasNormals = (fvf & D3DFVF_NORMAL) ? 1 : 0;
-  {
-    DWORD fogEnable = m_RenderStates[D3DRS_FOGENABLE];
-    if (fogEnable) {
-      uint32_t mode = m_RenderStates[D3DRS_FOGTABLEMODE];
-      if (mode == D3DFOG_NONE)
-        mode = m_RenderStates[D3DRS_FOGVERTEXMODE];
-      lu.fogMode = mode;
-    } else {
-      lu.fogMode = 0;
-    }
-    memcpy(&lu.fogStart, &m_RenderStates[D3DRS_FOGSTART], 4);
-    memcpy(&lu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
-    memcpy(&lu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
-  }
-  [MTL_ENCODER setVertexBytes:&lu length:sizeof(lu) atIndex:3];
-
-  // Custom VS Uniforms (buffer 4) — same as DrawIndexedPrimitive
-  {
-    CustomVSUniforms cvu;
-    memset(&cvu, 0, sizeof(cvu));
-    if (m_VertexShader & 0x80000000) {
-      auto it = m_VSHandleMap.find(m_VertexShader);
-      if (it != m_VSHandleMap.end()) {
-        cvu.shaderType = it->second.shaderType;
-      }
-      for (int r = 0; r < 34; ++r) {
-        cvu.c[r] = simd::float4{m_VSConstants[r][0], m_VSConstants[r][1],
-                                m_VSConstants[r][2], m_VSConstants[r][3]};
-      }
-    }
-    [MTL_ENCODER setVertexBytes:&cvu length:sizeof(cvu) atIndex:4];
-  }
-
-  // Bind Custom PS Uniforms (buffer 5)
-  {
-    struct {
-      uint32_t psType;
-      uint32_t _pad[3];
-      simd::float4 c[8];
-    } psu;
-    memset(&psu, 0, sizeof(psu));
-
-    if (m_PixelShader != 0) {
-      auto it = m_PSHandleMap.find(m_PixelShader);
-      if (it != m_PSHandleMap.end()) {
-        psu.psType = it->second.psType;
-      }
-      for (int r = 0; r < MAX_PS_CONSTANTS; ++r) {
-        psu.c[r] = simd::float4{m_PSConstants[r][0], m_PSConstants[r][1],
-                                m_PSConstants[r][2], m_PSConstants[r][3]};
-      }
-    }
-    [MTL_ENCODER setFragmentBytes:&psu length:sizeof(psu) atIndex:5];
-  }
+  BindUniforms(fvf);
+  BindCustomVSUniforms();
 
   // Bind textures (all 4 stages — water PS uses stages 0-3)
   for (int s = 0; s < 4; s++) {
