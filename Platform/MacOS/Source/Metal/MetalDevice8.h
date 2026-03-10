@@ -354,6 +354,11 @@ private:
   int m_MSAASampleCount;     // 1 = off, 4 = 4xMSAA (default)
   void *m_MSAAColorTexture;  // id<MTLTexture> — MSAA render target (sampleCount=4), or nullptr
   void *m_MSAADepthTexture;  // id<MTLTexture> — MSAA depth (sampleCount=4), or nullptr
+
+  // --- Ring Buffer for DrawPrimitiveUP temporary vertex data ---
+  void *m_RingBuffer;        // id<MTLBuffer> — pre-allocated Shared buffer
+  uint32_t m_RingBufferSize; // total capacity in bytes
+  uint32_t m_RingBufferOffset; // current write position
 };
 
 #endif // __APPLE__

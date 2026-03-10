@@ -80,7 +80,10 @@ MetalDevice8::MetalDevice8()
       m_DefaultDepthSurface(nullptr),
       m_MSAASampleCount(4),
       m_MSAAColorTexture(nullptr),
-      m_MSAADepthTexture(nullptr) {
+      m_MSAADepthTexture(nullptr),
+      m_RingBuffer(nullptr),
+      m_RingBufferSize(256 * 1024),
+      m_RingBufferOffset(0) {
   // Create frame semaphore for GPU-CPU sync (like DirectX's Present VSync)
   m_FrameSemaphore = (__bridge_retained void *)dispatch_semaphore_create(MAX_FRAMES_IN_FLIGHT);
   memset(m_RenderStates, 0, sizeof(m_RenderStates));
@@ -1014,6 +1017,7 @@ STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
   }
   CLEAR_MTL(CurrentDrawable);
   m_InScene = false;
+  m_RingBufferOffset = 0;
   g_metalPresentCount++;
   return D3D_OK;
 }
@@ -2822,14 +2826,33 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   if (dataSize <= 4096) {
     [MTL_ENCODER setVertexBytes:data length:dataSize atIndex:0];
   } else {
-    // For larger data, create a temporary buffer
-    id<MTLBuffer> tmpBuf =
-        [MTL_DEVICE newBufferWithBytes:data
-                                length:dataSize
-                               options:MTLResourceStorageModeShared];
-    if (!tmpBuf)
-      return D3D_OK;
-    [MTL_ENCODER setVertexBuffer:tmpBuf offset:0 atIndex:0];
+    // TheSuperHackers @perf Ring buffer for DrawPrimitiveUP temp vertex data.
+    // Pre-allocated 256KB shared buffer, offset advances per call, resets each frame.
+    if (!m_RingBuffer) {
+      id<MTLBuffer> rb = [MTL_DEVICE newBufferWithLength:m_RingBufferSize
+                                                options:MTLResourceStorageModeShared];
+      m_RingBuffer = (__bridge_retained void *)rb;
+    }
+
+    uint32_t aligned = (dataSize + 255) & ~255u;
+    if (m_RingBufferOffset + aligned > m_RingBufferSize) {
+      m_RingBufferOffset = 0;
+    }
+
+    if (aligned <= m_RingBufferSize) {
+      id<MTLBuffer> rb = (__bridge id<MTLBuffer>)m_RingBuffer;
+      memcpy((uint8_t *)[rb contents] + m_RingBufferOffset, data, dataSize);
+      [MTL_ENCODER setVertexBuffer:rb offset:m_RingBufferOffset atIndex:0];
+      m_RingBufferOffset += aligned;
+    } else {
+      id<MTLBuffer> tmpBuf =
+          [MTL_DEVICE newBufferWithBytes:data
+                                  length:dataSize
+                                 options:MTLResourceStorageModeShared];
+      if (!tmpBuf)
+        return D3D_OK;
+      [MTL_ENCODER setVertexBuffer:tmpBuf offset:0 atIndex:0];
+    }
   }
 
   // Bind zero buffer for missing vertex attributes (FVF defaults)
