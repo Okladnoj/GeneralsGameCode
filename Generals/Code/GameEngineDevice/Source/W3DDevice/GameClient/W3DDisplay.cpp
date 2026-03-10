@@ -2499,7 +2499,13 @@ void W3DDisplay::drawImage( const Image *image, Int startX, Int startY,
 	///@todo: Why are we alpha blending all images?  Reduces our fillrate. -MW
 	switch (mode)
 	{
-		case DRAW_IMAGE_ALPHA:	//nothing to do since alpha is the default state
+		case DRAW_IMAGE_ALPHA:
+			// TheSuperHackers @fix macOS: Explicitly reset to standard alpha blend.
+			// The Render2DClass shader is not reset by Reset(), so blend state from
+			// previous drawImage calls leaks through. On DX8/Windows this was hidden
+			// by driver state caching, but on Metal it causes the shroud texture to
+			// render as fully transparent (INVSRCALPHA with alpha=255 = zero contribution).
+			m_2DRender->Enable_Alpha(true);
 			break;
 		case DRAW_IMAGE_GRAYSCALE:
 			m_2DRender->Enable_Grayscale(true);
@@ -2637,6 +2643,24 @@ void W3DDisplay::drawImage( const Image *image, Int startX, Int startY,
 	}
 
 	m_2DRender->Render();
+
+#ifdef __APPLE__
+	{
+		Int w = endX - startX;
+		Int h = endY - startY;
+		DWORD colorOp = 0, alphaOp = 0, colorArg1 = 0, alphaArg1 = 0;
+		if (DX8Wrapper::_Get_D3D_Device8()) {
+			DX8Wrapper::_Get_D3D_Device8()->GetTextureStageState(0, D3DTSS_COLOROP, &colorOp);
+			DX8Wrapper::_Get_D3D_Device8()->GetTextureStageState(0, D3DTSS_ALPHAOP, &alphaOp);
+			DX8Wrapper::_Get_D3D_Device8()->GetTextureStageState(0, D3DTSS_COLORARG1, &colorArg1);
+			DX8Wrapper::_Get_D3D_Device8()->GetTextureStageState(0, D3DTSS_ALPHAARG1, &alphaArg1);
+			Bool hasRawTex = BitIsSet(image->getStatus(), IMAGE_STATUS_RAW_TEXTURE);
+			printf("[SHROUD_TSS] w=%d h=%d cOp=%u aOp=%u cArg1=%u aArg1=%u rawTex=%d mode=%d\n",
+				w, h, (unsigned)colorOp, (unsigned)alphaOp, (unsigned)colorArg1, (unsigned)alphaArg1, hasRawTex ? 1 : 0, (int)mode);
+			fflush(stdout);
+		}
+	}
+#endif
 
 	//reset to default states for next time this method is called.
 	m_2DRender->Enable_Grayscale(false);	//never leave it in this mode

@@ -141,6 +141,20 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, void *mtlTexture,
 }
 
 MetalTexture8::~MetalTexture8() {
+  // TheSuperHackers @fix Release cached surfaces before destroying texture.
+  for (auto &pair : m_CachedSurfaces) {
+    if (pair.second) {
+      pair.second->Release();
+    }
+  }
+  m_CachedSurfaces.clear();
+
+  // TheSuperHackers @perf Release double-buffer back texture.
+  if (m_BackTexture) {
+    CFRelease(m_BackTexture);
+    m_BackTexture = nullptr;
+  }
+
   if (m_Texture) {
     CFRelease(m_Texture); // Specific matching retain/release
     m_Texture = nullptr;
@@ -231,16 +245,24 @@ MetalTexture8::GetSurfaceLevel(UINT Level, IDirect3DSurface8 **ppSurfaceLevel) {
     return D3DERR_INVALIDCALL;
   }
 
+  // TheSuperHackers @fix Return cached surface (D3D8 behavior).
+  // D3D8 returns the same surface object for a given level with AddRef.
+  // This preserves staging buffer data across multiple Lock/Unlock cycles.
+  auto it = m_CachedSurfaces.find(Level);
+  if (it != m_CachedSurfaces.end() && it->second) {
+    it->second->AddRef();
+    *ppSurfaceLevel = it->second;
+    return D3D_OK;
+  }
+
   UINT w = std::max(1u, m_Width >> Level);
   UINT h = std::max(1u, m_Height >> Level);
 
-
-
-  // Create a surface wrapper linked to this texture's mip level.
-  // When the surface is unlocked, it will upload data to our Metal texture.
   auto *surface =
       new MetalSurface8(m_Device, MetalSurface8::kColor, w, h, m_Format,
                         this, Level);
+  m_CachedSurfaces[Level] = surface;
+  surface->AddRef(); // one ref for cache, one for caller
   *ppSurfaceLevel = surface;
   return D3D_OK;
 }
@@ -356,23 +378,27 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
   // Upload to Metal Texture
   id<MTLTexture> tex = (__bridge id<MTLTexture>)m_Texture;
 
-  // On Apple Silicon, textures use Shared memory. Updating a texture via replaceRegion
-  // while the GPU might be reading from it causes tearing / flickering.
-  // For single-level textures (which are typical for dynamic UI/video), we can simply
-  // allocate a new texture, resolving the synchronization problem.
+  // TheSuperHackers @perf Double-buffer for single-level dynamic textures.
+  // On Apple Silicon with Shared storage, replaceRegion while GPU reads causes tearing.
+  // Instead of allocating a new MTLTexture every unlock (expensive), we pre-allocate
+  // a back buffer and swap front/back on each unlock.
   if (m_Levels == 1) {
-    MTLTextureDescriptor *desc = [[MTLTextureDescriptor alloc] init];
-    desc.pixelFormat = tex.pixelFormat;
-    desc.width = tex.width;
-    desc.height = tex.height;
-    desc.mipmapLevelCount = 1;
-    desc.usage = tex.usage;
-    desc.storageMode = MTLStorageModeShared;
-
-    id<MTLTexture> newTex = [tex.device newTextureWithDescriptor:desc];
-    CFRelease(m_Texture);
-    m_Texture = (__bridge_retained void *)newTex;
-    tex = newTex;
+    if (!m_BackTexture) {
+      MTLTextureDescriptor *desc = [[MTLTextureDescriptor alloc] init];
+      desc.pixelFormat = tex.pixelFormat;
+      desc.width = tex.width;
+      desc.height = tex.height;
+      desc.mipmapLevelCount = 1;
+      desc.usage = tex.usage;
+      desc.storageMode = MTLStorageModeShared;
+      id<MTLTexture> backTex = [tex.device newTextureWithDescriptor:desc];
+      m_BackTexture = (__bridge_retained void *)backTex;
+    }
+    // Swap front ↔ back
+    void *tmp = m_Texture;
+    m_Texture = m_BackTexture;
+    m_BackTexture = tmp;
+    tex = (__bridge id<MTLTexture>)m_Texture;
   }
 
   UINT width = std::max(1u, m_Width >> Level);

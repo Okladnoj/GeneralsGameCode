@@ -71,6 +71,11 @@ private:
   DWORD m_LOD = 0;                // Texture LOD (max mip level clamp)
   uint32_t m_Generation = 0;      // Incremented on each content update (for texture cache)
 
+  // TheSuperHackers @perf Double-buffer for single-level dynamic textures.
+  // Instead of creating a new MTLTexture on every UnlockRect, we pre-allocate
+  // a back buffer and swap on unlock. Avoids newTextureWithDescriptor per frame.
+  void *m_BackTexture = nullptr;  // id<MTLTexture> — pre-allocated back buffer
+
   // Staging for LockRect (assuming single lock for now)
   // We might need a map of locked levels if multiple levels are locked
   // simultaneously. But typically game locks one level.
@@ -80,6 +85,10 @@ private:
     UINT bytesPerPixel;
   };
   std::map<UINT, LockedLevel> m_LockedLevels;
+
+  // TheSuperHackers @fix Cache surfaces per mip level (D3D8 behavior).
+  // GetSurfaceLevel returns the same surface object with AddRef.
+  std::map<UINT, class MetalSurface8*> m_CachedSurfaces;
 };
 
 // Internal Helper for Format Mapping

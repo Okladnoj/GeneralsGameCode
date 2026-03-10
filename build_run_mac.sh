@@ -6,14 +6,19 @@
 #   sh build_run_mac.sh --screenshot          # build + run + screenshot after 12s
 #   sh build_run_mac.sh --screenshot=8.5      # build + run + screenshot after 8.5s
 #   sh build_run_mac.sh --test                # build + run tests
-#   sh build_run_mac.sh --zombie              # run with NSZombieEnabled (ObjC use-after-free)
-#   sh build_run_mac.sh --debug               # run with MallocScribble+GuardEdges (heap corruption)
+
+# ── Game Command-Line Flags ──
+# Toggle on/off: true = pass to game, false = skip
+GAME_FLAG_NOSHELLMAP=true
+GAME_FLAG_QUICKSTART=true
+GAME_FLAG_NOAUDIO=false
+GAME_FLAG_WIN=false
+GAME_FLAG_XRES=""       # e.g. "1024"
+GAME_FLAG_YRES=""       # e.g. "768"
 
 DO_CLEAN=false
 DO_SCREENSHOT=false
 DO_TEST=false
-DO_ZOMBIE=false
-DO_DEBUG_MALLOC=false
 TEST_FILTER=""
 SCREENSHOT_DELAY=""
 
@@ -35,12 +40,6 @@ for arg in "$@"; do
             ;;
         --screenshot)
             DO_SCREENSHOT=true
-            ;;
-        --zombie)
-            DO_ZOMBIE=true
-            ;;
-        --debug)
-            DO_DEBUG_MALLOC=true
             ;;
     esac
 done
@@ -102,32 +101,31 @@ if [ -z "$SCREENSHOT_DELAY" ]; then
     SCREENSHOT_DELAY=12
 fi
 
-# ── Debug Environment ──
-GAME_ENV=""
-if [ "$DO_ZOMBIE" = true ]; then
-    GAME_ENV="NSZombieEnabled=YES OBJC_DEBUG_MISSING_POOLS=YES"
-    echo "Debug mode: NSZombieEnabled (ObjC zombie detection)"
-fi
-if [ "$DO_DEBUG_MALLOC" = true ]; then
-    GAME_ENV="$GAME_ENV MallocGuardEdges=1 MallocScribble=1"
-    echo "Debug mode: MallocScribble + GuardEdges (heap corruption detection)"
-fi
+# ── Build Game Args ──
+GAME_ARGS=""
+[ "$GAME_FLAG_NOSHELLMAP" = true ] && GAME_ARGS="$GAME_ARGS -noshellmap"
+[ "$GAME_FLAG_QUICKSTART" = true ] && GAME_ARGS="$GAME_ARGS -quickstart"
+[ "$GAME_FLAG_NOAUDIO" = true ]    && GAME_ARGS="$GAME_ARGS -noaudio"
+[ "$GAME_FLAG_WIN" = true ]        && GAME_ARGS="$GAME_ARGS -win"
+[ -n "$GAME_FLAG_XRES" ]           && GAME_ARGS="$GAME_ARGS -xRes $GAME_FLAG_XRES"
+[ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS="$GAME_ARGS -yRes $GAME_FLAG_YRES"
 
 GAME_CMD="build/macos/GeneralsMD/generalszh"
-if [ -n "$GAME_ENV" ]; then
-    GAME_CMD="env $GAME_ENV $GAME_CMD"
+
+if [ -n "$GAME_ARGS" ]; then
+    echo "Game args:$GAME_ARGS"
 fi
 
 echo "Starting game..."
 if [ "$DO_SCREENSHOT" = true ]; then
-    $GAME_CMD > Platform/MacOS/Build/Logs/game.log 2>&1 &
+    $GAME_CMD $GAME_ARGS > Platform/MacOS/Build/Logs/game.log 2>&1 &
     GAME_PID=$!
-    echo "Waiting ${SCREENSHOT_DELAY}s for shell map to load..."
+    echo "Waiting ${SCREENSHOT_DELAY}s for game to load..."
     sleep ${SCREENSHOT_DELAY}
     python3 Platform/MacOS/Build/screenshot.py
     echo "Killing game (pid=$GAME_PID)..."
     kill $GAME_PID 2>/dev/null
     wait $GAME_PID 2>/dev/null
 else
-    $GAME_CMD > Platform/MacOS/Build/Logs/game.log 2>&1
+    $GAME_CMD $GAME_ARGS > Platform/MacOS/Build/Logs/game.log 2>&1
 fi

@@ -639,6 +639,79 @@ Vertices are filled in `HeightMapRenderObjClass::updateVB()`, where `diffuse` co
 
 ---
 
+## Radar / Minimap — Shroud Pipeline
+
+### Архитектура: два раздельных shroud-пути
+
+Shroud (fog of war) обновляется в **двух** независимых системах:
+
+| Система | Класс | Текстура | Обновляется |
+|:---|:---|:---|:---|
+| **Terrain shroud** (3D viewport) | `W3DShroud` | R5G6B5 src → video dst | Per-cell через `TheDisplay->setShroudLevel()` ✅ |
+| **Radar shroud** (minimap overlay) | `W3DRadar` | A8R8G8B8 128×128 | Per-cell через `TheRadar->setShroudLevel()` ✅ |
+
+### Per-cell update path (PartitionCell::doShroud)
+
+При изменении видимости ячейки (юнит двинулся, здание построено):
+```
+PartitionCell::doShroud()                    // PartitionManager.cpp:1294,1330,1357
+  → TheDisplay->setShroudLevel(x, y, status) // обновляет W3DShroud (terrain fog)
+  → TheRadar->setShroudLevel(x, y, status)   // обновляет W3DRadar (minimap fog)
+```
+
+### Bulk refresh path (refreshShroudForLocalPlayer)
+
+При загрузке карты и инициализации (GameLogic.cpp:1504, W3DShroud::init()):
+```
+PartitionManager::refreshShroudForLocalPlayer()
+  → TheRadar->beginSetShroudLevel()      // lock shroud texture
+  → for each cell:
+      TheDisplay->setShroudLevel(x,y,st)  // terrain
+      TheRadar->setShroudLevel(x,y,st)    // radar (cheap path: cached surface)
+  → TheRadar->endSetShroudLevel()         // unlock → flush to GPU
+```
+
+### W3DRadar shroud texture
+
+- Формат: `WW3D_FORMAT_A8R8G8B8` → Metal: `MTLPixelFormatBGRA8Unorm`
+- Размер: 128×128 (RADAR_CELL_WIDTH × RADAR_CELL_HEIGHT)
+- Рисуется каждый кадр через `W3DRadar::draw()` → `TheDisplay->drawImage(shroudImage)`
+- Blend: `SRCALPHA / INVSRCALPHA` (стандартный alpha blend)
+- macOS: per-cell вызовы используют кешированный surface (через `m_CachedSurfaces` в MetalTexture8)
+- macOS: `draw()` вызывает `Unlock()` перед рендером для flush на GPU
+
+### Рендер overlay
+
+```
+W3DRadar::draw()
+  → findDrawPositions()       // pixel coords на экране
+  → drawImage(terrainImage)   // 1. terrain minimap
+  → drawImage(overlayImage)   // 2. unit dots (objects)
+  → [flush shroud surface]    // 3. macOS: Unlock() cached shroud surface → GPU upload
+  → drawImage(shroudImage)    // 4. fog of war overlay (alpha blend ПОВЕРХ объектов)
+  → drawIcons()               // 5. camera frame, hero icons
+```
+
+### ✅ ИСПРАВЛЕНО: MetalTexture8::GetSurfaceLevel — D3D8 surface caching
+
+**Проблема:** `GetSurfaceLevel` создавал **новый** `MetalSurface8` при каждом вызове.
+Каждый новый surface выделял staging buffer через `malloc + memset(0)`.
+При `Unlock()` весь буфер (почти нулевой) загружался на GPU, **перезатирая** предыдущие данные.
+
+**Симптомы:**
+- Radar shroud: 7500 per-cell вызовов за 30 сек → только последний пиксель выживал
+- Radar overlay: `renderObjectList` × 2 (enemies + local) → enemies стирались при рисовании locals
+- Terrain texture, smudge, водные текстуры — потенциально аналогичная проблема
+
+**Фикс (MetalTexture8.h/mm + MetalSurface8.mm):**
+1. `m_CachedSurfaces` map — surface создаётся один раз per mip level
+2. `GetSurfaceLevel` возвращает кешированный surface с `AddRef()` (D3D8 behavior)
+3. `MetalSurface8::LockRect` — re-lock на уже-залоченный surface переиспользует буфер
+4. `~MetalTexture8` — Release() кешированных surfaces
+
+---
+
+
 ## Известные визуальные баги
 
 | Баг | Severity | Вероятная причина |

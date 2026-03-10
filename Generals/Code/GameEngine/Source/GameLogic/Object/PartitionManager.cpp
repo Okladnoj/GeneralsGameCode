@@ -3095,6 +3095,12 @@ void PartitionManager::refreshShroudForLocalPlayer()
 	if (m_totalCellCount != 0)
 	{
 		const Int playerIndex = rts::getObservedOrLocalPlayer()->getPlayerIndex();
+#ifdef __APPLE__
+		printf("[SHROUD] refreshShroudForLocalPlayer: playerIndex=%d totalCells=%d\n",
+			playerIndex, m_totalCellCount);
+		fflush(stdout);
+		int nShroud = 0, nFog = 0, nClear = 0;
+#endif
 		TheRadar->beginSetShroudLevel();
 
 		for (int i = 0; i < m_totalCellCount; ++i)
@@ -3102,13 +3108,24 @@ void PartitionManager::refreshShroudForLocalPlayer()
 			const Int x = m_cells[i].getCellX();
 			const Int y = m_cells[i].getCellY();
 			const CellShroudStatus status = m_cells[i].getShroudStatusForPlayer(playerIndex);
+#ifdef __APPLE__
+			if (status == CELLSHROUD_SHROUDED) ++nShroud;
+			else if (status == CELLSHROUD_FOGGED) ++nFog;
+			else ++nClear;
+#endif
 			TheDisplay->setShroudLevel(x, y, status);
 			TheRadar->setShroudLevel(x, y, status);
 			m_cells[i].invalidateShroudedStatusForAllCois(playerIndex);
 		}
 		TheRadar->endSetShroudLevel();
+#ifdef __APPLE__
+		printf("[SHROUD] refreshShroudForLocalPlayer done: shrouded=%d fogged=%d clear=%d\n",
+			nShroud, nFog, nClear);
+		fflush(stdout);
+#endif
 	}
 }
+
 
 //-----------------------------------------------------------------------------
 CellShroudStatus PartitionManager::getShroudStatusForPlayer(Int playerIndex, Int x, Int y) const

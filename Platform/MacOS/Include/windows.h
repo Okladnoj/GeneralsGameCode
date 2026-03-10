@@ -922,10 +922,10 @@ inline int MulDiv(int number, int numerator, int denominator) {
 #include <time.h>
 #include <unistd.h>
 
-/* GetCommandLineA — on macOS we return empty string (args parsed elsewhere) */
+/* GetCommandLineA — on macOS return the command line filled by main() */
+extern char g_GeneralsCommandLine[2048];
 inline const char *GetCommandLineA(void) {
-  static char empty[] = "";
-  return empty;
+  return g_GeneralsCommandLine;
 }
 
 /* GetDoubleClickTime — return 500ms like Windows default */

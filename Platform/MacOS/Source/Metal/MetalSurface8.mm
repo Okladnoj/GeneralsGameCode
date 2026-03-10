@@ -107,12 +107,14 @@ STDMETHODIMP MetalSurface8::LockRect(D3DLOCKED_RECT *pLockedRect,
   if (!pLockedRect)
     return E_POINTER;
   if (m_LockedData) {
-    if (!m_ParentTexture) {
-      pLockedRect->pBits = m_LockedData;
-      pLockedRect->Pitch = m_LockedPitch;
-      return D3D_OK;
-    }
-    return D3DERR_INVALIDCALL; // already locked
+    // TheSuperHackers @fix Re-lock returns existing buffer, preserving previous writes.
+    // D3D8 pattern: callers (W3DRadar, W3DShroud) do Lock/Write/Unlock
+    // sequences on the same texture level. Re-lock must return the same
+    // buffer with accumulated data, not a fresh zero-filled allocation.
+    pLockedRect->pBits = m_LockedData;
+    pLockedRect->Pitch = m_LockedPitch;
+    m_LockedReadOnly = (Flags & D3DLOCK_READONLY) != 0;
+    return D3D_OK;
   }
 
   // Calculate bytes per pixel based on format

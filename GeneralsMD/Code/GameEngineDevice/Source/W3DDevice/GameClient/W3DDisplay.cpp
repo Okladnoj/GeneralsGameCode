@@ -2638,7 +2638,13 @@ void W3DDisplay::drawImage( const Image *image, Int startX, Int startY,
 	///@todo: Why are we alpha blending all images?  Reduces our fillrate. -MW
 	switch (mode)
 	{
-		case DRAW_IMAGE_ALPHA:	//nothing to do since alpha is the default state
+		case DRAW_IMAGE_ALPHA:
+			// TheSuperHackers @fix macOS: Explicitly reset to standard alpha blend.
+			// The Render2DClass shader is not reset by Reset(), so blend state from
+			// previous drawImage calls leaks through. On DX8/Windows this was hidden
+			// by driver state caching, but on Metal it causes the shroud texture to
+			// render as fully transparent (INVSRCALPHA with alpha=255 = zero contribution).
+			m_2DRender->Enable_Alpha(true);
 			break;
 		case DRAW_IMAGE_GRAYSCALE:
 			m_2DRender->Enable_Grayscale(true);
