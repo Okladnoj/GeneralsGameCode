@@ -7,6 +7,10 @@
  * Metal implementation of IDirect3DIndexBuffer8.
  * This is a pure COM-like object — it does NOT inherit from IndexBufferClass.
  * Lifetime is managed by DX8IndexBufferClass which holds a raw pointer to this.
+ *
+ * TheSuperHackers @perf Zero-copy buffer access.
+ * Same approach as MetalVertexBuffer8 — Lock() returns [MTLBuffer contents]
+ * directly on Apple Silicon Shared storage.
  */
 class MetalIndexBuffer8 : public IDirect3DIndexBuffer8 {
 public:
@@ -42,10 +46,9 @@ public:
   bool Is_32Bit() const { return m_Is32Bit; }
 
 protected:
-  uint8_t *m_SysMemCopy;
+  uint8_t *m_SysMemCopy;    // Fallback for early init when device not ready
   unsigned int m_Count;
   bool m_Is32Bit;
   int m_RefCount;
-  void *m_MTLBuffer; // id<MTLBuffer>
-  bool m_IsDirty;
+  void *m_MTLBuffer;         // id<MTLBuffer> — primary storage (Shared mode)
 };

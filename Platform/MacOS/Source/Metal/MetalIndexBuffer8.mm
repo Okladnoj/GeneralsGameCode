@@ -7,13 +7,25 @@
 #include <windows.h>  // macOS Win32 type shim
 #include <cstdio>
 
-// MetalIndexBuffer8 implementation
+extern void *g_MetalMTLDevice;
+
+// TheSuperHackers @perf Zero-copy index buffer.
+// Same pattern as MetalVertexBuffer8 — MTLBuffer with Shared storage is the
+// primary store. Lock() returns [buf contents] directly, no memcpy needed.
 
 MetalIndexBuffer8::MetalIndexBuffer8(unsigned int count, bool is32bit)
     : m_Count(count), m_Is32Bit(is32bit), m_RefCount(1), m_MTLBuffer(nullptr),
-      m_IsDirty(true) {
+      m_SysMemCopy(nullptr) {
   uint32_t size = count * (is32bit ? 4 : 2);
-  m_SysMemCopy = new uint8_t[size];
+  if (g_MetalMTLDevice) {
+    id<MTLDevice> device = (__bridge id<MTLDevice>)g_MetalMTLDevice;
+    id<MTLBuffer> buf =
+        [device newBufferWithLength:size
+                            options:MTLResourceStorageModeShared];
+    m_MTLBuffer = (__bridge_retained void *)buf;
+  } else {
+    m_SysMemCopy = new uint8_t[size];
+  }
 }
 
 MetalIndexBuffer8::~MetalIndexBuffer8() {
@@ -33,7 +45,6 @@ STDMETHODIMP_(ULONG) MetalIndexBuffer8::AddRef() { return ++m_RefCount; }
 STDMETHODIMP_(ULONG) MetalIndexBuffer8::Release() {
   if (m_RefCount > 0)
     --m_RefCount;
-  // Don't delete this — lifetime managed by DX8IndexBufferClass destructor
   return m_RefCount;
 }
 
@@ -69,45 +80,50 @@ STDMETHODIMP_(D3DRESOURCETYPE) MetalIndexBuffer8::GetType() {
 
 STDMETHODIMP MetalIndexBuffer8::Lock(UINT OffsetToLock, UINT SizeToLock,
                                      BYTE **ppbData, DWORD Flags) {
-  if (ppbData) {
-    *ppbData = m_SysMemCopy + OffsetToLock;
+  if (!ppbData)
+    return E_POINTER;
+
+  if (m_MTLBuffer) {
+    id<MTLBuffer> buf = (__bridge id<MTLBuffer>)m_MTLBuffer;
+    *ppbData = (BYTE *)[buf contents] + OffsetToLock;
     return D3D_OK;
   }
-  return E_POINTER;
+
+  *ppbData = m_SysMemCopy + OffsetToLock;
+  return D3D_OK;
 }
 
 STDMETHODIMP MetalIndexBuffer8::Unlock() {
-  if (m_MTLBuffer) {
-    id<MTLBuffer> buf = (__bridge id<MTLBuffer>)m_MTLBuffer;
-    uint32_t size = m_Count * (m_Is32Bit ? 4 : 2);
-    memcpy([buf contents], m_SysMemCopy, size);
-  } else {
-    m_IsDirty = true;
-  }
   return D3D_OK;
 }
 
 void *MetalIndexBuffer8::GetMTLBuffer() {
-  if (!m_MTLBuffer) {
-    extern void *g_MetalMTLDevice;
-    id<MTLDevice> device = g_MetalMTLDevice
-                               ? (__bridge id<MTLDevice>)g_MetalMTLDevice
-                               : MTLCreateSystemDefaultDevice();
-    if (device) {
-      uint32_t size = m_Count * (m_Is32Bit ? 4 : 2);
-      id<MTLBuffer> buf =
-          [device newBufferWithBytes:m_SysMemCopy
-                              length:size
-                             options:MTLResourceStorageModeShared];
-      m_MTLBuffer = (__bridge_retained void *)buf;
-      m_IsDirty = false;
-    }
-  } else if (m_IsDirty) {
-    id<MTLBuffer> buf = (__bridge id<MTLBuffer>)m_MTLBuffer;
-    uint32_t size = m_Count * (m_Is32Bit ? 4 : 2);
-    memcpy([buf contents], m_SysMemCopy, size);
-    m_IsDirty = false;
+  if (m_MTLBuffer)
+    return m_MTLBuffer;
+
+  id<MTLDevice> device = g_MetalMTLDevice
+                             ? (__bridge id<MTLDevice>)g_MetalMTLDevice
+                             : MTLCreateSystemDefaultDevice();
+  if (!device)
+    return nullptr;
+
+  uint32_t size = m_Count * (m_Is32Bit ? 4 : 2);
+
+  if (m_SysMemCopy) {
+    id<MTLBuffer> buf =
+        [device newBufferWithBytes:m_SysMemCopy
+                            length:size
+                           options:MTLResourceStorageModeShared];
+    m_MTLBuffer = (__bridge_retained void *)buf;
+    delete[] m_SysMemCopy;
+    m_SysMemCopy = nullptr;
+  } else {
+    id<MTLBuffer> buf =
+        [device newBufferWithLength:size
+                            options:MTLResourceStorageModeShared];
+    m_MTLBuffer = (__bridge_retained void *)buf;
   }
+
   return m_MTLBuffer;
 }
 
