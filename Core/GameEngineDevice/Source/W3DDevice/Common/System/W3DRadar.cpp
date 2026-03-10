@@ -626,40 +626,7 @@ void W3DRadar::updateObjectTexture(TextureClass *texture)
 	surface->Clear();
 	REF_PTR_RELEASE(surface);
 
-#ifdef __APPLE__
-	{
-		int enemyTotal = 0, enemyVisible = 0;
-		int rejHidden = 0, rejShroud = 0, rejPriority = 0, rejStealth = 0;
-		int firstShroudStatus = -99;
-		Player *localPl = rts::getObservedOrLocalPlayer();
-		const Int localIdx = localPl->getPlayerIndex();
-		for (const RadarObject *r = m_objectList; r; r = r->friend_getNext())
-		{
-			++enemyTotal;
-			const Object *obj = r->friend_getObject();
-			if (r->isTemporarilyHidden()) { ++rejHidden; continue; }
-			const ObjectShroudStatus ss = obj->getShroudedStatus(localIdx);
-			if (enemyTotal == 1) firstShroudStatus = (int)ss;
-			if (ss > OBJECTSHROUD_PARTIAL_CLEAR) { ++rejShroud; continue; }
-			if (obj->getRadarPriority() == RADAR_PRIORITY_LOCAL_UNIT_ONLY &&
-				obj->getControllingPlayer() != localPl &&
-				localPl->isPlayerActive()) { ++rejPriority; continue; }
-			if (TheControlBar->getCurrentlyViewedPlayerRelationship(obj->getTeam()) == ENEMIES &&
-				obj->testStatus(OBJECT_STATUS_STEALTHED) &&
-				!obj->testStatus(OBJECT_STATUS_DETECTED) &&
-				!obj->testStatus(OBJECT_STATUS_DISGUISED)) { ++rejStealth; continue; }
-			++enemyVisible;
-		}
-		int localTotal = 0;
-		for (const RadarObject *r = m_localObjectList; r; r = r->friend_getNext())
-			++localTotal;
-		printf("[RADAR] total=%d vis=%d rej(h=%d s=%d p=%d st=%d) local=%d firstShroud=%d\n",
-			enemyTotal, enemyVisible,
-			rejHidden, rejShroud, rejPriority, rejStealth,
-			localTotal, firstShroudStatus);
-		fflush(stdout);
-	}
-#endif
+
 
 	// rebuild the object overlay
 	renderObjectList( m_objectList, texture );
@@ -680,16 +647,7 @@ Bool W3DRadar::canRenderObject( const RadarObject *rObj, const Player *localPlay
 
 	const ObjectShroudStatus shroudStatus = obj->getShroudedStatus(playerIndex);
 
-#ifdef __APPLE__
-	if (obj->getControllingPlayer() != localPlayer) {
-		int coiCount = 0;
-		if (obj->friend_getPartitionData()) {
-			coiCount = obj->friend_getPartitionData()->friend_getCoiInUseCount();
-		}
-		printf("[RADAR_OBJ] obj=%X shroud=%d cells=%d\n", (unsigned int)obj->getID(), (int)shroudStatus, coiCount);
-		fflush(stdout);
-	}
-#endif
+
 
 	if (shroudStatus > OBJECTSHROUD_PARTIAL_CLEAR)
 	{
@@ -1330,10 +1288,7 @@ void W3DRadar::clearShroud()
 		return;
 #endif
 
-#ifdef __APPLE__
-	printf("[SHROUD] clearShroud() called, w=%d h=%d\n", m_textureWidth, m_textureHeight);
-	fflush(stdout);
-#endif
+
 
 	SurfaceClass *surface = m_shroudTexture->Get_Surface_Level();
 
@@ -1355,10 +1310,7 @@ void W3DRadar::clearShroud()
 
 // ------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-#ifdef __APPLE__
-static int s_setShroudCallCount = 0;
-static int s_shroudCount = 0, s_foggCount = 0, s_clearCount = 0, s_nullCount = 0;
-#endif
+
 
 void W3DRadar::setShroudLevel(Int shroudX, Int shroudY, CellShroudStatus setting)
 {
@@ -1367,33 +1319,13 @@ void W3DRadar::setShroudLevel(Int shroudX, Int shroudY, CellShroudStatus setting
 		return;
 #endif
 
-#ifdef __APPLE__
-	++s_setShroudCallCount;
-	if (setting == CELLSHROUD_SHROUDED) ++s_shroudCount;
-	else if (setting == CELLSHROUD_FOGGED) ++s_foggCount;
-	else ++s_clearCount;
 
-	static int s_perCellLogCounter = 0;
-	if (m_shroudSurface == nullptr && s_perCellLogCounter++ % 300 == 0)
-	{
-		printf("[SHROUD] setShroudLevel PER-CELL: (%d,%d) setting=%d totalCalls=%d (s=%d f=%d c=%d null=%d)\n",
-			shroudX, shroudY, (int)setting,
-			s_setShroudCallCount, s_shroudCount, s_foggCount, s_clearCount, s_nullCount);
-		fflush(stdout);
-	}
-#endif
 
 
 	W3DShroud* shroud = TheTerrainRenderObject ? TheTerrainRenderObject->getShroud() : nullptr;
 	if (!shroud)
 	{
-#ifdef __APPLE__
-		++s_nullCount;
-		if (s_nullCount <= 3)
-			printf("[SHROUD] setShroudLevel(%d,%d,%d): EARLY RETURN — shroud==null (terrainRO=%p)\n",
-				shroudX, shroudY, (int)setting, (void*)TheTerrainRenderObject);
-		fflush(stdout);
-#endif
+
 		return;
 	}
 
@@ -1492,12 +1424,7 @@ void W3DRadar::beginSetShroudLevel()
 	m_shroudSurfaceFormat = surfaceDesc.Format;
 	m_shroudSurfacePixelSize = Get_Bytes_Per_Pixel(surfaceDesc.Format);
 
-#ifdef __APPLE__
-	printf("[SHROUD] beginSetShroudLevel: surface=%p bits=%p fmt=%d pixSize=%d\n",
-		(void*)m_shroudSurface, m_shroudSurfaceBits,
-		(int)m_shroudSurfaceFormat, m_shroudSurfacePixelSize);
-	fflush(stdout);
-#endif
+
 }
 
 void W3DRadar::endSetShroudLevel()
@@ -1506,28 +1433,14 @@ void W3DRadar::endSetShroudLevel()
 	if (m_shroudSurfaceBits != nullptr)
 	{
 		m_shroudSurface->Unlock();
-#ifdef __APPLE__
-		// TheSuperHackers @fix Keep surface cached for per-cell writes.
-		// On Metal, each Lock() allocates a fresh staging buffer (memset 0),
-		// so per-cell Lock/Write/Unlock would destroy previous pixel data.
-		// Keep the cached buffer alive so per-cell setShroudLevel uses the
-		// cheap path, and flush to GPU in draw() via Unlock().
-#else
 		m_shroudSurfaceBits = nullptr;
 		m_shroudSurfacePitch = 0;
 		m_shroudSurfaceFormat = WW3D_FORMAT_UNKNOWN;
 		m_shroudSurfacePixelSize = 0;
 	}
 	REF_PTR_RELEASE(m_shroudSurface);
-#endif
-	}
 
-#ifdef __APPLE__
-	printf("[SHROUD] endSetShroudLevel: total calls=%d shrouded=%d fogged=%d clear=%d null_early=%d\n",
-		s_setShroudCallCount, s_shroudCount, s_foggCount, s_clearCount, s_nullCount);
-	fflush(stdout);
-	s_setShroudCallCount = s_shroudCount = s_foggCount = s_clearCount = s_nullCount = 0;
-#endif
+
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1546,11 +1459,7 @@ void W3DRadar::draw( Int pixelX, Int pixelY, Int width, Int height )
 	if( !rts::localPlayerHasRadar() )
 		return;
 
-#ifdef __APPLE__
-	printf("[SHROUD] draw() IN: pixelX=%d pixelY=%d w=%d h=%d\n",
-		pixelX, pixelY, width, height);
-	fflush(stdout);
-#endif
+
 
 	//
 	// given a upper left corner at pixelX|Y and a width and height to draw into, figure out
@@ -1606,22 +1515,7 @@ void W3DRadar::draw( Int pixelX, Int pixelY, Int width, Int height )
 	if (true)
 #endif
 	{
-#ifdef __APPLE__
-		// TheSuperHackers @fix Flush per-cell shroud writes to GPU before rendering.
-		if (m_shroudSurface && m_shroudSurfaceBits)
-		{
-			m_shroudSurface->Unlock();
-		}
-		{
-			unsigned alphaBlendEn = DX8Wrapper::Get_DX8_Render_State(D3DRS_ALPHABLENDENABLE);
-			unsigned srcBlend = DX8Wrapper::Get_DX8_Render_State(D3DRS_SRCBLEND);
-			unsigned dstBlend = DX8Wrapper::Get_DX8_Render_State(D3DRS_DESTBLEND);
-			printf("[SHROUD] draw: shroudImage=%p ul=(%d,%d) lr=(%d,%d) alphaBlend=%u src=%u dst=%u\n",
-				(void*)m_shroudImage, ul.x, ul.y, lr.x, lr.y,
-				alphaBlendEn, srcBlend, dstBlend);
-			fflush(stdout);
-		}
-#endif
+
 		TheDisplay->drawImage( m_shroudImage, ul.x, ul.y, lr.x, lr.y );
 	}
 
