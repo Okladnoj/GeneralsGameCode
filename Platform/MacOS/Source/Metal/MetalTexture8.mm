@@ -102,15 +102,6 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
       }
     }
   }
-
-  // Diagnostic: log terrain-related texture creation
-  static int s_texCreationCount = 0;
-  if (s_texCreationCount < 200) {
-    printf("[MetalTexture8] Created #%d: %ux%u fmt=%u levels=%u pool=%u tex=%p\n",
-            s_texCreationCount, width, height, (unsigned)format, m_Levels, (unsigned)pool, (void*)m_Texture);
-    fflush(stdout);
-    s_texCreationCount++;
-  }
 }
 
 MetalTexture8::MetalTexture8(MetalDevice8 *device, void *mtlTexture,
@@ -129,14 +120,6 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, void *mtlTexture,
     m_Levels = (UINT)tex.mipmapLevelCount;
   } else {
     m_Texture = nullptr;
-  }
-
-  static int s_ctor2Count = 0;
-  if (s_ctor2Count < 50) {
-    fprintf(stderr, "[MetalTexture8::ctor2] #%d: %ux%u fmt=%u lvls=%u this=%p mtl=%p\n",
-            s_ctor2Count, m_Width, m_Height, (unsigned)format, m_Levels,
-            (void*)this, mtlTexture);
-    s_ctor2Count++;
   }
 }
 
@@ -350,21 +333,7 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
 
   LockedLevel &lvl = it->second;
 
-  // Diagnostic: log texture uploads
-  static int s_texUnlockCount = 0;
-  if (s_texUnlockCount < 200) {
-    UINT w = std::max(1u, m_Width >> Level);
-    UINT h = std::max(1u, m_Height >> Level);
-    uint32_t nonZero = 0;
-    UINT checkBytes = std::min((UINT)(w * h * lvl.bytesPerPixel), (UINT)256);
-    const uint8_t *p = (const uint8_t *)lvl.ptr;
-    for (UINT i = 0; i < checkBytes; i++) { if (p[i] != 0) nonZero++; }
-    printf("[MetalTexture8] UnlockRect #%d: %ux%u fmt=%u(bpp=%u) lvl=%u nonZero=%u/%u tex=%p\n",
-            s_texUnlockCount, w, h, (unsigned)m_Format, lvl.bytesPerPixel,
-            Level, nonZero, checkBytes, (void*)m_Texture);
-    fflush(stdout);
-    s_texUnlockCount++;
-  }
+
 
   // ── Texture Capture (for golden-data tests) ──
   if (Level == 0 && TextureCaptureSystem::Instance().IsEnabled()) {

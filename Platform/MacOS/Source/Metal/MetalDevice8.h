@@ -322,6 +322,9 @@ private:
   void *m_DepthTexture;      // id<MTLTexture> (Depth32Float)
   void *m_DepthStencilState; // id<MTLDepthStencilState> (cached, current)
   bool m_DepthStateDirty;    // re-create DSS when render states change
+  bool m_DrawStateDirty;     // re-apply cull/zbias/winding
+  DWORD m_LastAppliedCull;   // cached to skip redundant setCullMode
+  DWORD m_LastAppliedZBias;  // cached to skip redundant setDepthBias
   std::map<uint32_t, void *>
       m_DepthStencilStateCache; // key -> id<MTLDepthStencilState>
 

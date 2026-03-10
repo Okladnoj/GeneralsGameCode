@@ -74,6 +74,7 @@ MetalDevice8::MetalDevice8()
       m_Library(nullptr), m_FunctionVertex(nullptr),
       m_FunctionFragment(nullptr), m_DepthTexture(nullptr),
       m_DepthStencilState(nullptr), m_DepthStateDirty(true),
+      m_DrawStateDirty(true), m_LastAppliedCull(0xFFFFFFFF), m_LastAppliedZBias(0xFFFFFFFF),
       m_ZeroBuffer(nullptr), m_FrameSemaphore(nullptr),
       m_DefaultRTSurface(nullptr),
       m_DefaultDepthSurface(nullptr),
@@ -787,37 +788,36 @@ void MetalDevice8::ApplyPerDrawState() {
   if (!m_CurrentEncoder)
     return;
 
-  // Cull Mode
   DWORD cullMode = m_RenderStates[D3DRS_CULLMODE];
-  [MTL_ENCODER setCullMode:MapD3DCullToMTL(cullMode)];
+  if (cullMode != m_LastAppliedCull) {
+    [MTL_ENCODER setCullMode:MapD3DCullToMTL(cullMode)];
+    [MTL_ENCODER setFrontFacingWinding:MTLWindingClockwise];
+    m_LastAppliedCull = cullMode;
+  }
 
-  // Front face winding: DX8 default is CW, Metal default is CW
-  [MTL_ENCODER setFrontFacingWinding:MTLWindingClockwise];
-
-  // Depth/Stencil — skip if rendering to texture without depth
   bool hasDepth = false;
   if (m_RTTColorTexture) {
     hasDepth = (m_RTTDepthTexture != nullptr);
   } else {
     hasDepth = (m_DepthTexture != nullptr);
   }
-  if (hasDepth) {
+
+  if (!hasDepth)
+    return;
+
+  if (m_DepthStateDirty) {
     void *dss = GetDepthStencilState();
     if (dss) {
       [MTL_ENCODER setDepthStencilState:(__bridge id<MTLDepthStencilState>)dss];
-      // Stencil reference value (separate from DSS in Metal)
       if (m_RenderStates[D3DRS_STENCILENABLE]) {
         [MTL_ENCODER setStencilReferenceValue:
                          (uint32_t)(m_RenderStates[D3DRS_STENCILREF] & 0xFF)];
       }
     }
+  }
 
-    // TheSuperHackers @feature macOS: D3DRS_ZBIAS → Metal setDepthBias
-    // DX8 ZBIAS range 0..16 biases primitives closer to the camera.
-    // Used by: water tracks (8), decal overlays (7-8), scene passes (7).
-    // Metal depthBias: negative = push toward camera. slopeScale handles
-    // oblique surfaces (like water viewed at shallow angles).
-    DWORD zBias = m_RenderStates[D3DRS_ZBIAS];
+  DWORD zBias = m_RenderStates[D3DRS_ZBIAS];
+  if (zBias != m_LastAppliedZBias) {
     if (zBias != 0) {
       float bias = -(float)zBias;
       float slopeScale = -2.0f;
@@ -825,6 +825,7 @@ void MetalDevice8::ApplyPerDrawState() {
     } else {
       [MTL_ENCODER setDepthBias:0.0f slopeScale:0.0f clamp:0.0f];
     }
+    m_LastAppliedZBias = zBias;
   }
 }
 
@@ -1697,6 +1698,8 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
       [MTL_CMD_BUF renderCommandEncoderWithDescriptor:rpd];
   [encoder setLabel:@"MetalDevice8 RenderPass"];
   SET_MTL(CurrentEncoder, encoder);
+  m_LastAppliedCull = 0xFFFFFFFF;
+  m_LastAppliedZBias = 0xFFFFFFFF;
 
   // --- Apply Depth Stencil State ---
   if (m_DepthTexture) {
@@ -1832,7 +1835,6 @@ STDMETHODIMP MetalDevice8::SetRenderState(D3DRENDERSTATETYPE State,
     DWORD old = m_RenderStates[(int)State];
     m_RenderStates[(int)State] = Value;
 
-    // Mark depth/stencil state dirty if relevant render states changed
     if (old != Value) {
       if (State == D3DRS_ZENABLE || State == D3DRS_ZWRITEENABLE ||
           State == D3DRS_ZFUNC || State == D3DRS_STENCILENABLE ||
@@ -1840,6 +1842,9 @@ STDMETHODIMP MetalDevice8::SetRenderState(D3DRENDERSTATETYPE State,
           State == D3DRS_STENCILZFAIL || State == D3DRS_STENCILPASS ||
           State == D3DRS_STENCILMASK || State == D3DRS_STENCILWRITEMASK) {
         m_DepthStateDirty = true;
+      }
+      if (State == D3DRS_CULLMODE || State == D3DRS_ZBIAS) {
+        m_DrawStateDirty = true;
       }
     }
   }
