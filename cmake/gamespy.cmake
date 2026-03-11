@@ -7,8 +7,8 @@ endif()
 
 FetchContent_Declare(
     gamespy
-    GIT_REPOSITORY https://github.com/TheAssemblyArmada/GamespySDK.git
-    GIT_TAG        07e3d15c500415abc281efb74322ab6d9c857eb8
+    GIT_REPOSITORY https://github.com/Okladnoj/GamespySDK.git
+    GIT_TAG        main
 )
 
 FetchContent_MakeAvailable(gamespy)
