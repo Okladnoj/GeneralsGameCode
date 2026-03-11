@@ -2167,7 +2167,17 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
     return it->second;
   }
 
-  // 2. Create Descriptor
+  // 2. Guard: shaders must be loaded
+  if (!m_FunctionVertex || !m_FunctionFragment) {
+    static bool warned = false;
+    if (!warned) {
+      fprintf(stderr, "[MetalDevice8::GetPSO] ERROR: vertex/fragment function is nil — skipping draw\n");
+      warned = true;
+    }
+    return nil;
+  }
+
+  // 3. Create Descriptor
   MTLRenderPipelineDescriptor *pd = [[MTLRenderPipelineDescriptor alloc] init];
   pd.vertexFunction = (__bridge id<MTLFunction>)m_FunctionVertex;
   pd.fragmentFunction = (__bridge id<MTLFunction>)m_FunctionFragment;

@@ -254,6 +254,9 @@ void PingThreadClass::Thread_Function()
 
 	while ( running )
 	{
+		if (!ThePinger)
+			break;
+
 		// deal with requests
 		if (ThePinger->getRequest(req))
 		{
@@ -313,7 +316,8 @@ void PingThreadClass::Thread_Function()
 			resp.hostname = req.hostname;
 			resp.avgPing = totalPing;
 			resp.repetitions = goodReps;
-			ThePinger->addResponse(resp);
+			if (ThePinger)
+				ThePinger->addResponse(resp);
 		}
 
 		// end our timeslice
