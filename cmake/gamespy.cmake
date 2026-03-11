@@ -8,7 +8,7 @@ endif()
 FetchContent_Declare(
     gamespy
     GIT_REPOSITORY https://github.com/Okladnoj/GamespySDK.git
-    GIT_TAG        main
+    GIT_TAG        feature/macos-port
 )
 
 FetchContent_MakeAvailable(gamespy)

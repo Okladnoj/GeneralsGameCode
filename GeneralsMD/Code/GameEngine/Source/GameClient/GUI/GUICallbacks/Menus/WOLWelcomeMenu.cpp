@@ -350,8 +350,9 @@ void HandleOverallStats(const char *szHTTPStats, unsigned len) {
     //       we want win% = team's wins / total # games played by all teams
     const char *pTotal = FindNextNumber(pSide);
     const char *pWins = FindNextNumber(pTotal);
-    float percent =
-        atof(pWins) / max(1, atof(pTotal)); // max prevents divide by zero
+        double total = atof(pTotal);
+        float percent =
+            atof(pWins) / (total > 1.0 ? total : 1.0);
     s_totalWinPercent += percent;
 
     s_winStats.insert(std::make_pair(side, percent));
