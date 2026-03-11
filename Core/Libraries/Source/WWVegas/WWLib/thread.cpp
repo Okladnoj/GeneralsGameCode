@@ -58,7 +58,7 @@ void __cdecl ThreadClass::Internal_Thread_Function(void* params)
 {
 	ThreadClass* tc=reinterpret_cast<ThreadClass*>(params);
 	tc->running=true;
-	tc->ThreadID = GetCurrentThreadId();
+	tc->ThreadID = _Get_Current_Thread_ID();
 
 #ifdef _WIN32
 	Register_Thread_ID(tc->ThreadID, tc->ThreadName);
@@ -95,10 +95,15 @@ void ThreadClass::Execute()
 {
 	WWASSERT(!handle);	// Only one thread at a time!
 	#ifdef _UNIX
-		// macOS: Thread not started. Background work is done on the main
-		// thread (e.g. TextureLoader::Update drains _BackgroundQueue).
-		// This avoids Metal thread-safety issues with D3D/Metal APIs.
-		return;
+		pthread_t tid;
+		int ret = pthread_create(&tid, nullptr,
+			[](void* p) -> void* { Internal_Thread_Function(p); return nullptr; },
+			this);
+		if (ret == 0) {
+			handle = (unsigned long)(uintptr_t)tid;
+			pthread_detach(tid);
+		}
+		WWDEBUG_SAY(("ThreadClass::Execute: Started thread %s, handle is %lX", ThreadName, handle));
 	#else
 		handle=_beginthread(&Internal_Thread_Function,0,this);
 		SetThreadPriority((HANDLE)handle,THREAD_PRIORITY_NORMAL+thread_priority);
@@ -144,7 +149,11 @@ void ThreadClass::Stop(unsigned ms)
 
 void ThreadClass::Sleep_Ms(unsigned ms)
 {
-	Sleep(ms);
+	#ifdef _UNIX
+		usleep(ms * 1000);
+	#else
+		Sleep(ms);
+	#endif
 }
 
 #ifndef _UNIX

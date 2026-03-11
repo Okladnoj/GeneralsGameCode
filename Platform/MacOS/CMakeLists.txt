@@ -49,6 +49,7 @@ set(COMMON_SRC
 #       was overriding real implementations with no-ops, blocking shroud/fog-of-war,
 #       render-to-texture, and screen filter effects.
 # NOTE: GitInfoStubs.cpp was REMOVED — real resources target provides gitinfo.
+# NOTE: GameSpySDKStubs.c was REMOVED — real libgamespy.a provides all SDK symbols.
 set(STUBS_SRC
     Source/Stubs/GameSpyStubs.cpp
     Source/Stubs/WWDownloadStubs.cpp
@@ -143,6 +144,7 @@ target_link_libraries(macos_platform PUBLIC
     binkstub
     milesstub
     resources
+    gamespy
 )
 # Zero Hour includes and defines — PRIVATE to avoid leaking RTS_ZEROHOUR
 # to the Generals target that also links macos_platform

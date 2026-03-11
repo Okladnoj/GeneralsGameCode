@@ -38,6 +38,7 @@
 #include "GameClient/GameWindowManager.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/Mouse.h"
+#include "GameClient/Keyboard.h"
 #include "GameClient/DisplayStringManager.h"
 #include "GameClient/WindowLayout.h"
 #include "GameClient/Gadget.h"
@@ -818,6 +819,23 @@ WinInputReturnCode GameWindowManager::winProcessKey( UnsignedByte key,
 			}
 
 		}
+
+#ifdef __APPLE__
+		if( BitIsSet( state, KEY_STATE_DOWN ) && TheKeyboard )
+		{
+			WideChar ch = TheKeyboard->translateKey( key );
+			if( ch > 0 && ch != L'\n' && ch != L'\t' && ch != L'\b' )
+			{
+				win = m_keyboardFocus;
+				while( win )
+				{
+					if( winSendInputMsg( win, GWM_IME_CHAR, ch, 0 ) == MSG_HANDLED )
+						break;
+					win = win->winGetParent();
+				}
+			}
+		}
+#endif
 
 	}
 

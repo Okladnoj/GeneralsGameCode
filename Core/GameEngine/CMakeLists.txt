@@ -1112,27 +1112,27 @@ set(GAMEENGINE_SRC
     #Source/GameNetwork/GameSpyChat.cpp # unused
     #Source/GameNetwork/GameSpyGameInfo.cpp # unused
     #Source/GameNetwork/GameSpyGP.cpp # unused
-    #Source/GameNetwork/GameSpy/Chat.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/GSConfig.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/LadderDefs.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/LobbyUtils.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/MainMenuUtils.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/PeerDefs.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/StagingRoomGameInfo.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/Thread/BuddyThread.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/Thread/GameResultsThread.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/Thread/PeerThread.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/Thread/PersistentStorageThread.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/Thread/PingThread.cpp # Windows-only
-    #Source/GameNetwork/GameSpy/Thread/ThreadUtils.cpp # Windows-only
-    #Source/GameNetwork/GameSpyOverlay.cpp # Windows-only
+    Source/GameNetwork/GameSpy/Chat.cpp
+    Source/GameNetwork/GameSpy/GSConfig.cpp
+    Source/GameNetwork/GameSpy/LadderDefs.cpp
+    Source/GameNetwork/GameSpy/LobbyUtils.cpp
+    Source/GameNetwork/GameSpy/MainMenuUtils.cpp
+    Source/GameNetwork/GameSpy/PeerDefs.cpp
+    Source/GameNetwork/GameSpy/StagingRoomGameInfo.cpp
+    Source/GameNetwork/GameSpy/Thread/BuddyThread.cpp
+    Source/GameNetwork/GameSpy/Thread/GameResultsThread.cpp
+    Source/GameNetwork/GameSpy/Thread/PeerThread.cpp
+    Source/GameNetwork/GameSpy/Thread/PersistentStorageThread.cpp
+    Source/GameNetwork/GameSpy/Thread/PingThread.cpp
+    Source/GameNetwork/GameSpy/Thread/ThreadUtils.cpp
+    Source/GameNetwork/GameSpyOverlay.cpp
 #    Source/GameNetwork/GUIUtil.cpp
-    #Source/GameNetwork/IPEnumeration.cpp # Windows WinSock-only
-    #Source/GameNetwork/LANAPI.cpp # Windows WinSock-only
-    #Source/GameNetwork/LANAPICallbacks.cpp # Windows WinSock-only
-    #Source/GameNetwork/LANAPIhandlers.cpp # Windows WinSock-only
-    #Source/GameNetwork/LANGameInfo.cpp # Windows WinSock-only
-    #Source/GameNetwork/NAT.cpp # Windows WinSock-only
+    Source/GameNetwork/IPEnumeration.cpp
+    Source/GameNetwork/LANAPI.cpp
+    Source/GameNetwork/LANAPICallbacks.cpp
+    Source/GameNetwork/LANAPIhandlers.cpp
+    Source/GameNetwork/LANGameInfo.cpp
+    Source/GameNetwork/NAT.cpp
     Source/GameNetwork/NetCommandList.cpp
     Source/GameNetwork/NetCommandMsg.cpp
     Source/GameNetwork/NetCommandRef.cpp
@@ -1141,9 +1141,9 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/NetPacket.cpp
     Source/GameNetwork/Network.cpp
     Source/GameNetwork/NetworkUtil.cpp
-    #Source/GameNetwork/Transport.cpp # Windows WinSock-only
-    #Source/GameNetwork/udp.cpp # Windows WinSock-only
-    #Source/GameNetwork/User.cpp # Windows WinSock-only
+    Source/GameNetwork/Transport.cpp
+    Source/GameNetwork/udp.cpp
+    Source/GameNetwork/User.cpp
     #Source/GameNetwork/WOLBrowser/WebBrowser.cpp # Windows-only
 #    Source/Precompiled/PreRTS.cpp
 )

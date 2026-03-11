@@ -69,20 +69,8 @@ endif()
 include(cmake/config.cmake)
 if(APPLE)
     # ── GameSpy SDK ──
-    # Doesn't compile on macOS — stubs are in Platform/MacOS/Source/Stubs/
-    FetchContent_Declare(
-        gamespy
-        GIT_REPOSITORY https://github.com/TheAssemblyArmada/GamespySDK.git
-        GIT_TAG        07e3d15c500415abc281efb74322ab6d9c857eb8
-    )
-    FetchContent_Populate(gamespy)
-    # Stub targets providing include paths only
-    add_library(gamespy INTERFACE)
-    add_library(gamespy::gamespy ALIAS gamespy)
-    target_include_directories(gamespy INTERFACE
-        ${gamespy_SOURCE_DIR}/include
-        ${gamespy_SOURCE_DIR}/include/gamespy
-    )
+    # SDK compiles on macOS — uses community servers (server.cnc-online.net)
+    include(cmake/gamespy.cmake)
 
     # ── DirectX 8 SDK ──
     # On macOS: use our d3d8_stub.h (clean C++ interfaces, no COM) — MetalDevice8 implements these

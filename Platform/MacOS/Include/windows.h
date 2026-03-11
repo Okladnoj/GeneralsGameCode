@@ -1599,4 +1599,9 @@ inline BOOL HeapFree(HANDLE /*hHeap*/, DWORD /*dwFlags*/, void *lpMem) {
 }
 #endif
 
+// ── Winsock compatibility (POSIX sockets) ──────────────────────────────
+// Include winsock shim so WSAStartup/WSACleanup/WSADATA etc. are available
+// to any code that includes windows.h (as on real Windows).
+#include "winsock.h"
+
 #endif // _WINDOWS_H_MACOS_SHIM_

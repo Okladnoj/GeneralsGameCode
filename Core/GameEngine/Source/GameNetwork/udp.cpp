@@ -177,7 +177,7 @@ Int UDP::Bind(UnsignedInt IP,UnsignedShort Port)
     return(status);
   }
 
-  int namelen=sizeof(addr);
+  socklen_t namelen=sizeof(addr);
   getsockname(fd, (struct sockaddr *)&addr, &namelen);
 
   myIP=ntohl(addr.sin_addr.s_addr);
@@ -262,11 +262,11 @@ Int UDP::Write(const unsigned char *msg,UnsignedInt len,UnsignedInt IP,UnsignedS
 Int UDP::Read(unsigned char *msg,UnsignedInt len,sockaddr_in *from)
 {
   Int retval;
-  int    alen=sizeof(sockaddr_in);
+  socklen_t    alen=sizeof(sockaddr_in);
 
   if (from!=nullptr)
   {
-    retval=recvfrom(fd,(char *)msg,len,0,(struct sockaddr *)from,&alen);
+    retval=recvfrom(fd,(char *)msg,len,0,(struct sockaddr *)from,(socklen_t *)&alen);
     #ifdef _WIN32
     if (retval == SOCKET_ERROR)
 		{
@@ -373,8 +373,10 @@ UDP::sockStat UDP::GetStatus()
       return ALREADY;
     case EAGAIN:
       return AGAIN;
+#if EWOULDBLOCK != EAGAIN
     case EWOULDBLOCK:
       return WOULDBLOCK;
+#endif
     case EBADF:
       return BADF;
     default:
@@ -505,7 +507,8 @@ Int UDP::SetOutputBuffer(UnsignedInt bytes)
 
 int UDP::GetInputBuffer()
 {
-   int retval,arg=0,len=sizeof(int);
+   int retval,arg=0;
+   socklen_t len=sizeof(int);
 
    retval=getsockopt(fd,SOL_SOCKET,SO_RCVBUF,
      (char *)&arg,&len);
@@ -515,7 +518,8 @@ int UDP::GetInputBuffer()
 
 int UDP::GetOutputBuffer()
 {
-   int retval,arg=0,len=sizeof(int);
+   int retval,arg=0;
+   socklen_t len=sizeof(int);
 
    retval=getsockopt(fd,SOL_SOCKET,SO_SNDBUF,
      (char *)&arg,&len);
@@ -525,8 +529,8 @@ int UDP::GetOutputBuffer()
 Int UDP::AllowBroadcasts(Bool status)
 {
 	int retval;
-	BOOL val = status;
-	retval = setsockopt(fd, SOL_SOCKET, SO_BROADCAST, (char *)&val, sizeof(BOOL));
+	int val = status ? 1 : 0;
+	retval = setsockopt(fd, SOL_SOCKET, SO_BROADCAST, (char *)&val, sizeof(val));
 	if (retval == 0)
 		return TRUE;
 	else

@@ -171,9 +171,40 @@ static unsigned char MacOSVirtualKeyToDIK(unsigned short keyCode) {
   // Period/dot
   case 0x2F:
     return DIK_PERIOD;
-  // Numpad Enter
+
+  // Numpad keys
+  case 0x52:
+    return DIK_NUMPAD0;
+  case 0x53:
+    return DIK_NUMPAD1;
+  case 0x54:
+    return DIK_NUMPAD2;
+  case 0x55:
+    return DIK_NUMPAD3;
+  case 0x56:
+    return DIK_NUMPAD4;
+  case 0x57:
+    return DIK_NUMPAD5;
+  case 0x58:
+    return DIK_NUMPAD6;
+  case 0x59:
+    return DIK_NUMPAD7;
+  case 0x5B:
+    return DIK_NUMPAD8;
+  case 0x5C:
+    return DIK_NUMPAD9;
   case 0x4C:
     return DIK_NUMPADENTER;
+  case 0x43:
+    return DIK_NUMPADSTAR;
+  case 0x45:
+    return DIK_NUMPADPLUS;
+  case 0x4E:
+    return DIK_NUMPADMINUS;
+  case 0x41:
+    return DIK_NUMPADPERIOD;
+  case 0x4B:
+    return DIK_NUMPADSLASH;
 
   default:
     return 0;
@@ -251,16 +282,25 @@ void StdKeyboard::addEvent(unsigned char keyCode, bool isDown,
   m_nextFreeIndex = nextIndex;
 }
 
+void StdKeyboard::refreshKeyState(unsigned char keyCode, unsigned int time) {
+  unsigned char dikCode = MacOSVirtualKeyToDIK(keyCode);
+  if (dikCode == 0)
+    return;
+
+  m_keyStatus[dikCode].state = KEY_STATE_DOWN;
+  m_keyStatus[dikCode].keyDownTimeMsec = time;
+}
+
 void StdKeyboard::setModifiers(unsigned long flags, unsigned int time) {
   // Translate macOS modifier flags to Keyboard m_modifiers mask
   UnsignedShort newModifiers = 0;
   
   // NX_SHIFTMASK (1 << 17)
-  if (flags & (1 << 17)) newModifiers |= KEY_STATE_SHIFT;
+  if (flags & (1 << 17)) newModifiers |= KEY_STATE_LSHIFT;
   // NX_CONTROLMASK (1 << 18)
-  if (flags & (1 << 18)) newModifiers |= KEY_STATE_CONTROL;
+  if (flags & (1 << 18)) newModifiers |= KEY_STATE_LCONTROL;
   // NX_ALTERNATEMASK (1 << 19)
-  if (flags & (1 << 19)) newModifiers |= KEY_STATE_ALT;
+  if (flags & (1 << 19)) newModifiers |= KEY_STATE_LALT;
 
   m_modifiers = newModifiers;
 

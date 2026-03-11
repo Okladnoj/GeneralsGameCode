@@ -30,8 +30,19 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include "MacOSDebugLog.h"
 
 #include <fcntl.h>
+#ifdef _UNIX
+#include <unistd.h>
+#include <pthread.h>
+#define _open open
+#define _close close
+#define _O_CREAT O_CREAT
+#define _O_RDWR O_RDWR
+#define _S_IREAD S_IRUSR
+#define _S_IWRITE S_IWUSR
+#endif
 
 //#include "Common/Registry.h"
 #include "Common/UserPreferences.h"
@@ -175,6 +186,8 @@ static Bool hasWriteAccess()
 
 static void startOnline()
 {
+	DLOG_NETWORK("startOnline() cantConnect=%d mustDownload=%d queuedDownloads=%d",
+		(int)cantConnectBeforeOnline, (int)mustDownloadPatch, (int)queuedDownloads.size());
 	checkingForPatchBeforeGameSpy = FALSE;
 
 	DEBUG_ASSERTCRASH(checksLeftBeforeOnline==0, ("starting online with pending callbacks"));
@@ -186,10 +199,15 @@ static void startOnline()
 
 	if (cantConnectBeforeOnline)
 	{
+#ifdef __APPLE__
+		DLOG_NETWORK("servserv.generals.ea.com unreachable — skipping patch check (EA servers dead, using community servers)");
+		cantConnectBeforeOnline = FALSE;
+#else
 		MessageBoxOk(TheGameText->fetch("GUI:CannotConnectToServservTitle"),
 			TheGameText->fetch("GUI:CannotConnectToServserv"),
 			noPatchBeforeOnlineCallback);
 		return;
+#endif
 	}
 	if (!queuedDownloads.empty())
 	{
@@ -309,7 +327,7 @@ static void queuePatch(Bool mandatory, AsciiString downloadURL)
 static GHTTPBool motdCallback( GHTTPRequest request, GHTTPResult result,
 															char * buffer, GHTTPByteCount bufferLen, void * param )
 {
-	Int run = (Int)param;
+	Int run = (Int)(intptr_t)param;
 	if (run != timeThroughOnline)
 	{
 		DEBUG_CRASH(("Old callback being called!"));
@@ -344,7 +362,7 @@ static GHTTPBool motdCallback( GHTTPRequest request, GHTTPResult result,
 static GHTTPBool configCallback( GHTTPRequest request, GHTTPResult result,
 																char * buffer, GHTTPByteCount bufferLen, void * param )
 {
-	Int run = (Int)param;
+	Int run = (Int)(intptr_t)param;
 	if (run != timeThroughOnline)
 	{
 		DEBUG_CRASH(("Old callback being called!"));
@@ -406,7 +424,7 @@ static GHTTPBool configCallback( GHTTPRequest request, GHTTPResult result,
 static GHTTPBool configHeadCallback( GHTTPRequest request, GHTTPResult result,
 																		char * buffer, GHTTPByteCount bufferLen, void * param )
 {
-	Int run = (Int)param;
+	Int run = (Int)(intptr_t)param;
 	if (run != timeThroughOnline)
 	{
 		DEBUG_CRASH(("Old callback being called!"));
@@ -490,7 +508,7 @@ static GHTTPBool configHeadCallback( GHTTPRequest request, GHTTPResult result,
 
 static GHTTPBool gamePatchCheckCallback( GHTTPRequest request, GHTTPResult result, char * buffer, GHTTPByteCount bufferLen, void * param )
 {
-	Int run = (Int)param;
+	Int run = (Int)(intptr_t)param;
 	if (run != timeThroughOnline)
 	{
 		DEBUG_CRASH(("Old callback being called!"));
@@ -739,7 +757,21 @@ int asyncGethostbyname(char * szName)
 	{
 		/* Kick off gethostname thread */
 		s_asyncDNSThreadDone = FALSE;
+#ifdef _UNIX
+		pthread_t thread;
+		int result = pthread_create(&thread, nullptr, [](void* arg) -> void* {
+			asyncGethostbynameThreadFunc(arg);
+			return nullptr;
+		}, szName);
+		if (result == 0) {
+			s_asyncDNSThreadHandle = (HANDLE)(intptr_t)1;
+			pthread_detach(thread);
+		} else {
+			s_asyncDNSThreadHandle = nullptr;
+		}
+#else
 		s_asyncDNSThreadHandle = CreateThread( nullptr, 0, asyncGethostbynameThreadFunc, szName, 0, &threadid );
+#endif
 
 		if( s_asyncDNSThreadHandle == nullptr )
 		{
@@ -778,10 +810,12 @@ void HTTPThinkWrapper()
 		switch(ret)
 		{
 		case LOOKUP_FAILED:
+			DLOG_NETWORK("HTTPThinkWrapper: DNS FAILED -> cantConnect");
 			cantConnectBeforeOnline = TRUE;
 			startOnline();
 			break;
 		case LOOKUP_SUCCEEDED:
+			DLOG_NETWORK("HTTPThinkWrapper: DNS SUCCEEDED -> reallyStartPatchCheck");
 			reallyStartPatchCheck();
 			break;
 		}
@@ -795,9 +829,8 @@ void HTTPThinkWrapper()
 		}
 		catch (...)
 		{
-			isHttpOk = FALSE; // we can't abort the login, since we might be done with the
-												// required checks and are fetching extras.  If it is a required
-												// check, we'll time out normally.
+			DLOG_NETWORK("HTTPThinkWrapper: ghttpThink() crashed!");
+			isHttpOk = FALSE;
 		}
 	}
 }
@@ -808,11 +841,13 @@ void StopAsyncDNSCheck()
 {
 	if (s_asyncDNSThreadHandle)
 	{
+#ifndef _UNIX
 #ifdef DEBUG_CRASHING
 		Int res =
 #endif
 			TerminateThread(s_asyncDNSThreadHandle,0);
-		DEBUG_ASSERTCRASH(res, ("Could not terminate the Async DNS Lookup thread!"));	// Thread still not killed!
+		DEBUG_ASSERTCRASH(res, ("Could not terminate the Async DNS Lookup thread!"));
+#endif
 	}
 	s_asyncDNSThreadHandle = nullptr;
 	s_asyncDNSLookupInProgress = FALSE;
@@ -822,6 +857,7 @@ void StopAsyncDNSCheck()
 
 void StartPatchCheck()
 {
+	DLOG_NETWORK("StartPatchCheck() called");
 	checkingForPatchBeforeGameSpy = TRUE;
 	cantConnectBeforeOnline = FALSE;
 	timeThroughOnline++;
@@ -833,13 +869,16 @@ void StartPatchCheck()
 	s_asyncDNSLookupInProgress = TRUE;
 	Char hostname[] = "servserv.generals.ea.com";
 	Int ret = asyncGethostbyname(hostname);
+	DLOG_NETWORK("asyncGethostbyname returned %d (0=INPROGRESS, 1=FAILED, 2=SUCCEEDED)", ret);
 	switch(ret)
 	{
 	case LOOKUP_FAILED:
+		DLOG_NETWORK("DNS FAILED immediately -> cantConnectBeforeOnline");
 		cantConnectBeforeOnline = TRUE;
 		startOnline();
 		break;
 	case LOOKUP_SUCCEEDED:
+		DLOG_NETWORK("DNS SUCCEEDED immediately -> reallyStartPatchCheck");
 		reallyStartPatchCheck();
 		break;
 	}

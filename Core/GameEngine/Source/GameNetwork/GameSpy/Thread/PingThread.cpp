@@ -333,6 +333,7 @@ void PingThreadClass::Thread_Function()
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
 
+#ifdef _WIN32
 HANDLE WINAPI IcmpCreateFile(VOID); /* INVALID_HANDLE_VALUE on error */
 BOOL WINAPI IcmpCloseHandle(HANDLE IcmpHandle); /* FALSE on error */
 
@@ -407,6 +408,7 @@ DWORD WINAPI IcmpSendEcho(
 #define IP_GENERAL_FAILURE (IP_STATUS_BASE + 50)
 #define MAX_IP_STATUS IP_GENERAL_FAILURE
 #define IP_PENDING (IP_STATUS_BASE + 255)
+#endif // _WIN32
 
 
 #define BUFSIZE     8192
@@ -416,6 +418,11 @@ DWORD WINAPI IcmpSendEcho(
 
 Int PingThreadClass::doPing(UnsignedInt IP, Int timeout)
 {
+#ifdef _UNIX
+   (void)IP;
+   (void)timeout;
+   return -1;
+#else
    /*
     * Initialize default settings
     */
@@ -445,7 +452,7 @@ Int PingThreadClass::doPing(UnsignedInt IP, Int timeout)
    HANDLE ( WINAPI *lpfnIcmpCreateFile )( VOID ) = nullptr;
    BOOL ( WINAPI *lpfnIcmpCloseHandle )( HANDLE ) = nullptr;
    DWORD (WINAPI *lpfnIcmpSendEcho)(HANDLE, DWORD, LPVOID, WORD, LPVOID,
-                                    LPVOID, DWORD, DWORD) = nullptr;
+                                     LPVOID, DWORD, DWORD) = nullptr;
 
 
    /*
@@ -567,6 +574,7 @@ cleanup:
       FreeLibrary((HINSTANCE)hICMP_DLL);
 
    return pingTime;
+#endif // _UNIX
 }
 
 

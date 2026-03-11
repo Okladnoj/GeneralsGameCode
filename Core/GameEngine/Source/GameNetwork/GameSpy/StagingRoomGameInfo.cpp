@@ -71,11 +71,14 @@ GameSpyGameSlot::GameSpyGameSlot()
 ** Function definitions for the MIB-II entry points.
 */
 
+#ifdef _WIN32
 BOOL (__stdcall *SnmpExtensionInitPtr)(IN DWORD dwUpTimeReference, OUT HANDLE *phSubagentTrapEvent, OUT AsnObjectIdentifier *pFirstSupportedRegion);
 BOOL (__stdcall *SnmpExtensionQueryPtr)(IN BYTE bPduType, IN OUT RFC1157VarBindList *pVarBindList, OUT AsnInteger32 *pErrorStatus, OUT AsnInteger32 *pErrorIndex);
 LPVOID (__stdcall *SnmpUtilMemAllocPtr)(IN DWORD bytes);
 VOID (__stdcall *SnmpUtilMemFreePtr)(IN LPVOID pMem);
+#endif
 
+#ifdef _WIN32
 typedef struct tConnInfoStruct {
 	unsigned int State;
 	unsigned long LocalIP;
@@ -83,23 +86,43 @@ typedef struct tConnInfoStruct {
 	unsigned long RemoteIP;
 	unsigned short RemotePort;
 } ConnInfoStruct;
+#endif
 
-/***********************************************************************************************
- * Get_Local_Chat_Connection_Address -- Which address are we using to talk to the chat server? *
- *                                                                                             *
- *                                                                                             *
- *                                                                                             *
- * INPUT:    Ptr to address to return local address                                            *                                                                                             *
- *                                                                                             *
- * OUTPUT:   True if success                                                                   *
- *                                                                                             *
- * WARNINGS: None                                                                              *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   10/27/00 3:24PM ST : Created                                                              *
- *=============================================================================================*/
 Bool GetLocalChatConnectionAddress(AsciiString serverName, UnsignedShort serverPort, UnsignedInt& localIP)
 {
+#ifdef _UNIX
+	struct hostent *host_info = gethostbyname(serverName.str());
+	if (!host_info) {
+		return false;
+	}
+
+	struct sockaddr_in serverAddr;
+	memset(&serverAddr, 0, sizeof(serverAddr));
+	serverAddr.sin_family = AF_INET;
+	memcpy(&serverAddr.sin_addr, host_info->h_addr_list[0], host_info->h_length);
+	serverAddr.sin_port = htons(serverPort ? serverPort : 6667);
+
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock < 0) {
+		return false;
+	}
+
+	if (connect(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+		close(sock);
+		return false;
+	}
+
+	struct sockaddr_in localAddr;
+	socklen_t addrLen = sizeof(localAddr);
+	if (getsockname(sock, (struct sockaddr*)&localAddr, &addrLen) < 0) {
+		close(sock);
+		return false;
+	}
+
+	localIP = localAddr.sin_addr.s_addr;
+	close(sock);
+	return true;
+#else
 	//return false;
 	/*
 	** Local defines.
@@ -431,6 +454,7 @@ Bool GetLocalChatConnectionAddress(AsciiString serverName, UnsignedShort serverP
 	FreeLibrary(snmpapi_dll);
 	FreeLibrary(mib_ii_dll);
 	return(found);
+#endif // _WIN32
 }
 
 // GameSpyGameSlot ----------------------------------------

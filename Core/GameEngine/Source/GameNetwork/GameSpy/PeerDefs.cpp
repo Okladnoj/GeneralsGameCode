@@ -43,6 +43,8 @@
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 #include "GameNetwork/GameSpy/GSConfig.h"
 #include "GameNetwork/GameSpyOverlay.h"
+
+#include "gsavailable.h"
 #include "GameNetwork/RankPointValue.h"
 #include "GameLogic/GameLogic.h"
 
@@ -598,6 +600,8 @@ const AsciiString& GameSpyInfo::getConfig()
 // --------------------------------------------------------------
 void SetUpGameSpy( const char *motdBuffer, const char *configBuffer )
 {
+	__GSIACResult = GSIACAvailable;
+
 	if (!motdBuffer)
 		motdBuffer = "";
 	if (!configBuffer)

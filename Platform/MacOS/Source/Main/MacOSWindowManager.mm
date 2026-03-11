@@ -291,7 +291,11 @@ void MacOS_PumpEvents() {
       case NSEventTypeKeyDown:
         if (TheKeyboard) {
           unsigned char keyCode = [event keyCode];
-          ((StdKeyboard *)TheKeyboard)->addEvent(keyCode, true, timestamp);
+          if ([event isARepeat]) {
+            ((StdKeyboard *)TheKeyboard)->refreshKeyState(keyCode, timestamp);
+          } else {
+            ((StdKeyboard *)TheKeyboard)->addEvent(keyCode, true, timestamp);
+          }
         }
         break;
       case NSEventTypeKeyUp:

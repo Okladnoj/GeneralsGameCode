@@ -28,6 +28,7 @@
 #define DLOG_GROUP_WINDOW      (1 << 5)   // Window creation & management
 #define DLOG_GROUP_INIT        (1 << 6)   // Initialization & startup
 #define DLOG_GROUP_DRAW        (1 << 7)   // Low-level draw calls (Metal/DX8)
+#define DLOG_GROUP_NETWORK     (1 << 8)   // Network / GameSpy online flow
 
 // ============================================================================
 // Active groups — EDIT THIS to enable/disable output per group
@@ -41,7 +42,8 @@
     DLOG_GROUP_FONT        | \
     DLOG_GROUP_WINDOW      | \
     DLOG_GROUP_INIT        | \
-    DLOG_GROUP_DRAW          \
+    DLOG_GROUP_DRAW        | \
+    DLOG_GROUP_NETWORK       \
 )
 
 // ============================================================================
@@ -88,6 +90,7 @@
 
 // Low-level draw
 #define DLOG_DRAW(fmt, ...)          DLOG(DLOG_GROUP_DRAW, "DRAW:", DLOG_DEFAULT_MAX, fmt, ##__VA_ARGS__)
+#define DLOG_NETWORK(fmt, ...)       DLOG(DLOG_GROUP_NETWORK, "NETWORK:", DLOG_DEFAULT_MAX, fmt, ##__VA_ARGS__)
 
 #else // !__APPLE__  — all macros are no-ops
 
@@ -102,5 +105,6 @@
 #define DLOG_WINDOW(fmt, ...)                         ((void)0)
 #define DLOG_INIT(fmt, ...)                           ((void)0)
 #define DLOG_DRAW(fmt, ...)                           ((void)0)
+#define DLOG_NETWORK(fmt, ...)                        ((void)0)
 
 #endif // __APPLE__
