@@ -23,6 +23,10 @@
 void FormatURLFromRegistry( std::string& gamePatchURL, std::string& mapPatchURL,
 													 std::string& configURL, std::string& motdURL )
 {
+#if !defined(GAMESPY_PATCHING_URL)
+#define GAMESPY_PATCHING_URL "http://servserv.generals.ea.com/servserv/"
+#endif
+
 #if RTS_GENERALS
 	std::string sku = "generals";
 #elif RTS_ZEROHOUR
@@ -31,7 +35,7 @@ void FormatURLFromRegistry( std::string& gamePatchURL, std::string& mapPatchURL,
 	std::string language = "english";
 	unsigned int version = 0; // invalid version - can't get on with a corrupt reg.
 	unsigned int mapVersion = 0; // invalid version - can't get on with a corrupt reg.
-	std::string baseURL = "http://servserv.generals.ea.com/servserv/";
+	std::string baseURL = GAMESPY_PATCHING_URL;
 	baseURL.append(sku);
 	baseURL.append("/");
 

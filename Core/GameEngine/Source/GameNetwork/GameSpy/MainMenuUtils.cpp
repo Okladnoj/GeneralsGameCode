@@ -44,6 +44,10 @@
 #define _S_IWRITE S_IWUSR
 #endif
 
+#if !defined(GAMESPY_PATCHING_HOSTNAME)
+#define GAMESPY_PATCHING_HOSTNAME "servserv.generals.ea.com"
+#endif
+
 //#include "Common/Registry.h"
 #include "Common/UserPreferences.h"
 #include "Common/version.h"
@@ -805,7 +809,7 @@ void HTTPThinkWrapper()
 {
 	if (s_asyncDNSLookupInProgress)
 	{
-		Char hostname[] = "servserv.generals.ea.com";
+		Char hostname[] = GAMESPY_PATCHING_HOSTNAME;
 		Int ret = asyncGethostbyname(hostname);
 		switch(ret)
 		{
@@ -867,7 +871,7 @@ void StartPatchCheck()
 		TheGameText->fetch("GUI:CheckingForPatches"), CancelPatchCheckCallbackAndReopenDropdown);
 
 	s_asyncDNSLookupInProgress = TRUE;
-	Char hostname[] = "servserv.generals.ea.com";
+	Char hostname[] = GAMESPY_PATCHING_HOSTNAME;
 	Int ret = asyncGethostbyname(hostname);
 	DLOG_NETWORK("asyncGethostbyname returned %d (0=INPROGRESS, 1=FAILED, 2=SUCCEEDED)", ret);
 	switch(ret)
