@@ -278,10 +278,20 @@ public:
       dev->GetTextureStageState(0, D3DTSS_ALPHAARG1, &oldAlphaArg1);
       dev->GetTextureStageState(0, D3DTSS_ALPHAARG2, &oldAlphaArg2);
 
+      DWORD oldTexCoordIndex, oldTexTransformFlags;
+      DWORD oldStage1ColorOp, oldFogEnable, oldLighting;
+      dev->GetTextureStageState(0, D3DTSS_TEXCOORDINDEX, &oldTexCoordIndex);
+      dev->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &oldTexTransformFlags);
+      dev->GetTextureStageState(1, D3DTSS_COLOROP, &oldStage1ColorOp);
+      dev->GetRenderState(D3DRS_FOGENABLE, &oldFogEnable);
+      dev->GetRenderState(D3DRS_LIGHTING, &oldLighting);
+
       // Set correct states for text rendering
       dev->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
       dev->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
       dev->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+      dev->SetRenderState(D3DRS_FOGENABLE, FALSE);
+      dev->SetRenderState(D3DRS_LIGHTING, FALSE);
       
       dev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
       dev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
@@ -290,6 +300,10 @@ public:
       dev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
       dev->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
       dev->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
+
+      dev->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
+      dev->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
+      dev->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
 
       dev->SetVertexShader(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
 
@@ -302,12 +316,17 @@ public:
       dev->SetRenderState(D3DRS_ALPHABLENDENABLE, oldAlphaBlend);
       dev->SetRenderState(D3DRS_SRCBLEND, oldSrcBlend);
       dev->SetRenderState(D3DRS_DESTBLEND, oldDstBlend);
+      dev->SetRenderState(D3DRS_FOGENABLE, oldFogEnable);
+      dev->SetRenderState(D3DRS_LIGHTING, oldLighting);
       dev->SetTextureStageState(0, D3DTSS_COLOROP, oldColorOp);
       dev->SetTextureStageState(0, D3DTSS_COLORARG1, oldColorArg1);
       dev->SetTextureStageState(0, D3DTSS_COLORARG2, oldColorArg2);
       dev->SetTextureStageState(0, D3DTSS_ALPHAOP, oldAlphaOp);
       dev->SetTextureStageState(0, D3DTSS_ALPHAARG1, oldAlphaArg1);
       dev->SetTextureStageState(0, D3DTSS_ALPHAARG2, oldAlphaArg2);
+      dev->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, oldTexCoordIndex);
+      dev->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, oldTexTransformFlags);
+      dev->SetTextureStageState(1, D3DTSS_COLOROP, oldStage1ColorOp);
       
       dev->SetTexture(0, nullptr);
     }

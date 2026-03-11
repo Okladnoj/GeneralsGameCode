@@ -2576,12 +2576,26 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   bool is2D = (fvf & D3DFVF_XYZRHW) != 0;
   DWORD savedZEnable = 0;
   DWORD savedZWrite  = 0;
+  D3DVIEWPORT8 savedViewport = {};
   if (is2D) {
     savedZEnable = m_RenderStates[D3DRS_ZENABLE];
     savedZWrite  = m_RenderStates[D3DRS_ZWRITEENABLE];
     m_RenderStates[D3DRS_ZENABLE] = FALSE;
     m_RenderStates[D3DRS_ZWRITEENABLE] = FALSE;
     m_DepthStateDirty = true;
+
+    // DX8 XYZRHW vertices are in absolute screen space and bypass the
+    // viewport transform. Metal always applies viewport, so force fullscreen
+    // viewport to avoid NDC→screen distortion from a sub-viewport.
+    savedViewport = m_Viewport;
+    D3DVIEWPORT8 fullVP = {};
+    fullVP.X = 0;
+    fullVP.Y = 0;
+    fullVP.Width = (DWORD)m_ScreenWidth;
+    fullVP.Height = (DWORD)m_ScreenHeight;
+    fullVP.MinZ = 0.0f;
+    fullVP.MaxZ = 1.0f;
+    SetViewport(&fullVP);
   }
   ApplyPerDrawState();
 
@@ -2646,11 +2660,12 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
                   vertexStart:0
                   vertexCount:vertexCount];
 
-  // Restore depth state for XYZRHW (2D) draws
+  // Restore depth state and viewport for XYZRHW (2D) draws
   if (is2D) {
     m_RenderStates[D3DRS_ZENABLE] = savedZEnable;
     m_RenderStates[D3DRS_ZWRITEENABLE] = savedZWrite;
     m_DepthStateDirty = true;
+    SetViewport(&savedViewport);
   }
 
   return D3D_OK;
