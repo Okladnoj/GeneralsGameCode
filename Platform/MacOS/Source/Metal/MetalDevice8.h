@@ -313,6 +313,8 @@ private:
   void *GetSamplerState(DWORD stage);
   void BindUniforms(DWORD fvf);
   void BindCustomVSUniforms();
+  void BindTexturesAndSamplers();
+  static MTLPrimitiveType MapPrimitiveType(DWORD d3dPrimType);
 
   // --- Metal Render Pipeline State ---
   void *m_Library;                       // id<MTLLibrary>

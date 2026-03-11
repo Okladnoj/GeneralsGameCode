@@ -1004,6 +1004,35 @@ void MetalDevice8::BindCustomVSUniforms() {
   [MTL_ENCODER setFragmentBytes:&psu length:sizeof(psu) atIndex:5];
 }
 
+void MetalDevice8::BindTexturesAndSamplers() {
+  for (int s = 0; s < 4; s++) {
+    if (m_Textures[s]) {
+      MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
+      id<MTLTexture> mtlTex = tex->GetMTLTexture();
+      if (mtlTex) {
+        [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s];
+      }
+    }
+    void *samplerState = GetSamplerState(s);
+    if (samplerState) {
+      [MTL_ENCODER
+          setFragmentSamplerState:(__bridge id<MTLSamplerState>)samplerState
+                          atIndex:s];
+    }
+  }
+}
+
+MTLPrimitiveType MetalDevice8::MapPrimitiveType(DWORD d3dPrimType) {
+  switch (d3dPrimType) {
+    case D3DPT_TRIANGLELIST:  return MTLPrimitiveTypeTriangle;
+    case D3DPT_TRIANGLESTRIP: return MTLPrimitiveTypeTriangleStrip;
+    case D3DPT_LINELIST:      return MTLPrimitiveTypeLine;
+    case D3DPT_LINESTRIP:     return MTLPrimitiveTypeLineStrip;
+    case D3DPT_POINTLIST:     return MTLPrimitiveTypePoint;
+    default:                  return MTLPrimitiveTypeTriangle;
+  }
+}
+
 // ─────────────────────────────────────────────────────
 //  Stage 7: Get or Create MTLSamplerState for a texture stage
 // ─────────────────────────────────────────────────────
@@ -2384,45 +2413,10 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
 
   BindUniforms(fvf);
   BindCustomVSUniforms();
+  BindTexturesAndSamplers();
 
-  // 6. Bind Textures and Samplers
-  for (int s = 0; s < 4; s++) {
-    if (m_Textures[s]) {
-      MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
-      id<MTLTexture> mtlTex = tex->GetMTLTexture();
-      if (mtlTex) {
-        [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s];
-        if (s == 0) {
-          DLOG_RFLOW(18, "BindTex stage=0 mtl=%p %lux%lu fmt=%lu",
-            (__bridge void*)mtlTex,
-            (unsigned long)mtlTex.width, (unsigned long)mtlTex.height,
-            (unsigned long)mtlTex.pixelFormat);
-        }
-      } else if (s == 0) {
-        DLOG_RFLOW(18, "BindTex stage=0 tex=%p mtl=NULL!", (void*)tex);
-      }
-    } else if (s == 0) {
-      DLOG_RFLOW(18, "BindTex stage=0 m_Textures=NULL");
-    }
-    void *samplerState = GetSamplerState(s);
-    if (samplerState) {
-      [MTL_ENCODER
-          setFragmentSamplerState:(__bridge id<MTLSamplerState>)samplerState
-                          atIndex:s];
-    }
-  }
+  MTLPrimitiveType mtlPt = MapPrimitiveType(pt);
 
-  // 6. Draw
-  MTLPrimitiveType mtlPt = MTLPrimitiveTypeTriangle;
-  if (pt == D3DPT_TRIANGLELIST)
-    mtlPt = MTLPrimitiveTypeTriangle;
-  else if (pt == D3DPT_TRIANGLESTRIP)
-    mtlPt = MTLPrimitiveTypeTriangleStrip;
-  else if (pt == D3DPT_LINELIST)
-    mtlPt = MTLPrimitiveTypeLine;
-  // ... others
-
-  // Primitive Count to Vertex Count
   UINT vertexCount = 0;
   if (pt == D3DPT_TRIANGLELIST)
     vertexCount = pc * 3;
@@ -2477,28 +2471,9 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
 
   BindUniforms(fvf);
   BindCustomVSUniforms();
-  for (int s = 0; s < 4; s++) {
-    if (m_Textures[s]) {
-      MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
-      id<MTLTexture> mtlTex = tex->GetMTLTexture();
-      if (mtlTex) {
-        [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s];
-      }
-    }
-    void *samplerState = GetSamplerState(s);
-    if (samplerState) {
-      [MTL_ENCODER
-          setFragmentSamplerState:(__bridge id<MTLSamplerState>)samplerState
-                          atIndex:s];
-    }
-  }
+  BindTexturesAndSamplers();
 
-  // 5. Draw
-  MTLPrimitiveType mtlPt = MTLPrimitiveTypeTriangle;
-  if (pt == D3DPT_TRIANGLELIST)
-    mtlPt = MTLPrimitiveTypeTriangle;
-  else if (pt == D3DPT_TRIANGLESTRIP)
-    mtlPt = MTLPrimitiveTypeTriangleStrip;
+  MTLPrimitiveType mtlPt = MapPrimitiveType(pt);
 
   UINT indexCount = 0;
   if (pt == D3DPT_TRIANGLELIST)
@@ -2664,24 +2639,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
 
   BindUniforms(fvf);
   BindCustomVSUniforms();
-
-  // Bind textures (all 4 stages — water PS uses stages 0-3)
-  for (int s = 0; s < 4; s++) {
-    if (m_Textures[s]) {
-      MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
-      id<MTLTexture> mtlTex = tex->GetMTLTexture();
-      if (mtlTex) {
-        [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s];
-      }
-    }
-  }
-  for (int s = 0; s < 4; s++) {
-    void *sam = GetSamplerState(s);
-    if (sam) {
-      [MTL_ENCODER setFragmentSamplerState:(__bridge id<MTLSamplerState>)sam
-                                   atIndex:s];
-    }
-  }
+  BindTexturesAndSamplers();
 
   // Draw
   [MTL_ENCODER drawPrimitives:mtlPrimType

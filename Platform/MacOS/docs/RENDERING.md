@@ -2,7 +2,7 @@
 
 В этом документе подробно описывается бэкенд рендеринга Metal, который транслирует вызовы API DirectX 8 в Apple Metal.
 
-> Обновлено: 2026-02-27
+> Обновлено: 2026-03-10
 
 ---
 
@@ -92,42 +92,31 @@ graph TD
 1. Получает FVF из VB через `GetBufferFVF(m_StreamSource)`
 2. Получает/создает PSO через `GetPSO(fvf, stride)` (кешируется по ключу fvf+blend state)
 3. Устанавливает PSO для кодировщика
-4. Применяет per-draw state: cull mode, depth/stencil
+4. `ApplyPerDrawState()` — cull mode, depth/stencil (с dirty-flag кешированием)
 5. Привязывает вершинный буфер: `setVertexBuffer:offset:atIndex:0`
 6. Привязывает missing-attribute zero buffer: `setVertexBuffer:atIndex:30`
-7. Заполняет `MetalUniforms` → буфер `setVertexBytes` под индексом 1:
-   - матрицы `world`, `view`, `projection`
-   - `screenSize` — ширина/высота окна
-   - `useProjection` — 1 (3D) или 2 (Screen Space, XYZRHW)
-   - `texMatrix[4]` — текстурные матрицы D3DTS_TEXTURE0..3
-   - `texTransformFlags[4]` — D3DTSS_TEXTURETRANSFORMFLAGS per stage
-8. Заполняет `FragmentUniforms` → буфер 2:
-   - TSS конфигурация (4 стадии: colorOp/alphaOp/args)
-   - `textureFactor`, `fogColor/Start/End/Density/Mode`
-   - `alphaTestEnable/Func/Ref`
-   - `hasTexture[4]`, `texCoordIndex[4]`, `texFormatType[4]`
-   - `specularEnable`
-9. Заполняет `LightingUniforms` → буфер 3:
-   - До 4 источников света (directional/point/spot)
-   - Material properties (diffuse/ambient/specular/emissive/power)
-   - Material color source mode (D3DMCS_MATERIAL/COLOR1/COLOR2)
-   - Vertex fog parameters
-10. Если PS активен: `CustomPSUniforms` → буфер 5
-11. Если custom VS активен: `CustomVSUniforms` → буфер 4
-12. Привязывает текстуры: `setFragmentTexture:atIndex:0..3`
-13. Привязывает семплеры: `setFragmentSamplerState:atIndex:0..3`
-14. Определение примитивов (Primitive mapping):
+7. `BindUniforms(fvf)` — заполняет и привязывает 3 uniform буфера:
+   - **buffer 1** `MetalUniforms` — world/view/projection, screenSize, useProjection, texMatrix[4], texTransformFlags[4]
+   - **buffer 2** `FragmentUniforms` — TSS config (4 stages), textureFactor, fog, alpha test, hasTexture[4], texCoordIndex[4], texFormatType[4], specularEnable
+   - **buffer 3** `LightingUniforms` — до 4 lights, materials, D3DMCS color sources, vertex fog
+8. `BindCustomVSUniforms()` — заполняет и привязывает:
+   - **buffer 4** `CustomVSUniforms` — shaderType + VS constant registers c0..c33
+   - **buffer 5** `CustomPSUniforms` — psType + PS constant registers c0..c7
+9. Привязывает текстуры: `setFragmentTexture:atIndex:0..3`
+10. Привязывает семплеры: `setFragmentSamplerState:atIndex:0..3`
+11. Определение примитивов:
    - `D3DPT_TRIANGLELIST` → `MTLPrimitiveTypeTriangle`
    - `D3DPT_TRIANGLESTRIP` → `MTLPrimitiveTypeTriangleStrip`
    - `D3DPT_LINELIST` → `MTLPrimitiveTypeLine`
    - `D3DPT_LINESTRIP` → `MTLPrimitiveTypeLineStrip`
    - `D3DPT_POINTLIST` → `MTLPrimitiveTypePoint`
-15. `drawPrimitives` или `drawIndexedPrimitives`
+12. `drawPrimitives` или `drawIndexedPrimitives`
 
 ### 4. `Present()`
 - Вызывает `endEncoding` у текущего кодировщика
 - Выполняет `presentDrawable` + `commit` для буфера команд
 - Вызывает `waitUntilCompleted` для синхронизации GPU и CPU
+- Сбрасывает ring buffer offset (`m_RingBufferOffset = 0`)
 - Освобождает кодировщик, drawable, буфер команд
 
 ---
@@ -289,6 +278,20 @@ Luminance форматы (L8, P8, A8L8, A4L4):
 6. `SetTexture(stage, tex)` → сохраняется в `m_Textures[stage]`
 7. В вызове отрисовки: `setFragmentTexture:mtlTex atIndex:stage`
 
+### Mipmap Generation
+Для текстур с несколькими mip-уровнями, после `UnlockRect` при записи в mip 0:
+- Создаётся отдельный `MTLCommandBuffer` → `MTLBlitCommandEncoder`
+- `generateMipmapsForTexture:` — GPU генерирует mip chain
+- `commit` **без** `waitUntilCompleted` — **асинхронная** генерация
+- Metal гарантирует порядок command buffer'ов в одной Queue, поэтому mip-данные будут готовы к моменту отрисовки
+
+### Format Conversion (Reusable Buffer)
+Форматы R8G8B8 и A4L4 требуют конвертации в BGRA8/RG8 перед загрузкой:
+- Используется grow-only `m_ConvertBuf` (per-texture member field)
+- `EnsureConvertBuffer(needed)` — аллоцирует или переиспользует буфер
+- Освобождается в `~MetalTexture8`
+- На Windows D3D8 принимает эти форматы нативно (без конверсии)
+
 ### Процесс создания (Compressed / Legacy - Сжатые/Устаревшие)
 Сжатые форматы (DXT1/3/5) не могут поддерживаться буферами в Metal:
 1. `CreateTexture` → отдельная `MTLTexture` с флагом `MTLStorageModeShared`
@@ -410,10 +413,10 @@ MacOSGameClient::update()  (callCount == 0)
 - Camera-space texture projection (D3DTSS_TCI_CAMERASPACEPOSITION)
 - Texture format unpacking (luminance L8, A8L8, palettized P8)
 - Color write mask (D3DRS_COLORWRITEENABLE → MTLColorWriteMask)
-- DrawPrimitiveUP (2D/UI quads)
+- DrawPrimitiveUP (2D/UI quads) — ring buffer 256KB для > 4KB данных
 - DrawPrimitive (3D non-indexed)
 - DrawIndexedPrimitive (3D indexed)
-- Cull mode (MTLCullModeNone for 2D, per-state for 3D)
+- Cull mode (MTLCullModeNone for 2D, per-state for 3D) — dirty-flag кеширование
 
 ### ⚠️ Workarounds (осознанный tech debt)
 - **Texture cache disabled** — 2D UI переиспользует D3D указатели с новым контентом. Запланировано: generation counter
@@ -795,6 +798,8 @@ enumerated display mode с точным совпадением разрешен�
 На Windows DXT текстуры поддерживаются GPU hardware, `SupportDXTC = true`, и форматы
 передаются GPU напрямую. На macOS Metal поддерживает BC1-BC3 нативно через
 `MTLPixelFormatBC1_RGBA` / `BC2_RGBA` / `BC3_RGBA`.
+
+---
 
 ---
 
