@@ -31,6 +31,10 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 #include "MacOSDebugLog.h"
+#ifdef __APPLE__
+#include "MacOSOnlineLogin.h"
+#include "MacOSOnlineWebSocket.h"
+#endif
 
 #include <fcntl.h>
 #ifdef _UNIX
@@ -65,6 +69,8 @@
 #include "GameNetwork/GameSpy/MainMenuUtils.h"
 #include "GameNetwork/GameSpy/PeerDefs.h"
 #include "GameNetwork/GameSpy/PeerThread.h"
+#include "GameNetwork/GameSpy/PersistentStorageThread.h"
+#include "Common/GameSpyMiscPreferences.h"
 
 #include "WWDownload/Registry.h"
 #include "WWDownload/urlBuilder.h"
@@ -238,6 +244,26 @@ static void startOnline()
 
 	TheScriptEngine->signalUIInteract(TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_ONLINE_SELECTED]);
 
+#ifdef __APPLE__
+	if (GenOnline_HasSavedSession())
+	{
+		DLOG_NETWORK("startOnline: attempting auto-login with saved session");
+		GenOnline_TryAutoLogin();
+		onlineCancelWindow = MessageBoxCancel(
+			UnicodeString(L"Logging In"),
+			UnicodeString(L"Reconnecting..."),
+			CancelPatchCheckCallback);
+	}
+	else
+	{
+		DLOG_NETWORK("startOnline: launching Generals Online browser login");
+		GenOnline_StartLogin();
+		onlineCancelWindow = MessageBoxCancel(
+			UnicodeString(L"Logging In"),
+			UnicodeString(L"Please continue in your web browser"),
+			CancelPatchCheckCallback);
+	}
+#else
 	DEBUG_ASSERTCRASH( !TheGameSpyBuddyMessageQueue, ("TheGameSpyBuddyMessageQueue exists!") );
 	DEBUG_ASSERTCRASH( !TheGameSpyPeerMessageQueue, ("TheGameSpyPeerMessageQueue exists!") );
 	DEBUG_ASSERTCRASH( !TheGameSpyInfo, ("TheGameSpyInfo exists!") );
@@ -260,6 +286,7 @@ static void startOnline()
 	else
 		TheShell->push( "Menus/GameSpyLoginQuick.wnd" );
 #endif // ALLOW_NON_PROFILED_LOGIN
+#endif // __APPLE__
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -331,6 +358,9 @@ static void queuePatch(Bool mandatory, AsciiString downloadURL)
 static GHTTPBool motdCallback( GHTTPRequest request, GHTTPResult result,
 															char * buffer, GHTTPByteCount bufferLen, void * param )
 {
+#ifdef __APPLE__
+	DLOG_NETWORK("motdCallback: result=%d bufferLen=%d checksLeft=%d", (int)result, (int)bufferLen, checksLeftBeforeOnline);
+#endif
 	Int run = (Int)(intptr_t)param;
 	if (run != timeThroughOnline)
 	{
@@ -378,6 +408,9 @@ static GHTTPBool configCallback( GHTTPRequest request, GHTTPResult result,
 
 	if (result != GHTTPSuccess || bufferLen < 100)
 	{
+#ifdef __APPLE__
+		DLOG_NETWORK("configCallback FAILED: result=%d bufferLen=%d", (int)result, (int)bufferLen);
+#endif
 		if (!checkingForPatchBeforeGameSpy)
 			return GHTTPTrue;
 		--checksLeftBeforeOnline;
@@ -428,6 +461,9 @@ static GHTTPBool configCallback( GHTTPRequest request, GHTTPResult result,
 static GHTTPBool configHeadCallback( GHTTPRequest request, GHTTPResult result,
 																		char * buffer, GHTTPByteCount bufferLen, void * param )
 {
+#ifdef __APPLE__
+	DLOG_NETWORK("configHeadCallback: result=%d bufferLen=%d checksLeft=%d", (int)result, (int)bufferLen, checksLeftBeforeOnline);
+#endif
 	Int run = (Int)(intptr_t)param;
 	if (run != timeThroughOnline)
 	{
@@ -512,6 +548,9 @@ static GHTTPBool configHeadCallback( GHTTPRequest request, GHTTPResult result,
 
 static GHTTPBool gamePatchCheckCallback( GHTTPRequest request, GHTTPResult result, char * buffer, GHTTPByteCount bufferLen, void * param )
 {
+#ifdef __APPLE__
+	DLOG_NETWORK("gamePatchCheckCallback: result=%d bufferLen=%d checksLeft=%d", (int)result, (int)bufferLen, checksLeftBeforeOnline);
+#endif
 	Int run = (Int)(intptr_t)param;
 	if (run != timeThroughOnline)
 	{
@@ -525,6 +564,15 @@ static GHTTPBool gamePatchCheckCallback( GHTTPRequest request, GHTTPResult resul
 	DEBUG_LOG(("Result=%d, buffer=[%s], len=%d", result, buffer, bufferLen));
 	if (result != GHTTPSuccess)
 	{
+#ifdef __APPLE__
+		if (result == GHTTPFileNotFound)
+		{
+			DLOG_NETWORK("gamePatchCheckCallback: 404 = no patch needed, checksLeft=%d", checksLeftBeforeOnline);
+			if (!checksLeftBeforeOnline)
+				startOnline();
+			return GHTTPTrue;
+		}
+#endif
 		if (!checkingForPatchBeforeGameSpy)
 			return GHTTPTrue;
 		cantConnectBeforeOnline = TRUE;
@@ -592,6 +640,10 @@ void CancelPatchCheckCallback()
 
 	delete[] configBuffer;
 	configBuffer = nullptr;
+
+#ifdef __APPLE__
+	GenOnline_CancelLogin();
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -837,6 +889,89 @@ void HTTPThinkWrapper()
 			isHttpOk = FALSE;
 		}
 	}
+#ifdef __APPLE__
+	else
+	{
+		static bool s_loggedHttpSkip = false;
+		if (!s_loggedHttpSkip)
+		{
+			DLOG_NETWORK("HTTPThinkWrapper: isHttpOk=FALSE, ghttpThink() SKIPPED (once)");
+			s_loggedHttpSkip = true;
+		}
+	}
+
+	GenOnline_Update();
+	GenOnlineWS_Update();
+
+	GenOnlineLoginState loginState = GenOnline_GetState();
+	if (loginState == GenOnlineLoginState::LoginSuccess)
+	{
+		DLOG_NETWORK("HTTPThinkWrapper: GenOnline LOGIN SUCCESS -> entering lobby");
+		const GenOnlineSession* session = GenOnline_GetSession();
+		DLOG_NETWORK("HTTPThinkWrapper: user=%s id=%lld ws=%s",
+			session->displayName, session->userId, session->wsUri);
+
+		if (onlineCancelWindow)
+		{
+			TheWindowManager->winDestroy(onlineCancelWindow);
+			onlineCancelWindow = nullptr;
+		}
+
+		GenOnline_CancelLogin();
+
+		GenOnline_SaveSession();
+		GenOnlineWS_Connect(session->wsUri, session->sessionToken);
+
+		TheWritableGlobalData->m_firewallBehavior = 1;
+		DLOG_NETWORK("LOGIN_FLOW: calling SetUpGameSpy");
+		SetUpGameSpy(nullptr, nullptr);
+
+		DLOG_NETWORK("LOGIN_FLOW: setLocalBaseName");
+		TheGameSpyInfo->setLocalBaseName(session->displayName);
+		DLOG_NETWORK("LOGIN_FLOW: setLocalName");
+		TheGameSpyInfo->setLocalName(session->displayName);
+		DLOG_NETWORK("LOGIN_FLOW: setLocalProfileID");
+		TheGameSpyInfo->setLocalProfileID(static_cast<Int>(session->userId));
+		DLOG_NETWORK("LOGIN_FLOW: setLocalEmail");
+		TheGameSpyInfo->setLocalEmail("");
+		DLOG_NETWORK("LOGIN_FLOW: setLocalPassword");
+		TheGameSpyInfo->setLocalPassword("");
+
+		DLOG_NETWORK("LOGIN_FLOW: clearGroupRoomList");
+		TheGameSpyInfo->clearGroupRoomList();
+
+		DLOG_NETWORK("LOGIN_FLOW: GameSpyMiscPreferences");
+		GameSpyMiscPreferences mPref;
+		DLOG_NETWORK("LOGIN_FLOW: getCachedStats");
+		PSPlayerStats localPSStats =
+			GameSpyPSMessageQueueInterface::parsePlayerKVPairs(
+				mPref.getCachedStats().str());
+		DLOG_NETWORK("LOGIN_FLOW: setCachedLocalPlayerStats");
+		localPSStats.id = TheGameSpyInfo->getLocalProfileID();
+		TheGameSpyInfo->setCachedLocalPlayerStats(localPSStats);
+
+		DLOG_NETWORK("LOGIN_FLOW: push WOLWelcomeMenu (on top of MainMenu)");
+		TheShell->push("Menus/WOLWelcomeMenu.wnd");
+	}
+	else if (loginState == GenOnlineLoginState::LoginFailed)
+	{
+		DLOG_NETWORK("HTTPThinkWrapper: GenOnline LOGIN FAILED, fallback to browser");
+
+		if (onlineCancelWindow)
+		{
+			TheWindowManager->winDestroy(onlineCancelWindow);
+			onlineCancelWindow = nullptr;
+		}
+
+		GenOnline_CancelLogin();
+
+		GenOnline_StartLogin();
+		onlineCancelWindow = MessageBoxCancel(
+			UnicodeString(L"Logging In"),
+			UnicodeString(L"Please continue in your web browser"),
+			CancelPatchCheckCallback);
+	}
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -899,6 +1034,11 @@ static void reallyStartPatchCheck()
 
 	FormatURLFromRegistry(gameURL, mapURL, configURL, motdURL);
 
+#ifdef __APPLE__
+	DLOG_NETWORK("reallyStartPatchCheck URLs: game=[%s] map=[%s] config=[%s] motd=[%s]",
+		gameURL.c_str(), mapURL.c_str(), configURL.c_str(), motdURL.c_str());
+#endif
+
 	std::string proxy;
 	if (GetStringFromRegistry("", "Proxy", proxy))
 	{
@@ -917,6 +1057,10 @@ static void reallyStartPatchCheck()
 	ghttpGet(mapURL.c_str(), GHTTPFalse, gamePatchCheckCallback, (void *)timeThroughOnline);
 	ghttpHead(configURL.c_str(), GHTTPFalse, configHeadCallback, (void *)timeThroughOnline);
 	ghttpGet(motdURL.c_str(), GHTTPFalse, motdCallback, (void *)timeThroughOnline);
+
+#ifdef __APPLE__
+	DLOG_NETWORK("reallyStartPatchCheck: 4 HTTP requests dispatched, checksLeft=%d", checksLeftBeforeOnline);
+#endif
 
 	// check total game stats
 	CheckOverallStats();

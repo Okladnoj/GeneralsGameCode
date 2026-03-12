@@ -30,6 +30,7 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include "MacOSDebugLog.h"
 
 #include "GameClient/GameText.h"
 #include "Common/CustomMatchPreferences.h"
@@ -178,14 +179,34 @@ WindowMsgHandledType WOLLocaleSelectSystem( GameWindow *window, UnsignedInt msg,
 					GadgetListBoxGetSelected(listboxLocale, &selected);
 					if (selected < 0)
 						return MSG_HANDLED; // can't select nothing!
+					DLOG_NETWORK("LOC_SELECT: selected=%d, creating PSRequest", selected);
 					PSRequest psReq;
+					DLOG_NETWORK("LOC_SELECT: PSRequest created OK");
 					psReq.requestType = PSRequest::PSREQUEST_UPDATEPLAYERLOCALE;
 					psReq.player.locale = selected + LOC_MIN;
-					psReq.email = TheGameSpyInfo->getLocalEmail().str();
-					psReq.nick = TheGameSpyInfo->getLocalBaseName().str();
-					psReq.password = TheGameSpyInfo->getLocalPassword().str();
+					DLOG_NETWORK("LOC_SELECT: about to get email, TheGameSpyInfo=%p", (void*)TheGameSpyInfo);
+					{
+						AsciiString emailStr = TheGameSpyInfo->getLocalEmail();
+						DLOG_NETWORK("LOC_SELECT: getLocalEmail() returned, str=%s", emailStr.str());
+						psReq.email = emailStr.str();
+						DLOG_NETWORK("LOC_SELECT: email assigned OK");
+					}
+					{
+						AsciiString nickStr = TheGameSpyInfo->getLocalBaseName();
+						DLOG_NETWORK("LOC_SELECT: getLocalBaseName() returned, str=%s", nickStr.str());
+						psReq.nick = nickStr.str();
+						DLOG_NETWORK("LOC_SELECT: nick assigned OK");
+					}
+					{
+						AsciiString passStr = TheGameSpyInfo->getLocalPassword();
+						DLOG_NETWORK("LOC_SELECT: getLocalPassword() returned, str=%s", passStr.str());
+						psReq.password = passStr.str();
+						DLOG_NETWORK("LOC_SELECT: password assigned OK");
+					}
+					DLOG_NETWORK("LOC_SELECT: about to get profileID");
 					psReq.player.id = TheGameSpyInfo->getLocalProfileID();
 
+					DLOG_NETWORK("LOC_SELECT: about to addRequest");
 					TheGameSpyPSMessageQueue->addRequest(psReq);
 					GameSpyCloseOverlay(GSOVERLAY_LOCALESELECT);
 

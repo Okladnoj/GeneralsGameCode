@@ -30,6 +30,7 @@
 // Author: Matthew D. Campbell, July 2002
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include "MacOSDebugLog.h"
 
 #include "Common/UserPreferences.h"
 #include "Common/PlayerTemplate.h"
@@ -578,23 +579,25 @@ Bool PSThreadClass::tryConnect()
 {
 	Int result;
 
-	DEBUG_LOG(("m_opCount = %d - opening connection", m_opCount));
+	DLOG_NETWORK("PS_THREAD tryConnect: m_opCount=%d", m_opCount);
 
 	if (IsStatsConnected())
 	{
-		DEBUG_LOG(("connection already open!"));
+		DLOG_NETWORK("PS_THREAD tryConnect: already connected");
 		return true;
 	}
 
-	// this may block for 1-2 seconds (according to GS) so it's nice we're not in the UI thread :)
+	DLOG_NETWORK("PS_THREAD tryConnect: calling InitStatsConnection(0)");
 	result = InitStatsConnection(0);
+	DLOG_NETWORK("PS_THREAD tryConnect: InitStatsConnection returned %d", result);
 
 	if (result != GE_NOERROR)
 	{
-		DEBUG_LOG(("InitStatsConnection() returned %d", result));
+		DLOG_NETWORK("PS_THREAD tryConnect: FAILED result=%d", result);
 		return false;
 	}
 
+	DLOG_NETWORK("PS_THREAD tryConnect: SUCCESS");
 	return true;
 }
 
@@ -805,32 +808,8 @@ static void getPreorderCallback(int localid, int profileid, persisttype_t type, 
 
 void PSThreadClass::Thread_Function()
 {
+	DLOG_NETWORK("PS_THREAD: Thread_Function STARTED");
 	try {
-	/*********
-	First step, set our game authentication info
-	We could do:
-	Generals:
-		strcpy(gcd_gamename,"ccgenerals");
-		strcpy(gcd_secret_key,"h5T2f6");
-	ZeroHour:
-		strcpy(gcd_gamename,"ccgenzh");
-		strcpy(gcd_secret_key,"D6s9k3");
-	or
-	Generals:
-		strcpy(gcd_gamename,"ccgeneralsb");
-		strcpy(gcd_secret_key,"g3T9s2");
-	ZeroHour:
-		strcpy(gcd_gamename,"ccgeneralsb");
-		strcpy(gcd_secret_key,"whatever the key is");
-	...but this is more secure:
-	**********/
-	/**
-	gcd_gamename[0]='c';gcd_gamename[1]='c';gcd_gamename[2]='g';gcd_gamename[3]='e';
-	gcd_gamename[4]='n';gcd_gamename[5]='e';gcd_gamename[6]='r';gcd_gamename[7]='a';
-	gcd_gamename[8]='l';gcd_gamename[9]='s';gcd_gamename[10]='b';gcd_gamename[11]='\0';
-	gcd_secret_key[0]='g';gcd_secret_key[1]='3';gcd_secret_key[2]='T';gcd_secret_key[3]='9';
-	gcd_secret_key[4]='s';gcd_secret_key[5]='2';gcd_secret_key[6]='\0';
-	/**/
 #if RTS_GENERALS
 	gcd_gamename[0]='c';gcd_gamename[1]='c';gcd_gamename[2]='g';gcd_gamename[3]='e';
 	gcd_gamename[4]='n';gcd_gamename[5]='e';gcd_gamename[6]='r';gcd_gamename[7]='a';
@@ -843,20 +822,22 @@ void PSThreadClass::Thread_Function()
 	gcd_secret_key[0]='D';gcd_secret_key[1]='6';gcd_secret_key[2]='s';gcd_secret_key[3]='9';
 	gcd_secret_key[4]='k';gcd_secret_key[5]='3';gcd_secret_key[6]='\0';
 #endif
-	/**/
 
-	//strcpy(StatsServerHostname, "sdkdev.gamespy.com");
+	DLOG_NETWORK("PS_THREAD: gamename=%s, StatsHost=%s", gcd_gamename, StatsServerHostname);
 
 	PSRequest req;
+	DLOG_NETWORK("PS_THREAD: entering main loop");
 	while ( running )
 	{
 		// deal with requests
 		if (TheGameSpyPSMessageQueue->getRequest(req))
 		{
+			DLOG_NETWORK("PS_THREAD: got request type=%d", req.requestType);
 			switch (req.requestType)
 			{
 			case PSRequest::PSREQUEST_SENDGAMERESTOGAMESPY:
 				{
+					DLOG_NETWORK("PS_THREAD: SENDGAMERESTOGAMESPY");
 					if (tryConnect())
 					{
 						NewGame(0);
@@ -1061,8 +1042,7 @@ void PSThreadClass::Thread_Function()
 			PersistThink();
 			if (m_opCount <= 0)
 			{
-				DEBUG_ASSERTCRASH(m_opCount == 0, ("Negative operations pending!!!"));
-				DEBUG_LOG(("m_opCount = %d - closing connection", m_opCount));
+				DLOG_NETWORK("PS_THREAD: m_opCount=%d, closing connection", m_opCount);
 				CloseStatsConnection();
 				m_opCount = 0;
 			}
@@ -1072,10 +1052,12 @@ void PSThreadClass::Thread_Function()
 		Switch_Thread();
 	}
 
+	DLOG_NETWORK("PS_THREAD: exited main loop, running=%d", (int)running);
 	if (IsStatsConnected())
 		CloseStatsConnection();
+	DLOG_NETWORK("PS_THREAD: Thread_Function DONE");
 	} catch ( ... ) {
-		DEBUG_CRASH(("Exception in storage thread!"));
+		DLOG_NETWORK("PS_THREAD: EXCEPTION caught!");
 	}
 }
 
