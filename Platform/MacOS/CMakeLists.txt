@@ -21,6 +21,9 @@ set(MAIN_SRC
     Source/Main/D3DXStubs.mm
     Source/Main/StdKeyboard.mm
     Source/Main/StdMouse.mm
+    Source/Main/MacOSOpenURL.mm
+    Source/Main/MacOSOnlineLogin.mm
+    Source/Main/MacOSOnlineWebSocket.mm
 )
 
 # ── Client (display, text rendering) ──

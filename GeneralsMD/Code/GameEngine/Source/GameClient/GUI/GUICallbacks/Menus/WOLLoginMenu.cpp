@@ -72,6 +72,8 @@
 
 #ifndef __APPLE__
 #include "GameNetwork/WOLBrowser/WebBrowser.h"
+#else
+extern "C" void MacOS_OpenURL(const char* url);
 #endif
 
 #ifdef ALLOW_NON_PROFILED_LOGIN
@@ -866,6 +868,14 @@ void WOLLoginMenuUpdate(WindowLayout *layout, void *userData) {
         disconMunkee.format("GUI:GSDisconReason%d", resp.discon.reason);
         title = TheGameText->fetch("GUI:GSErrorTitle");
         body = TheGameText->fetch(disconMunkee);
+#ifdef __APPLE__
+        if (resp.discon.reason == DISCONNECT_GP_LOGIN_BAD_EMAIL ||
+            resp.discon.reason == DISCONNECT_GP_LOGIN_BAD_NICK ||
+            resp.discon.reason == DISCONNECT_GP_LOGIN_BAD_PROFILE ||
+            resp.discon.reason == DISCONNECT_GP_LOGIN_BAD_PASSWORD) {
+          MacOS_OpenURL("https://cnc-online.net/en/connect/");
+        }
+#endif
         GSMessageBoxOk(title, body);
         EnableLoginControls(TRUE);
 

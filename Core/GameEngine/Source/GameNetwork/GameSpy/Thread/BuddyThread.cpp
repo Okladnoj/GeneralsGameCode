@@ -32,6 +32,7 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
 #include "GameNetwork/GameSpy/BuddyThread.h"
+#include "GameNetwork/GameSpy/PeerDefs.h"
 #include "GameNetwork/GameSpy/PeerThread.h"
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 #include "GameNetwork/GameSpy/ThreadUtils.h"
@@ -289,16 +290,41 @@ void BuddyThreadClass::Thread_Function()
 				m_nick = incomingRequest.arg.login.nick;
 				m_email = incomingRequest.arg.login.email;
 				m_pass = incomingRequest.arg.login.password;
+#ifdef __APPLE__
+				m_isConnected = true;
+				m_isConnecting = false;
+				m_profileID = TheGameSpyInfo->getLocalProfileID();
+				{
+					BuddyResponse loginResponse;
+					loginResponse.buddyResponseType = BuddyResponse::BUDDYRESPONSE_LOGIN;
+					loginResponse.result = GP_NO_ERROR;
+					loginResponse.profile = m_profileID;
+					TheGameSpyBuddyMessageQueue->addResponse(loginResponse);
+				}
+				if (!TheGameSpyPeerMessageQueue->isConnected() && !TheGameSpyPeerMessageQueue->isConnecting())
+				{
+					PeerRequest req;
+					req.peerRequestType = PeerRequest::PEERREQUEST_LOGIN;
+					req.nick = m_nick;
+					req.password = m_pass;
+					req.email = m_email;
+					req.login.profileID = m_profileID;
+					TheGameSpyPeerMessageQueue->addRequest(req);
+				}
+#else
 				m_isConnected = (gpConnect( con, incomingRequest.arg.login.nick, incomingRequest.arg.login.email,
 					incomingRequest.arg.login.password, (incomingRequest.arg.login.hasFirewall)?GP_FIREWALL:GP_NO_FIREWALL,
 					GP_BLOCKING, callbackWrapper, (void *)CALLBACK_CONNECT ) == GP_NO_ERROR);
 				m_isConnecting = false;
+#endif
 				break;
 
 			case BuddyRequest::BUDDYREQUEST_RELOGIN:
 				m_isConnecting = true;
+#ifndef __APPLE__
 				m_isConnected = (gpConnect( con, m_nick.c_str(), m_email.c_str(), m_pass.c_str(), GP_FIREWALL,
 					GP_BLOCKING, callbackWrapper, (void *)CALLBACK_CONNECT ) == GP_NO_ERROR);
+#endif
 				m_isConnecting = false;
 				break;
 			case BuddyRequest::BUDDYREQUEST_DELETEACCT:
@@ -308,7 +334,9 @@ void BuddyThreadClass::Thread_Function()
 				break;
 			case BuddyRequest::BUDDYREQUEST_LOGOUT:
 				m_isConnecting = m_isConnected = false;
+#ifndef __APPLE__
 				gpDisconnect( con );
+#endif
 				break;
 			case BuddyRequest::BUDDYREQUEST_MESSAGE:
 				{
@@ -374,17 +402,21 @@ void BuddyThreadClass::Thread_Function()
 		}
 
 		// update the network
+#ifndef __APPLE__
 		GPEnum isConnected = GP_CONNECTED;
 		GPResult res = GP_NO_ERROR;
 		res = gpIsConnected( con, &isConnected );
 		if ( isConnected == GP_CONNECTED && res == GP_NO_ERROR )
 			gpProcess( con );
+#endif
 
 		// end our timeslice
 		Switch_Thread();
 	}
 
+#ifndef __APPLE__
 	gpDestroy( con );
+#endif
 	} catch ( ... ) {
 		DEBUG_CRASH(("Exception in buddy thread!"));
 	}

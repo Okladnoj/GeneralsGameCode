@@ -73,6 +73,7 @@ public:
 	std::string password;
 	std::string email;
 	std::string id;
+	std::string authtoken;
 
 	// gameopts
 	std::string options; // full string for UTMs

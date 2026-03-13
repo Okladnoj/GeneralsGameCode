@@ -829,7 +829,12 @@ void PSThreadClass::Thread_Function()
 	DLOG_NETWORK("PS_THREAD: entering main loop");
 	while ( running )
 	{
-		// deal with requests
+		if (!TheGameSpyPSMessageQueue)
+		{
+			DLOG_NETWORK("PS_THREAD: TheGameSpyPSMessageQueue is NULL, exiting loop");
+			break;
+		}
+
 		if (TheGameSpyPSMessageQueue->getRequest(req))
 		{
 			DLOG_NETWORK("PS_THREAD: got request type=%d", req.requestType);

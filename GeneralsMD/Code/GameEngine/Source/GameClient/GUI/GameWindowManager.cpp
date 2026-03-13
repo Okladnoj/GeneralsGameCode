@@ -1663,6 +1663,13 @@ GameWindow *GameWindowManager::gogoMessageBox(Int x, Int y, Int width, Int heigh
 		trueParent = winCreateFromScript( "Menus/QuitMessageBox.wnd" );
 	else
 		trueParent = winCreateFromScript( "Menus/MessageBox.wnd" );
+#ifdef __APPLE__
+	if (!trueParent)
+	{
+		DLOG_NETWORK("gogoMessageBox: failed to load MessageBox.wnd");
+		return nullptr;
+	}
+#endif
 	//Added By Chris
 	AsciiString menuName;
 	if(useLogo)

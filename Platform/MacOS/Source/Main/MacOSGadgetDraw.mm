@@ -2,6 +2,7 @@
 #include "GameClient/Display.h"
 #include "GameClient/DisplayString.h"
 #include "GameClient/Gadget.h"
+#include "GameClient/GadgetTextEntry.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/GameWindowGlobal.h"
 #include "GameClient/GameWindowManager.h"
@@ -180,8 +181,103 @@ void MacOSGadgetProgressBarDraw(GameWindow *window, WinInstanceData *instData) {
 }
 
 void MacOSGadgetTextEntryDraw(GameWindow *window, WinInstanceData *instData) {
+  EntryData *e = (EntryData *)window->winGetUserData();
   ICoord2D origin, size;
+
   window->winGetScreenPosition(&origin.x, &origin.y);
   window->winGetSize(&size.x, &size.y);
-  DrawBeveledRect(origin.x, origin.y, size.x, size.y, 0xFF000000);
+
+  Color backBorder, backColor, textColor, textBorder;
+
+  if (BitIsSet(window->winGetStatus(), WIN_STATUS_ENABLED) == FALSE) {
+    textColor   = window->winGetDisabledTextColor();
+    textBorder  = window->winGetDisabledTextBorderColor();
+    backColor   = GadgetTextEntryGetDisabledColor(window);
+    backBorder  = GadgetTextEntryGetDisabledBorderColor(window);
+  } else if (BitIsSet(instData->getState(), WIN_STATE_HILITED)) {
+    textColor   = window->winGetHiliteTextColor();
+    textBorder  = window->winGetHiliteTextBorderColor();
+    backColor   = GadgetTextEntryGetHiliteColor(window);
+    backBorder  = GadgetTextEntryGetHiliteBorderColor(window);
+  } else {
+    textColor   = window->winGetEnabledTextColor();
+    textBorder  = window->winGetEnabledTextBorderColor();
+    backColor   = GadgetTextEntryGetEnabledColor(window);
+    backBorder  = GadgetTextEntryGetEnabledBorderColor(window);
+  }
+
+  if (backBorder != WIN_COLOR_UNDEFINED) {
+    TheWindowManager->winOpenRect(backBorder, WIN_DRAW_LINE_WIDTH,
+                                  origin.x, origin.y,
+                                  origin.x + size.x, origin.y + size.y);
+  }
+
+  if (backColor != WIN_COLOR_UNDEFINED) {
+    TheWindowManager->winFillRect(backColor, WIN_DRAW_LINE_WIDTH,
+                                  origin.x + 1, origin.y + 1,
+                                  origin.x + size.x - 1, origin.y + size.y - 1);
+  }
+
+  if (!e) return;
+
+  e->receivedUnichar = FALSE;
+
+  if (textColor == WIN_COLOR_UNDEFINED) return;
+
+  DisplayString *text = e->secretText ? e->sText : e->text;
+
+  if (text->getFont() != window->winGetFont())
+    text->setFont(window->winGetFont());
+
+  Int fontHeight = TheWindowManager->winFontHeight(instData->getFont());
+  Int startOffset = 5;
+  Int width = size.x - (2 * startOffset);
+  Int x = origin.x + startOffset;
+  Int y;
+
+  if (BitIsSet(window->winGetStatus(), WIN_STATUS_ONE_LINE))
+    y = size.y / 2 - fontHeight / 2;
+  else
+    y = origin.y + startOffset;
+
+  Int textWidth = text->getWidth();
+  IRegion2D clipRegion;
+  clipRegion.lo.x = x;
+  clipRegion.hi.x = x + width;
+  clipRegion.lo.y = y;
+  clipRegion.hi.y = y + fontHeight;
+  text->setClipRegion(&clipRegion);
+
+  Int cursorPos;
+  if (!e->drawTextFromStart) {
+    x += 2;
+    if (textWidth < width) {
+      text->draw(x, y, textColor, textBorder);
+      cursorPos = textWidth + x;
+    } else {
+      Int div = textWidth / (width / 2) - 1;
+      text->draw(x - (div * (width / 2)), y, textColor, textBorder);
+      cursorPos = textWidth - (div * (width / 2)) + x;
+    }
+  } else {
+    x += 5;
+    text->draw(x, y, textColor, textBorder);
+    cursorPos = textWidth + x;
+  }
+
+  static Byte drawCnt = 0;
+  GameWindow *parent = window->winGetParent();
+  if (parent && !BitIsSet(parent->winGetStyle(), GWS_COMBO_BOX))
+    parent = nullptr;
+
+  if ((window == TheWindowManager->winGetFocus() ||
+       (parent && parent == TheWindowManager->winGetFocus())) &&
+      ((drawCnt++ >> 3) & 0x1)) {
+    TheWindowManager->winFillRect(textColor, WIN_DRAW_LINE_WIDTH,
+                                  cursorPos, origin.y + 3,
+                                  cursorPos + 2, origin.y + size.y - 3);
+  }
+
+  window->winSetCursorPosition(cursorPos + 2 - origin.x, 0);
 }
+

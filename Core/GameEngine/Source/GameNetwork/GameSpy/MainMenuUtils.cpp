@@ -950,6 +950,65 @@ void HTTPThinkWrapper()
 		localPSStats.id = TheGameSpyInfo->getLocalProfileID();
 		TheGameSpyInfo->setCachedLocalPlayerStats(localPSStats);
 
+#ifdef __APPLE__
+		DLOG_NETWORK("LOGIN_FLOW: sending BUDDYREQUEST_LOGIN (macOS, mirrors WOLLoginMenu flow)");
+		{
+			BuddyRequest buddyReq;
+			buddyReq.buddyRequestType = BuddyRequest::BUDDYREQUEST_LOGIN;
+			strlcpy(buddyReq.arg.login.nick, session->displayName, ARRAY_SIZE(buddyReq.arg.login.nick));
+			strlcpy(buddyReq.arg.login.email, "", ARRAY_SIZE(buddyReq.arg.login.email));
+			strlcpy(buddyReq.arg.login.password, "", ARRAY_SIZE(buddyReq.arg.login.password));
+			buddyReq.arg.login.hasFirewall = TRUE;
+			TheGameSpyBuddyMessageQueue->addRequest(buddyReq);
+		}
+#endif
+
+		DLOG_NETWORK("LOGIN_FLOW: emulating peer connection via GenOnline WebSocket (no IRC peerchat needed)");
+#ifdef __APPLE__
+		{
+			PeerResponse lobbyRoom;
+			lobbyRoom.peerResponseType = PeerResponse::PEERRESPONSE_GROUPROOM;
+			lobbyRoom.groupRoom.id = 1;
+			lobbyRoom.groupRoom.maxWaiting = 200;
+			lobbyRoom.groupRoom.numGames = 0;
+			lobbyRoom.groupRoom.numPlaying = 0;
+			lobbyRoom.groupRoom.numWaiting = 1;
+			lobbyRoom.groupRoomName = "Lobby";
+			TheGameSpyPeerMessageQueue->addResponse(lobbyRoom);
+
+			PeerResponse qmRoom;
+			qmRoom.peerResponseType = PeerResponse::PEERRESPONSE_GROUPROOM;
+			qmRoom.groupRoom.id = 2;
+			qmRoom.groupRoom.maxWaiting = 200;
+			qmRoom.groupRoom.numGames = 0;
+			qmRoom.groupRoom.numPlaying = 0;
+			qmRoom.groupRoom.numWaiting = 0;
+			qmRoom.groupRoomName = "quickmatch";
+			TheGameSpyPeerMessageQueue->addResponse(qmRoom);
+
+			PeerResponse sentinel;
+			sentinel.peerResponseType = PeerResponse::PEERRESPONSE_GROUPROOM;
+			sentinel.groupRoom.id = 0;
+			sentinel.groupRoom.maxWaiting = 200;
+			sentinel.groupRoom.numGames = 0;
+			sentinel.groupRoom.numPlaying = 0;
+			sentinel.groupRoom.numWaiting = 0;
+			sentinel.groupRoomName = "";
+			TheGameSpyPeerMessageQueue->addResponse(sentinel);
+			DLOG_NETWORK("LOGIN_FLOW: emulated group rooms (Lobby=1, quickmatch=2, sentinel=0)");
+		}
+#else
+		DLOG_NETWORK("LOGIN_FLOW: sending PEERREQUEST_LOGIN to connect to chat");
+		{
+			PeerRequest peerReq;
+			peerReq.peerRequestType = PeerRequest::PEERREQUEST_LOGIN;
+			peerReq.nick = session->displayName;
+			peerReq.login.profileID = static_cast<Int>(session->userId);
+			peerReq.authtoken = session->sessionToken;
+			TheGameSpyPeerMessageQueue->addRequest(peerReq);
+		}
+#endif
+
 		DLOG_NETWORK("LOGIN_FLOW: push WOLWelcomeMenu (on top of MainMenu)");
 		TheShell->push("Menus/WOLWelcomeMenu.wnd");
 	}

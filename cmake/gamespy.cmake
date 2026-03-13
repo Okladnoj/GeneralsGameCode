@@ -17,3 +17,7 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(gamespy)
+
+if(APPLE)
+    target_compile_definitions(gamespy PRIVATE NDEBUG)
+endif()

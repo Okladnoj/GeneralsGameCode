@@ -46,6 +46,7 @@
 #include "thread.h"
 
 #include "Common/MiniLog.h"
+#include "MacOSDebugLog.h"
 
 
 // enable this for trying to track down why SBServers are losing their keyvals  -MDC 2/20/2003
@@ -507,6 +508,7 @@ enum CallbackType
 
 void connectCallbackWrapper( PEER peer, PEERBool success, int failureReason, void *param )
 {
+	DLOG_NETWORK("PEER_THREAD: connectCallbackWrapper success=%d failureReason=%d", (int)success, failureReason);
 #ifdef SERVER_DEBUGGING
 	DEBUG_LOG(("In connectCallbackWrapper()"));
 	CheckServers(peer);
@@ -1091,32 +1093,46 @@ static void AuthenticateCDKeyCallback
 
 static SerialAuthResult doCDKeyAuthentication( PEER peer )
 {
+	DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication START, peer=%p", (void*)peer);
 	SerialAuthResult retval = SERIAL_NONEXISTENT;
 	if (!peer)
+	{
+		DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication peer is NULL, returning NONEXISTENT");
 		return retval;
+	}
 
 	AsciiString s;
-	if (GetStringFromRegistry("\\ergc", "", s) && s.isNotEmpty())
+	Bool gotKey = GetStringFromRegistry("\\ergc", "", s);
+	DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication GetStringFromRegistry returned %d, key='%s' len=%d", (int)gotKey, s.str(), s.getLength());
+	if (gotKey && s.isNotEmpty())
 	{
+		DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication calling peerAuthenticateCDKey");
 #ifdef SERVER_DEBUGGING
 		DEBUG_LOG(("Before peerAuthenticateCDKey()"));
 		CheckServers(peer);
 #endif // SERVER_DEBUGGING
 		peerAuthenticateCDKey(peer, s.str(), AuthenticateCDKeyCallback, &retval, PEERTrue);
+		DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication peerAuthenticateCDKey returned, retval=%d", (int)retval);
 #ifdef SERVER_DEBUGGING
 		DEBUG_LOG(("After peerAuthenticateCDKey()"));
 		CheckServers(peer);
 #endif // SERVER_DEBUGGING
 	}
+	else
+	{
+		DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication NO CD KEY FOUND, retval stays NONEXISTENT=%d", (int)retval);
+	}
 
 	if (retval == SERIAL_OK)
 	{
+		DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication SERIAL_OK, requesting READCDKEYSTATS");
 		PSRequest req;
 		req.requestType = PSRequest::PSREQUEST_READCDKEYSTATS;
 		req.cdkey = s.str();
 		TheGameSpyPSMessageQueue->addRequest(req);
 	}
 
+	DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication END, retval=%d", (int)retval);
 	return retval;
 }
 
@@ -1329,12 +1345,12 @@ void PeerThreadClass::Thread_Function()
 	OptionPreferences pref;
 	UnsignedInt preferredIP = INADDR_ANY;
 	UnsignedInt selectedIP = pref.getOnlineIPAddress();
-	DEBUG_LOG(("Looking for IP %X", selectedIP));
+	DLOG_NETWORK("PEER_THREAD: selectedIP=0x%08X", selectedIP);
 	IPEnumeration IPs;
 	EnumeratedIP *IPlist = IPs.getAddresses();
 	while (IPlist)
 	{
-		DEBUG_LOG(("Looking at IP %s", IPlist->getIPstring().str()));
+		DLOG_NETWORK("PEER_THREAD: enumIP=%s (0x%08X)", IPlist->getIPstring().str(), IPlist->getIP());
 		if (selectedIP == IPlist->getIP())
 		{
 			preferredIP = IPlist->getIP();
@@ -1343,6 +1359,13 @@ void PeerThreadClass::Thread_Function()
 		}
 		IPlist = IPlist->getNext();
 	}
+
+	if (preferredIP == INADDR_LOOPBACK)
+	{
+		DLOG_NETWORK("PEER_THREAD: preferredIP is loopback (127.0.0.1), using INADDR_ANY instead");
+		preferredIP = INADDR_ANY;
+	}
+	DLOG_NETWORK("PEER_THREAD: chatSetLocalIP(0x%08X)", preferredIP);
 	chatSetLocalIP(preferredIP);
 
 	UnsignedInt preferredQRPort = 0;
@@ -1363,48 +1386,76 @@ void PeerThreadClass::Thread_Function()
 			{
 			case PeerRequest::PEERREQUEST_LOGIN:
 				{
+				DLOG_NETWORK("PEER_THREAD: PEERREQUEST_LOGIN nick='%s' profileID=%d", incomingRequest.nick.c_str(), incomingRequest.login.profileID);
 				m_isConnecting = true;
 				m_originalName = incomingRequest.nick;
 				m_loginName = incomingRequest.nick;
 				m_profileID = incomingRequest.login.profileID;
 				m_password = incomingRequest.password;
 				m_email = incomingRequest.email;
+				DLOG_NETWORK("PEER_THREAD: calling peerConnect...");
+#ifdef __APPLE__
+				{
+					DLOG_NETWORK("PEER_THREAD: macOS - skipping real peerConnect, emulating connected state");
+					m_isConnected = true;
+					m_isConnecting = false;
+				}
+#else
 				peerConnect( peer, incomingRequest.nick.c_str(), incomingRequest.login.profileID, nickErrorCallbackWrapper, connectCallbackWrapper, this, PEERTrue );
+#endif
+				DLOG_NETWORK("PEER_THREAD: peerConnect returned, m_isConnected=%d", (int)m_isConnected);
 #ifdef SERVER_DEBUGGING
 				DEBUG_LOG(("After peerConnect()"));
 				CheckServers(peer);
 #endif // SERVER_DEBUGGING
 				if (m_isConnected)
 				{
+					DLOG_NETWORK("PEER_THREAD: connected OK, calling doCDKeyAuthentication");
 					SerialAuthResult ret = doCDKeyAuthentication( peer );
+					DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication returned %d (SERIAL_OK=%d)", (int)ret, (int)SERIAL_OK);
 					if (ret != SERIAL_OK)
 					{
+						DLOG_NETWORK("PEER_THREAD: CD KEY AUTH FAILED, disconnecting!");
 						m_isConnecting = m_isConnected = false;
 						MESSAGE_QUEUE->setSerialAuthResult( ret );
 						peerDisconnect( peer );
 					}
 				}
+				else
+				{
+					DLOG_NETWORK("PEER_THREAD: peerConnect FAILED (m_isConnected=false)");
+				}
 				m_isConnecting = false;
-
-				// check our connection
-				//if (m_isConnected)
-				//{
-				//	GetLocalChatConnectionAddress("peerchat.gamespy.com", 6667, localIP);
-				//}
+				DLOG_NETWORK("PEER_THREAD: PEERREQUEST_LOGIN done, m_isConnected=%d", (int)m_isConnected);
 				}
 
 				break;
 
 			case PeerRequest::PEERREQUEST_LOGOUT:
 				m_isConnecting = m_isConnected = false;
+#ifndef __APPLE__
 				peerDisconnect( peer );
+#endif
 				break;
 
 			case PeerRequest::PEERREQUEST_JOINGROUPROOM:
 				m_groupRoomID = incomingRequest.groupRoom.id;
-				isThreadHosting = 0; // debugging
+				isThreadHosting = 0;
 				s_lastStateChangedHeartbeat = 0;
 				s_wantStateChangedHeartbeat = FALSE;
+				m_isHosting = false;
+				m_localRoomID = m_groupRoomID;
+				DLOG_NETWORK("Requesting to join room %d in thread %X", m_localRoomID, this);
+#ifdef __APPLE__
+				{
+					DLOG_NETWORK("PEER_THREAD: macOS emulated join group room %d", m_groupRoomID);
+					PeerResponse resp;
+					resp.peerResponseType = PeerResponse::PEERRESPONSE_JOINGROUPROOM;
+					resp.joinGroupRoom.ok = TRUE;
+					resp.joinGroupRoom.id = m_groupRoomID;
+					TheGameSpyPeerMessageQueue->addResponse(resp);
+				}
+#else
 				peerStopGame( peer );
 				peerLeaveRoom( peer, GroupRoom, nullptr );
 				peerLeaveRoom( peer, StagingRoom, nullptr );
@@ -1413,17 +1464,18 @@ void PeerThreadClass::Thread_Function()
 					closesocket(qr2Sock);
 					qr2Sock = INVALID_SOCKET;
 				}
-				m_isHosting = false;
-				m_localRoomID = m_groupRoomID;
-				DEBUG_LOG(("Requesting to join room %d in thread %X", m_localRoomID, this));
 				peerJoinGroupRoom( peer, incomingRequest.groupRoom.id, joinRoomCallback, (void *)this, PEERTrue );
+#endif
 				break;
 
 			case PeerRequest::PEERREQUEST_LEAVEGROUPROOM:
 				m_groupRoomID = 0;
 				updateBuddyStatus( BUDDY_ONLINE );
+#ifndef __APPLE__
 				peerLeaveRoom( peer, GroupRoom, nullptr );
-				peerLeaveRoom( peer, StagingRoom, nullptr ); m_isHosting = false;
+				peerLeaveRoom( peer, StagingRoom, nullptr );
+#endif
+				m_isHosting = false;
 				break;
 
 			case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
@@ -2252,19 +2304,22 @@ static void listGroupRoomsCallback(PEER peer, PEERBool success,
 
 void PeerThreadClass::connectCallback( PEER peer, PEERBool success )
 {
+	DLOG_NETWORK("PEER_THREAD: connectCallback success=%d", (int)success);
 	PeerResponse resp;
 	if(!success)
 	{
-		//updateBuddyStatus( BUDDY_OFFLINE );
+		DLOG_NETWORK("PEER_THREAD: connectCallback FAILED, sending DISCONNECT_COULDNOTCONNECT");
 		resp.peerResponseType = PeerResponse::PEERRESPONSE_DISCONNECT;
 		resp.discon.reason = DISCONNECT_COULDNOTCONNECT;
 		TheGameSpyPeerMessageQueue->addResponse(resp);
 		return;
 	}
 
+	DLOG_NETWORK("PEER_THREAD: connectCallback SUCCESS, setting up");
 	updateBuddyStatus( BUDDY_ONLINE );
 
 	m_isConnected = true;
+	DLOG_NETWORK("PEER_THREAD: Connected as profile %d (%s)", m_profileID, m_loginName.c_str());
 	DEBUG_LOG(("Connected as profile %d (%s)", m_profileID, m_loginName.c_str()));
 	resp.peerResponseType = PeerResponse::PEERRESPONSE_LOGIN;
 	resp.player.profileID = m_profileID;
@@ -2275,6 +2330,7 @@ void PeerThreadClass::connectCallback( PEER peer, PEERBool success )
 	resp.player.externalIP = ntohl(peerGetLocalIP(peer));
 	TheGameSpyPeerMessageQueue->addResponse(resp);
 
+	DLOG_NETWORK("PEER_THREAD: requesting player stats read");
 	PSRequest psReq;
 	psReq.requestType = PSRequest::PSREQUEST_READPLAYERSTATS;
 	psReq.player.id = m_profileID;
@@ -2283,11 +2339,13 @@ void PeerThreadClass::connectCallback( PEER peer, PEERBool success )
 	psReq.password = m_password;
 	TheGameSpyPSMessageQueue->addRequest(psReq);
 
+	DLOG_NETWORK("PEER_THREAD: calling peerListGroupRooms");
 #ifdef SERVER_DEBUGGING
 	DEBUG_LOG(("Before peerListGroupRooms()"));
 	CheckServers(peer);
 #endif // SERVER_DEBUGGING
 	peerListGroupRooms( peer, nullptr, listGroupRoomsCallback, this, PEERTrue );
+	DLOG_NETWORK("PEER_THREAD: peerListGroupRooms returned");
 #ifdef SERVER_DEBUGGING
 	DEBUG_LOG(("After peerListGroupRooms()"));
 	CheckServers(peer);
