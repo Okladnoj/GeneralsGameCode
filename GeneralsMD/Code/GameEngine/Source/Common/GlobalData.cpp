@@ -1348,6 +1348,12 @@ UnsignedInt GlobalData::generateExeCRC()
 	}
 
 	DEBUG_LOG(("EXE+Version(%d.%d)+SCB CRC is 0x%8.8X", version >> 16, version & 0xffff, exeCRC.get()));
+#ifdef __APPLE__
+	printf("DIAG: EXE CRC=0x%08X version=0x%08X skirmish=%s mp=%s\n", exeCRC.get(), version,
+		TheFileSystem->openFile("Data\\Scripts\\SkirmishScripts.scb", File::READ | File::BINARY) ? "FOUND" : "NOT_FOUND",
+		TheFileSystem->openFile("Data\\Scripts\\MultiplayerScripts.scb", File::READ | File::BINARY) ? "FOUND" : "NOT_FOUND");
+	fflush(stdout);
+#endif
 
 	return exeCRC.get();
 }

@@ -48,6 +48,8 @@
 #include "Common/SubsystemInterface.h"
 #include "Common/UnicodeString.h"
 #include "Common/version.h"
+#include "BuildVersion.h"
+#include "GeneratedVersion.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/Keyboard.h"
 #include "GameClient/Mouse.h"
@@ -674,6 +676,10 @@ Int GameMain() {
 
   // Initialize basic subsystems
   CommandLine::parseCommandLineForStartup();
+
+  TheVersion->setVersion(VERSION_MAJOR, VERSION_MINOR, VERSION_BUILDNUM, VERSION_LOCALBUILDNUM,
+    AsciiString(VERSION_BUILDUSER), AsciiString(VERSION_BUILDLOC),
+    AsciiString(__TIME__), AsciiString(__DATE__));
 
   TheGameEngine->init();
 

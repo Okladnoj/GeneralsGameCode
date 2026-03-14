@@ -128,6 +128,9 @@ int MacOS_Main(int argc, char *argv[]) {
 
   @autoreleasepool {
     TheVersion = new Version();
+    TheVersion->setVersion(1, 4, 601, 0,
+      AsciiString(""), AsciiString(""),
+      AsciiString(__TIME__), AsciiString(__DATE__));
     [NSApplication sharedApplication];
 
     // Set app delegate FIRST — before finishLaunching — so that
