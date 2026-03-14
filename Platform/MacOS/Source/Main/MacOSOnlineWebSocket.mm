@@ -79,23 +79,41 @@ static void handleChatFromServer(NSDictionary* json) {
       [displayName UTF8String], [messageText UTF8String], isAction);
 }
 
+static NSMutableDictionary<NSString*, NSNumber*>* s_currentMembers = nil;
+
 static void handleMemberListUpdate(NSDictionary* json) {
   NSArray* members = json[@"members"];
   if (!members || ![members isKindOfClass:[NSArray class]]) return;
 
-  GenOnlineWS_InjectMemberListBegin();
-
-  for (NSDictionary* member in members) {
-    NSString* name = member[@"display_name"];
-    NSNumber* userId = member[@"user_id"];
-    if (!name) continue;
-
-    int profileID = userId ? [userId intValue] : 0;
-    GenOnlineWS_InjectMemberJoin([name UTF8String], profileID);
+  if (!s_currentMembers) {
+    s_currentMembers = [NSMutableDictionary new];
   }
 
-  DLOG_NETWORK("GenOnlineWS: member list updated (%lu members)",
-               (unsigned long)[members count]);
+  NSMutableDictionary<NSString*, NSNumber*>* newMembers = [NSMutableDictionary dictionaryWithCapacity:members.count];
+  for (NSDictionary* member in members) {
+    NSString* name = member[@"Name"];
+    NSNumber* userId = member[@"UserID"];
+    if (!name) continue;
+    newMembers[name] = userId ?: @(0);
+  }
+
+  for (NSString* name in s_currentMembers) {
+    if (!newMembers[name]) {
+      GenOnlineWS_InjectMemberLeft([name UTF8String]);
+    }
+  }
+
+  for (NSString* name in newMembers) {
+    if (!s_currentMembers[name]) {
+      GenOnlineWS_InjectMemberJoin([name UTF8String], [newMembers[name] intValue]);
+    }
+  }
+
+  DLOG_NETWORK("GenOnlineWS: member list: %lu total (was %lu)",
+               (unsigned long)newMembers.count,
+               (unsigned long)s_currentMembers.count);
+
+  [s_currentMembers setDictionary:newMembers];
 }
 
 static void handleLobbyChatFromServer(NSDictionary* json) {

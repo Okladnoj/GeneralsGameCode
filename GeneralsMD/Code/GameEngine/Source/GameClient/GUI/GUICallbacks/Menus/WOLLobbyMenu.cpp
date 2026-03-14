@@ -244,6 +244,11 @@ static void playerTooltip(GameWindow *window,
 	aName.translate(uName);
 
 	PlayerInfoMap::iterator it = TheGameSpyInfo->getPlayerInfoMap()->find(aName);
+	if (it == TheGameSpyInfo->getPlayerInfoMap()->end())
+	{
+		TheMouse->setCursorTooltip( UnicodeString::TheEmptyString);
+		return;
+	}
 	PlayerInfo *info = &(it->second);
 	Bool isLocalPlayer = (TheGameSpyInfo->getLocalName().compareNoCase(info->m_name) == 0);
 
@@ -499,7 +504,7 @@ void PopulateLobbyPlayerListbox()
 	{
 		// save off old selection
 		Int maxSelectedItems = GadgetListBoxGetNumEntries(listboxLobbyPlayers);
-		Int *selectedIndices;
+		Int *selectedIndices = nullptr;
 		GadgetListBoxGetSelected(listboxLobbyPlayers, (Int *)(&selectedIndices));
 		std::set<AsciiString> selectedNames;
 		std::set<AsciiString>::const_iterator selIt;
@@ -507,7 +512,7 @@ void PopulateLobbyPlayerListbox()
 		UnicodeString uStr;
 		Int numSelected = 0;
 		Int i=0;
-		for (; i<maxSelectedItems; ++i)
+		for (; selectedIndices && i<maxSelectedItems; ++i)
 		{
 			if (selectedIndices[i] < 0)
 			{

@@ -289,6 +289,14 @@ Bool GameSpyInfo::isBuddy( Int id )
 
 void GameSpyInfo::addGroupRoom( GameSpyGroupRoom room )
 {
+#ifdef __APPLE__
+	room.m_translatedName.translate(room.m_name);
+	m_groupRooms[room.m_groupID] = room;
+	if (room.m_groupID == 0)
+	{
+		m_gotGroupRoomList = TRUE;
+	}
+#else
 	if (room.m_groupID == 0)
 	{
 		m_gotGroupRoomList = TRUE;
@@ -344,7 +352,12 @@ void GameSpyInfo::addGroupRoom( GameSpyGroupRoom room )
 		DEBUG_LOG(("Adding group room %d (%s)", room.m_groupID, room.m_name.str()));
 		AsciiString groupLabel;
 		groupLabel.format("GUI:%s", room.m_name.str());
-		room.m_translatedName = TheGameText->fetch(groupLabel);
+		Bool translationExists = FALSE;
+		room.m_translatedName = TheGameText->fetch(groupLabel, &translationExists);
+		if (!translationExists)
+		{
+			room.m_translatedName.translate(room.m_name);
+		}
 		m_groupRooms[room.m_groupID] = room;
 		if ( stricmp("quickmatch", room.m_name.str()) == 0 )
 		{
@@ -352,6 +365,7 @@ void GameSpyInfo::addGroupRoom( GameSpyGroupRoom room )
 			TheGameSpyConfig->setQMChannel(room.m_groupID);
 		}
 	}
+#endif
 }
 
 void GameSpyInfo::joinGroupRoom( Int groupID )
@@ -404,12 +418,8 @@ void GameSpyInfo::joinBestGroupRoom()
 			++iter;
 		}
 
-		if (minID > 0)
+		if (minID >= 0)
 		{
-#ifdef __APPLE__
-			minID = 0;
-			DEBUG_LOG(("joinBestGroupRoom: macOS override - using room 0 'ALL GAMES' for full lobby visibility"));
-#endif
 			PeerRequest req;
 			req.peerRequestType = PeerRequest::PEERREQUEST_JOINGROUPROOM;
 			req.groupRoom.id = minID;

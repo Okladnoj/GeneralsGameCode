@@ -27,10 +27,7 @@ void GenOnlineWS_InjectChatMessage(const char* nick, const char* text, int isAct
 }
 
 void GenOnlineWS_InjectMemberListBegin(void) {
-    if (!TheGameSpyInfo) return;
-
-    TheGameSpyInfo->getPlayerInfoMap()->clear();
-    DLOG_NETWORK("WSBridge: cleared player info map for member list update");
+    DLOG_NETWORK("WSBridge: member list update received");
 }
 
 void GenOnlineWS_InjectMemberJoin(const char* nick, int profileID) {

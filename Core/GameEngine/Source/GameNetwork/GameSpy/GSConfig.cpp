@@ -152,7 +152,7 @@ m_pingCutoffGood(300),
 m_pingCutoffBad(600),
 m_restrictGamesToLobby(FALSE),
 m_qmBotID(0),
-m_qmChannel(0)
+m_qmChannel(-1)
 {
 	m_rankPoints[0] = 0;
 	m_rankPoints[1] = 5;

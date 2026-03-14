@@ -422,15 +422,28 @@ void GenOnlineLobby_FetchRooms(void) {
           DLOG_NETWORK("GenOnlineLobby: received %lu rooms",
                        (unsigned long)[rooms count]);
 
+          NSDictionary* sentinelRoom = nil;
           for (NSDictionary* room in rooms) {
             NSNumber* roomId = room[@"id"];
             NSString* roomName = room[@"name"];
 
             if (!roomId || !roomName) continue;
 
+            if ([roomId intValue] == 0) {
+              sentinelRoom = room;
+              continue;
+            }
+
             GenOnlineWS_InjectGroupRoom(
                 [roomId intValue],
                 [roomName UTF8String],
+                0, 100, 0, 0);
+          }
+
+          if (sentinelRoom) {
+            GenOnlineWS_InjectGroupRoom(
+                [sentinelRoom[@"id"] intValue],
+                [sentinelRoom[@"name"] UTF8String],
                 0, 100, 0, 0);
           }
 
