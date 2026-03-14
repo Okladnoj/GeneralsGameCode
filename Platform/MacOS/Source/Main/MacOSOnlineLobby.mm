@@ -527,10 +527,31 @@ void GenOnlineLobby_FetchList(void) {
 
             NSString* hostName = @"";
             NSArray* members = lobby[@"Members"];
-            if (members && [members isKindOfClass:[NSArray class]] && [members count] > 0) {
-              NSDictionary* hostMember = members[0];
-              NSString* dn = hostMember[@"DisplayName"];
-              if (dn) hostName = dn;
+            LobbyMemberInfo memberInfos[MAX_LOBBY_MEMBERS] = {};
+            int memberCount = 0;
+
+            if (members && [members isKindOfClass:[NSArray class]]) {
+              for (NSDictionary* member in members) {
+                if (memberCount >= MAX_LOBBY_MEMBERS) break;
+
+                NSString* dn = member[@"DisplayName"];
+                NSNumber* uid = member[@"UserID"];
+                NSNumber* slotTeam = member[@"Team"];
+                NSNumber* slotColor = member[@"Color"];
+                NSNumber* slotFaction = member[@"Faction"];
+
+                if (!dn) continue;
+
+                memberInfos[memberCount].displayName = [dn UTF8String];
+                memberInfos[memberCount].userId = uid ? [uid intValue] : 0;
+                memberInfos[memberCount].slotState = 1;
+                memberInfos[memberCount].team = slotTeam ? [slotTeam intValue] : -1;
+                memberInfos[memberCount].color = slotColor ? [slotColor intValue] : -1;
+                memberInfos[memberCount].faction = slotFaction ? [slotFaction intValue] : -1;
+
+                if (memberCount == 0 && dn) hostName = dn;
+                ++memberCount;
+              }
             }
 
             GenOnlineWS_InjectLobbyListEntry(
@@ -544,7 +565,8 @@ void GenOnlineLobby_FetchList(void) {
                 exeCRC ? [exeCRC unsignedIntValue] : 1,
                 iniCRC ? [iniCRC unsignedIntValue] : 1,
                 allowObs ? [allowObs boolValue] : false,
-                useStats ? [useStats boolValue] : false);
+                useStats ? [useStats boolValue] : false,
+                memberInfos, memberCount);
           }
 
           DLOG_NETWORK("GenOnlineLobby: injected %lu lobby entries",

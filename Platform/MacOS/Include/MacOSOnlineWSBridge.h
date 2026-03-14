@@ -2,6 +2,17 @@
 
 #ifdef __APPLE__
 
+#define MAX_LOBBY_MEMBERS 8
+
+struct LobbyMemberInfo {
+    const char* displayName;
+    int userId;
+    int slotState;
+    int team;
+    int color;
+    int faction;
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -15,7 +26,8 @@ void GenOnlineWS_InjectLobbyListBegin(void);
 void GenOnlineWS_InjectLobbyListEntry(int lobbyId, const char* name, const char* hostName,
     int playerCount, int maxPlayers, int hasPassword,
     const char* mapPath, unsigned int exeCRC, unsigned int iniCRC,
-    int allowObservers, int useStats);
+    int allowObservers, int useStats,
+    const LobbyMemberInfo* members, int memberCount);
 void GenOnlineWS_InjectGroupRoom(int groupId, const char* name,
     int numWaiting, int maxWaiting, int numGames, int numPlaying);
 

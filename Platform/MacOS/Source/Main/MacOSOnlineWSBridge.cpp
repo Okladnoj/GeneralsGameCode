@@ -79,7 +79,8 @@ void GenOnlineWS_InjectLobbyListBegin(void) {
 void GenOnlineWS_InjectLobbyListEntry(int lobbyId, const char* name, const char* hostName,
                                        int playerCount, int maxPlayers, int hasPassword,
                                        const char* mapPath, unsigned int exeCRC, unsigned int iniCRC,
-                                       int allowObservers, int useStats) {
+                                       int allowObservers, int useStats,
+                                       const LobbyMemberInfo* members, int memberCount) {
     if (!TheGameSpyPeerMessageQueue) return;
 
     PeerResponse resp;
@@ -101,11 +102,29 @@ void GenOnlineWS_InjectLobbyListEntry(int lobbyId, const char* name, const char*
     resp.stagingRoomMapName = mapPath ? mapPath : "";
     resp.nick = hostName;
     resp.stagingServerName = MultiByteToWideCharSingleLine(name);
-    resp.stagingRoomPlayerNames[0] = hostName;
+
+    for (int i = 0; i < MAX_SLOTS; ++i) {
+        resp.stagingRoom.profileID[i] = 0;
+        resp.stagingRoom.faction[i] = -1;
+        resp.stagingRoom.color[i] = -1;
+        resp.stagingRoom.wins[i] = 0;
+        resp.stagingRoom.losses[i] = 0;
+        resp.stagingRoomPlayerNames[i] = "";
+    }
+
+    int slotsToFill = (memberCount < MAX_SLOTS) ? memberCount : MAX_SLOTS;
+    for (int i = 0; i < slotsToFill; ++i) {
+        if (members[i].displayName) {
+            resp.stagingRoomPlayerNames[i] = members[i].displayName;
+            resp.stagingRoom.profileID[i] = members[i].userId;
+            resp.stagingRoom.color[i] = members[i].color;
+            resp.stagingRoom.faction[i] = members[i].faction;
+        }
+    }
 
     TheGameSpyPeerMessageQueue->addResponse(resp);
-    DLOG_NETWORK("WSBridge: injected lobby entry id=%d '%s' host='%s' map='%s' %d/%d crc=%u/%u",
-                 lobbyId, name, hostName, mapPath ? mapPath : "", playerCount, maxPlayers, exeCRC, iniCRC);
+    DLOG_NETWORK("WSBridge: injected lobby entry id=%d '%s' host='%s' map='%s' %d/%d crc=%u/%u members=%d",
+                 lobbyId, name, hostName, mapPath ? mapPath : "", playerCount, maxPlayers, exeCRC, iniCRC, memberCount);
 }
 
 void GenOnlineWS_InjectGroupRoom(int groupId, const char* name,
