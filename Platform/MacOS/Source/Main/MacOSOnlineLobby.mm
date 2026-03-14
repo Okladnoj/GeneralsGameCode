@@ -218,6 +218,7 @@ void GenOnlineLobby_Join(int lobbyId, const char* password) {
           }
 
           DLOG_NETWORK("GenOnlineLobby: joined lobby %d!", lobbyId);
+          s_createdLobbyId = lobbyId;
 
           NSError* parseError = nil;
           NSDictionary* json =
