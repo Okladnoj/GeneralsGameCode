@@ -502,12 +502,20 @@ void PopulateLobbyPlayerListbox()
 
 	// Display players
 	PlayerInfoMap *players = TheGameSpyInfo->getPlayerInfoMap();
-	PlayerInfoMap::iterator it;
 	BuddyInfoMap *buddies = TheGameSpyInfo->getBuddyMap();
-	BuddyInfoMap::iterator bIt;
 
 	if (!players || !buddies)
 		return;
+
+#if defined(__APPLE__)
+	PlayerInfoMap playersCopy = *players;
+	BuddyInfoMap buddiesCopy = *buddies;
+	players = &playersCopy;
+	buddies = &buddiesCopy;
+#endif
+
+	PlayerInfoMap::iterator it;
+	BuddyInfoMap::iterator bIt;
 	if (listboxLobbyPlayers)
 	{
 		// save off old selection
