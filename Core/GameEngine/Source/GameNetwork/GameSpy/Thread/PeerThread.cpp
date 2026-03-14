@@ -47,6 +47,12 @@
 
 #include "Common/MiniLog.h"
 #include "MacOSDebugLog.h"
+#ifdef __APPLE__
+#include "MacOSOnlineWebSocket.h"
+#include "MacOSOnlineLobby.h"
+#include <thread>
+#include <chrono>
+#endif
 
 
 // enable this for trying to track down why SBServers are losing their keyvals  -MDC 2/20/2003
@@ -1395,11 +1401,22 @@ void PeerThreadClass::Thread_Function()
 				m_email = incomingRequest.email;
 				DLOG_NETWORK("PEER_THREAD: calling peerConnect...");
 #ifdef __APPLE__
-				{
-					DLOG_NETWORK("PEER_THREAD: macOS - skipping real peerConnect, emulating connected state");
-					m_isConnected = true;
-					m_isConnecting = false;
-				}
+			{
+				DLOG_NETWORK("PEER_THREAD: macOS - skipping real peerConnect, emulating connected state");
+				m_isConnected = true;
+				m_isConnecting = false;
+
+				PeerResponse resp;
+				resp.peerResponseType = PeerResponse::PEERRESPONSE_LOGIN;
+				resp.player.profileID = m_profileID;
+				resp.nick = m_loginName;
+				resp.player.internalIP = 0;
+				resp.player.externalIP = 0;
+				TheGameSpyPeerMessageQueue->addResponse(resp);
+
+				DLOG_NETWORK("PEER_THREAD: macOS - fetching group rooms via REST");
+				GenOnlineLobby_FetchRooms();
+			}
 #else
 				peerConnect( peer, incomingRequest.nick.c_str(), incomingRequest.login.profileID, nickErrorCallbackWrapper, connectCallbackWrapper, this, PEERTrue );
 #endif
@@ -1410,6 +1427,9 @@ void PeerThreadClass::Thread_Function()
 #endif // SERVER_DEBUGGING
 				if (m_isConnected)
 				{
+#ifdef __APPLE__
+					DLOG_NETWORK("PEER_THREAD: macOS - skipping CD key auth (using OAuth)");
+#else
 					DLOG_NETWORK("PEER_THREAD: connected OK, calling doCDKeyAuthentication");
 					SerialAuthResult ret = doCDKeyAuthentication( peer );
 					DLOG_NETWORK("PEER_THREAD: doCDKeyAuthentication returned %d (SERIAL_OK=%d)", (int)ret, (int)SERIAL_OK);
@@ -1420,6 +1440,7 @@ void PeerThreadClass::Thread_Function()
 						MESSAGE_QUEUE->setSerialAuthResult( ret );
 						peerDisconnect( peer );
 					}
+#endif
 				}
 				else
 				{
@@ -1449,6 +1470,7 @@ void PeerThreadClass::Thread_Function()
 #ifdef __APPLE__
 				{
 					DLOG_NETWORK("PEER_THREAD: macOS emulated join group room %d", m_groupRoomID);
+					GenOnlineWS_SendChangeRoom(m_groupRoomID);
 					PeerResponse resp;
 					resp.peerResponseType = PeerResponse::PEERRESPONSE_JOINGROUPROOM;
 					resp.joinGroupRoom.ok = TRUE;
@@ -1478,52 +1500,84 @@ void PeerThreadClass::Thread_Function()
 				m_isHosting = false;
 				break;
 
-			case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
-				{
-					m_groupRoomID = 0;
-					updateBuddyStatus( BUDDY_ONLINE );
-					peerLeaveRoom( peer, GroupRoom, nullptr );
-					peerLeaveRoom( peer, StagingRoom, nullptr ); m_isHosting = false;
-					SBServer server = findServerByID(incomingRequest.stagingRoom.id);
-					m_localStagingServerName = incomingRequest.text;
-					DEBUG_LOG(("Setting m_localStagingServerName to [%ls]", m_localStagingServerName.c_str()));
-					m_localRoomID = incomingRequest.stagingRoom.id;
-					DEBUG_LOG(("Requesting to join room %d", m_localRoomID));
-					if (server)
-					{
-						peerJoinStagingRoom( peer, server, incomingRequest.password.c_str(), joinRoomCallback, (void *)this, PEERTrue );
-					}
-					else
-					{
-						PeerResponse resp;
-						resp.peerResponseType = PeerResponse::PEERRESPONSE_JOINSTAGINGROOM;
-						resp.joinStagingRoom.id = incomingRequest.stagingRoom.id;
-						resp.joinStagingRoom.ok = FALSE;
-						resp.joinStagingRoom.result = PEERJoinFailed;
-						TheGameSpyPeerMessageQueue->addResponse(resp);
-					}
-				}
-				break;
+case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
+			{
+#ifdef __APPLE__
+				m_groupRoomID = 0;
+				m_isHosting = false;
+				m_localStagingServerName = incomingRequest.text;
+				m_localRoomID = incomingRequest.stagingRoom.id;
 
-			case PeerRequest::PEERREQUEST_LEAVESTAGINGROOM:
+				GenOnlineLobby_Join(
+					incomingRequest.stagingRoom.id,
+					incomingRequest.password.c_str()
+				);
+
+				PeerResponse resp;
+				resp.peerResponseType = PeerResponse::PEERRESPONSE_JOINSTAGINGROOM;
+				resp.joinStagingRoom.id = incomingRequest.stagingRoom.id;
+				resp.joinStagingRoom.ok = TRUE;
+				resp.joinStagingRoom.isHostPresent = TRUE;
+				resp.joinStagingRoom.result = PEERJoinSuccess;
+				TheGameSpyPeerMessageQueue->addResponse(resp);
+
+				DLOG_NETWORK("PEER_THREAD: macOS join lobby %d via REST", incomingRequest.stagingRoom.id);
+#else
 				m_groupRoomID = 0;
 				updateBuddyStatus( BUDDY_ONLINE );
 				peerLeaveRoom( peer, GroupRoom, nullptr );
-				peerLeaveRoom( peer, StagingRoom, nullptr );
-				isThreadHosting = 0; // debugging
-				s_lastStateChangedHeartbeat = 0;
-				s_wantStateChangedHeartbeat = FALSE;
-				if (m_isHosting)
+				peerLeaveRoom( peer, StagingRoom, nullptr ); m_isHosting = false;
+				SBServer server = findServerByID(incomingRequest.stagingRoom.id);
+				m_localStagingServerName = incomingRequest.text;
+				DEBUG_LOG(("Setting m_localStagingServerName to [%ls]", m_localStagingServerName.c_str()));
+				m_localRoomID = incomingRequest.stagingRoom.id;
+				DEBUG_LOG(("Requesting to join room %d", m_localRoomID));
+				if (server)
 				{
-					peerStopGame( peer );
-					if (qr2Sock != INVALID_SOCKET)
-					{
-						closesocket(qr2Sock);
-						qr2Sock = INVALID_SOCKET;
-					}
-					m_isHosting = false;
+					peerJoinStagingRoom( peer, server, incomingRequest.password.c_str(), joinRoomCallback, (void *)this, PEERTrue );
 				}
-				break;
+				else
+				{
+					PeerResponse resp;
+					resp.peerResponseType = PeerResponse::PEERRESPONSE_JOINSTAGINGROOM;
+					resp.joinStagingRoom.id = incomingRequest.stagingRoom.id;
+					resp.joinStagingRoom.ok = FALSE;
+					resp.joinStagingRoom.result = PEERJoinFailed;
+					TheGameSpyPeerMessageQueue->addResponse(resp);
+				}
+#endif
+			}
+			break;
+
+		case PeerRequest::PEERREQUEST_LEAVESTAGINGROOM:
+#ifdef __APPLE__
+			{
+				m_groupRoomID = 0;
+				m_isHosting = false;
+				m_localStagingServerName = L"";
+				GenOnlineLobby_Leave();
+				DLOG_NETWORK("PEER_THREAD: macOS leave lobby");
+			}
+#else
+			m_groupRoomID = 0;
+			updateBuddyStatus( BUDDY_ONLINE );
+			peerLeaveRoom( peer, GroupRoom, nullptr );
+			peerLeaveRoom( peer, StagingRoom, nullptr );
+			isThreadHosting = 0; // debugging
+			s_lastStateChangedHeartbeat = 0;
+			s_wantStateChangedHeartbeat = FALSE;
+			if (m_isHosting)
+			{
+				peerStopGame( peer );
+				if (qr2Sock != INVALID_SOCKET)
+				{
+					closesocket(qr2Sock);
+					qr2Sock = INVALID_SOCKET;
+				}
+				m_isHosting = false;
+			}
+#endif
+			break;
 
 			case PeerRequest::PEERREQUEST_MESSAGEPLAYER:
 				{
@@ -1533,11 +1587,27 @@ void PeerThreadClass::Thread_Function()
 				break;
 
 			case PeerRequest::PEERREQUEST_MESSAGEROOM:
-				{
-					std::string s = WideCharStringToMultiByte(incomingRequest.text.c_str());
-					peerMessageRoom( peer, (m_groupRoomID)?GroupRoom:StagingRoom, s.c_str(), (incomingRequest.message.isAction)?ActionMessage:NormalMessage );
-				}
-				break;
+			{
+				std::string s = WideCharStringToMultiByte(incomingRequest.text.c_str());
+#ifdef __APPLE__
+				if (m_groupRoomID)
+					GenOnlineWS_SendChat(s.c_str());
+				else
+					GenOnlineWS_SendLobbyChat(s.c_str());
+
+				PeerResponse resp;
+				resp.peerResponseType = PeerResponse::PEERRESPONSE_MESSAGE;
+				resp.nick = m_loginName;
+				resp.text = incomingRequest.text;
+				resp.message.isPrivate = FALSE;
+				resp.message.isAction = (incomingRequest.message.isAction) ? TRUE : FALSE;
+				resp.message.profileID = m_profileID;
+				TheGameSpyPeerMessageQueue->addResponse(resp);
+#else
+				peerMessageRoom( peer, (m_groupRoomID)?GroupRoom:StagingRoom, s.c_str(), (incomingRequest.message.isAction)?ActionMessage:NormalMessage );
+#endif
+			}
+			break;
 
 			case PeerRequest::PEERREQUEST_PUSHSTATS:
 				{
@@ -1624,6 +1694,59 @@ void PeerThreadClass::Thread_Function()
 				break;
 
 			case PeerRequest::PEERREQUEST_CREATESTAGINGROOM:
+			{
+#ifdef __APPLE__
+				{
+					m_groupRoomID = 0;
+					m_isHosting = TRUE;
+					m_localStagingServerName = incomingRequest.text;
+					m_playerNames[0] = m_loginName;
+					m_hasPassword = !incomingRequest.password.empty();
+					m_allowObservers = incomingRequest.stagingRoomCreation.allowObservers;
+					m_useStats = incomingRequest.stagingRoomCreation.useStats;
+					m_exeCRC = incomingRequest.stagingRoomCreation.exeCRC;
+					m_iniCRC = incomingRequest.stagingRoomCreation.iniCRC;
+					m_gameVersion = incomingRequest.stagingRoomCreation.gameVersion;
+					m_ladderIP = incomingRequest.ladderIP;
+					m_pingStr = incomingRequest.hostPingStr;
+					m_ladderPort = incomingRequest.stagingRoomCreation.ladPort;
+
+					for (Int i = 0; i < MAX_SLOTS; ++i) {
+						m_playerNames[i] = "";
+						m_playerWins[i] = 0;
+						m_playerLosses[i] = 0;
+						m_playerProfileID[i] = 0;
+						m_playerFactions[i] = 0;
+						m_playerColors[i] = 0;
+					}
+					m_playerNames[0] = m_loginName;
+
+					std::string gameName = WideCharStringToMultiByte(incomingRequest.text.c_str());
+					std::string password = incomingRequest.password;
+					GenOnlineLobby_Create(
+						gameName.c_str(),
+						"",
+						"",
+						0,
+						8,
+						password.c_str(),
+						incomingRequest.stagingRoomCreation.allowObservers ? 1 : 0,
+						incomingRequest.stagingRoomCreation.useStats ? 1 : 0,
+						10000,
+						(unsigned short)incomingRequest.stagingRoomCreation.ladPort,
+						310,
+						incomingRequest.stagingRoomCreation.exeCRC,
+						incomingRequest.stagingRoomCreation.iniCRC
+					);
+
+					PeerResponse resp;
+					resp.peerResponseType = PeerResponse::PEERRESPONSE_CREATESTAGINGROOM;
+					resp.createStagingRoom.result = PEERJoinSuccess;
+					TheGameSpyPeerMessageQueue->addResponse(resp);
+
+					DLOG_NETWORK("PEER_THREAD: macOS create lobby via REST: '%s'", gameName.c_str());
+				}
+#else
 				{
 					Int oldGroupID = m_groupRoomID;
 					m_groupRoomID = 0;
@@ -1736,42 +1859,59 @@ void PeerThreadClass::Thread_Function()
 						updateBuddyStatus( BUDDY_STAGING, 0, WideCharStringToMultiByte(m_localStagingServerName.c_str()) );
 					}
 				}
-				break;
+#endif // __APPLE__
+			}
+			break;
 
 			case PeerRequest::PEERREQUEST_STARTGAMELIST:
-				{
-					m_sawCompleteGameList = FALSE;
-					PeerResponse resp;
-					resp.peerResponseType = PeerResponse::PEERRESPONSE_STAGINGROOM;
-					resp.stagingRoom.action = PEER_CLEAR;
-					resp.stagingRoom.isStaging = TRUE;
-					resp.stagingRoom.percentComplete = 0;
-					clearServers();
-					TheGameSpyPeerMessageQueue->addResponse(resp);
-					peerStartListingGames( peer, allKeysArray, NumKeys, (incomingRequest.gameList.restrictGameList?"~":nullptr), listingGamesCallback, this );
-				}
-				break;
+			{
+				m_sawCompleteGameList = FALSE;
+				PeerResponse resp;
+				resp.peerResponseType = PeerResponse::PEERRESPONSE_STAGINGROOM;
+				resp.stagingRoom.action = PEER_CLEAR;
+				resp.stagingRoom.isStaging = TRUE;
+				resp.stagingRoom.percentComplete = 0;
+				clearServers();
+				TheGameSpyPeerMessageQueue->addResponse(resp);
+#ifdef __APPLE__
+			{
+				DLOG_NETWORK("PEER_THREAD: scheduling FetchList with 1.5s delay for ChangeRoom processing");
+				std::thread([]() {
+					std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+					GenOnlineLobby_FetchList();
+				}).detach();
+			}
+#else
+				peerStartListingGames( peer, allKeysArray, NumKeys, (incomingRequest.gameList.restrictGameList?"~":nullptr), listingGamesCallback, this );
+#endif
+			}
+			break;
 
 			case PeerRequest::PEERREQUEST_STOPGAMELIST:
-				{
-					peerStopListingGames( peer );
-				}
-				break;
+			{
+				peerStopListingGames( peer );
+			}
+			break;
 
-			case PeerRequest::PEERREQUEST_STARTGAME:
-				{
-					peerStartGame( peer, nullptr, PEER_STOP_REPORTING);
-				}
-				break;
+		case PeerRequest::PEERREQUEST_STARTGAME:
+			{
+#ifdef __APPLE__
+				GenOnlineWS_SendStartCountdown();
+				GenOnlineWS_SendStartGame();
+#else
+				peerStartGame( peer, nullptr, PEER_STOP_REPORTING);
+#endif
+			}
+			break;
 
-			case PeerRequest::PEERREQUEST_UTMPLAYER:
+		case PeerRequest::PEERREQUEST_UTMPLAYER:
+			{
+				if (!incomingRequest.nick.empty())
 				{
-					if (!incomingRequest.nick.empty())
-					{
-						peerUTMPlayer( peer, incomingRequest.nick.c_str(), incomingRequest.id.c_str(), incomingRequest.options.c_str(), PEERFalse );
-					}
+					peerUTMPlayer( peer, incomingRequest.nick.c_str(), incomingRequest.id.c_str(), incomingRequest.options.c_str(), PEERFalse );
 				}
-				break;
+			}
+			break;
 
 			case PeerRequest::PEERREQUEST_UTMROOM:
 				{
@@ -2215,8 +2355,8 @@ static void joinRoomCallback(PEER peer, PEERBool success, PEERJoinResult result,
 #endif // USE_BROADCAST_KEYS
 				PeerResponse resp;
 				resp.peerResponseType = PeerResponse::PEERRESPONSE_JOINGROUPROOM;
-				resp.joinGroupRoom.id = t->getLocalRoomID();
 				resp.joinGroupRoom.ok = success;
+				resp.joinGroupRoom.id = t->getLocalRoomID();
 				TheGameSpyPeerMessageQueue->addResponse(resp);
 				t->roomJoined(success == PEERTrue);
 				DEBUG_LOG(("Entered group room %d, qm is %d", t->getLocalRoomID(), t->getQMGroupRoom()));

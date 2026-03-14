@@ -339,8 +339,10 @@ All messages are JSON with an `msg_id` field:
 | 23 | `START_GAME_COUNTDOWN_STARTED` | Client → Server |
 | 24 | `LOBBY_REMOVE_PASSWORD` | Client → Server |
 | 25 | `LOBBY_CHANGE_PASSWORD` | Client → Server |
+| 18 | `NETWORK_CONNECTION_DISCONNECT_PLAYER` | Server → Client |
 | 26 | `FULL_MESH_CONNECTIVITY_CHECK_HOST_REQUESTS_BEGIN` | Client → Server |
 | 27 | `FULL_MESH_CONNECTIVITY_CHECK_RESPONSE` | Bidirectional |
+| 28 | `FULL_MESH_CONNECTIVITY_CHECK_RESPONSE_COMPLETE_TO_HOST` | Server → Host |
 | 29 | `SOCIAL_NEW_FRIEND_REQUEST` | Server → Client |
 | 30 | `SOCIAL_FRIEND_CHAT_MESSAGE_CLIENT_TO_SERVER` | Client → Server |
 | 31 | `SOCIAL_FRIEND_CHAT_MESSAGE_SERVER_TO_CLIENT` | Server → Client |
@@ -354,15 +356,22 @@ All messages are JSON with an `msg_id` field:
 
 | Feature | Status |
 |---------|--------|
-| PING/PONG keepalive | ✅ Implemented |
-| ChangeRoom | ✅ `GenOnlineWS_SendChangeRoom()` |
-| Chat (room) | ✅ `GenOnlineWS_SendChat()` |
-| Receive messages | ✅ `readNextMessage()` (log only) |
-| Room member list | ❌ Not wired to UI |
-| Lobby list | ❌ Not wired to UI |
-| Lobby creation/join | ❌ Not implemented |
+| PING/PONG keepalive | ✅ `GenOnlineWS_SendPing()` (msg_id=14→15) |
+| ChangeRoom | ✅ `GenOnlineWS_SendChangeRoom()` (msg_id=3) |
+| Chat (room) | ✅ Send `GenOnlineWS_SendChat()` (msg_id=1) + recv (msg_id=2) → UI |
+| Chat (lobby) | ✅ Send `GenOnlineWS_SendLobbyChat()` (msg_id=10) + recv (msg_id=11) → UI |
+| Room member list | ✅ Recv (msg_id=4) → `GenOnlineWS_InjectMemberJoin()` → UI |
+| Lobby list | ✅ Recv (msg_id=7) → `GenOnlineWS_InjectLobbyListEntry()` → UI |
+| Lobby create/join | ✅ REST `POST /Lobbies` + `POST /Lobbies/{id}/join` |
+| Lobby update | ✅ Recv (msg_id=6) → `GenOnlineWS_InjectLobbyUpdate()` |
+| Ready state | ✅ `GenOnlineWS_SendReady()` (msg_id=5) via setAccept/unAccept hooks |
+| Game start | ✅ Send `GenOnlineWS_SendStartGame()` (msg_id=13) + countdown (23) |
+| Lobby password | ✅ Send remove (msg_id=24) + change (msg_id=25) |
+| MOTD | ✅ REST `GET /MOTD` → chat injection |
+| P2P signaling (send) | ✅ Send functions (msg_id=12,19,26,27), recv→P2P state, transport hook |
+| P2P disconnect | ✅ Recv (msg_id=18) → remove peer from P2P state array |
+| TURN credentials | ✅ Parsed from REST response (create/join lobby) → P2P state |
 | Matchmaking | ❌ Not implemented |
-| P2P signaling | ❌ Not implemented |
 | Friend system | ❌ Not implemented |
 | Stats/Leaderboards | ❌ Not implemented |
 
@@ -380,6 +389,7 @@ Beyond WebSocket, the server exposes REST endpoints for stateless queries:
 | `/PlayerStats` | various | Player statistics CRUD |
 | `/GlobalStats` | various | Global leaderboards |
 | `/Lobbies` | various | Lobby management |
+| `/Lobby/{id}` | PUT | Join lobby (returns `turn_username`, `turn_token`) |
 | `/Rooms` | various | Room management |
 | `/Friends` | various | Friend list management |
 | `/MOTD` | GET | Message of the day |
@@ -406,10 +416,43 @@ Beyond WebSocket, the server exposes REST endpoints for stateless queries:
 
 ## TODO / Next Steps
 
-1. **Wire WebSocket to game UI** — Lobby list, room member list, chat display
-2. **Implement lobby create/join** — Via REST API + WebSocket updates
-3. **Implement P2P signaling** — WebRTC/ICE via WebSocket relay (msg_id 12, 17, 19)
+1. ~~**Wire WebSocket to game UI**~~ — ✅ DONE (NET-09)
+2. ~~**Implement lobby create/join**~~ — ✅ DONE (NET-10)
+3. ~~**Implement P2P signaling**~~ — ✅ DONE (NET-11): WS send/recv, transport hook, disconnect, TURN creds
 4. **Implement friend system** — Subscribe to social updates, friend list UI
 5. **Implement matchmaking** — Quickmatch queue via REST + WebSocket
 6. **Implement stats reporting** — Post game results, display leaderboards
 7. **Handle reconnection** — WebSocket disconnect → auto-reconnect with refresh_token
+
+---
+
+## Appendix: TURN Credentials Flow
+
+TURN credentials are provided by Cloudflare via the server. They are NOT sent
+over WebSocket — they arrive in the **HTTP REST response** when a lobby is
+created or joined.
+
+### Server-side flow (from `GeneralsOnlineServices`):
+
+1. Client sends `PUT /Lobbies` (create) or `PUT /Lobby/{id}` (join)
+2. Server calls `TURNCredentialManager.CreateCredentialsForUser(user_id)`
+3. This calls Cloudflare API:
+   `POST https://rtc.live.cloudflare.com/v1/turn/keys/{key}/credentials/generate-ice-servers`
+4. Cloudflare returns ICE servers with `username` and `credential`
+5. Server returns `turn_username` + `turn_token` in the HTTP response JSON
+6. In DEBUG mode, server returns fake credentials (`"fake"`, `"fake"`)
+
+### Client-side flow (macOS):
+
+1. `GenOnlineLobby_Create()` / `GenOnlineLobby_Join()` parse JSON response
+2. Extract `turn_username` and `turn_token` fields
+3. Call `GenOnlineP2P_SetTURNCredentials("", username, token)` to store
+4. Credentials stored in static buffers, queryable via `GenOnlineP2P_GetTURN*()`
+5. Currently stored for future TURN relay fallback implementation
+
+### When TURN relay is needed:
+
+- If direct UDP connection between peers fails (both behind symmetric NAT)
+- Client would use stored TURN credentials to relay UDP through Cloudflare
+- Game's existing `Transport.cpp` UDP layer would route through TURN server
+- **Not yet implemented** — direct P2P works for most LAN/same-network setups

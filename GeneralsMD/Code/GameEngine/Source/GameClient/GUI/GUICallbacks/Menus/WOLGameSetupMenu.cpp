@@ -29,6 +29,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include "MacOSDebugLog.h"
 
 #include "Common/GameEngine.h"
 #include "Common/GameState.h"
@@ -1036,11 +1037,25 @@ void WOLDisplayGameOptions()
 void WOLDisplaySlotList()
 {
 	if (!parentWOLGameSetup || !TheGameSpyInfo->getCurrentStagingRoom())
+	{
+		DLOG_NETWORK("WOLDisplaySlotList: SKIP (no parent=%d no staging=%d)",
+					 parentWOLGameSetup == nullptr, TheGameSpyInfo->getCurrentStagingRoom() == nullptr);
 		return;
+	}
 
 	GameSpyStagingRoom *game = TheGameSpyInfo->getCurrentStagingRoom();
 	if (!game->isInGame())
+	{
+		DLOG_NETWORK("WOLDisplaySlotList: SKIP (not in game)");
 		return;
+	}
+
+	DLOG_NETWORK("WOLDisplaySlotList: slot0 state=%d name='%ls' isHuman=%d isOpen=%d localSlot=%d",
+				 game->getConstSlot(0)->getState(),
+				 game->getConstSlot(0)->getName().str(),
+				 game->getConstSlot(0)->isHuman(),
+				 game->getConstSlot(0)->isOpen(),
+				 game->getLocalSlotNum());
 
 	DEBUG_ASSERTCRASH(!game->getConstSlot(0)->isOpen(), ("Open host!"));
 

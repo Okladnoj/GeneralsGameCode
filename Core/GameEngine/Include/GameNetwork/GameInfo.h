@@ -60,7 +60,7 @@ public:
 	GameSlot();
 	virtual void reset();
 
-	void setAccept() { m_isAccepted = true; }		///< Accept the current options
+	void setAccept();
 	void unAccept();														///< Unaccept (options changed, etc)
 	Bool isAccepted() const { return m_isAccepted; }	///< Non-human slots are always accepted
 

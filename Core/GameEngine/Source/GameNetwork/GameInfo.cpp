@@ -45,6 +45,10 @@
 #include "GameNetwork/LANAPICallbacks.h"	// for testing packet size
 #include "strtok_r.h"
 
+#ifdef __APPLE__
+#include "MacOSOnlineWebSocket.h"
+#endif
+
 
 
 GameInfo *TheGameInfo = nullptr;
@@ -176,11 +180,44 @@ Int GameSlot::getApparentStartPos() const
 }
 
 
+void GameSlot::setAccept()
+{
+	if (m_isAccepted)
+		return;
+
+	m_isAccepted = true;
+
+#ifdef __APPLE__
+	if (TheGameSpyGame && isHuman())
+	{
+		Int localSlot = TheGameSpyGame->getLocalSlotNum();
+		if (localSlot >= 0 && TheGameSpyGame->getConstSlot(localSlot) == this)
+		{
+			GenOnlineWS_SendReady(1);
+		}
+	}
+#endif
+}
+
 void GameSlot::unAccept()
 {
 	if (isHuman())
 	{
+		if (!m_isAccepted)
+			return;
+
 		m_isAccepted = false;
+
+#ifdef __APPLE__
+		if (TheGameSpyGame)
+		{
+			Int localSlot = TheGameSpyGame->getLocalSlotNum();
+			if (localSlot >= 0 && TheGameSpyGame->getConstSlot(localSlot) == this)
+			{
+				GenOnlineWS_SendReady(0);
+			}
+		}
+#endif
 	}
 }
 

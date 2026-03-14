@@ -1180,6 +1180,10 @@ target_link_libraries(corei_gameengine_private INTERFACE
     corei_always
 )
 
+if(APPLE)
+    target_link_libraries(corei_gameengine_private INTERFACE macos_platform)
+endif()
+
 target_compile_definitions(corei_gameengine_private INTERFACE
     IG_DEBUG_STACKTRACE
 )

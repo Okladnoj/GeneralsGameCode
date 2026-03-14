@@ -48,6 +48,10 @@
 #include "GameNetwork/NAT.h"
 #include "GameNetwork/NetworkInterface.h"
 
+#ifdef __APPLE__
+#include "MacOSOnlineLobby.h"
+#endif
+
 
 // GameSpyGameSlot -------------------------------------------
 
@@ -554,7 +558,11 @@ void GameSpyStagingRoom::startGame(Int gameID)
 	DEBUG_ASSERTCRASH(m_transport == nullptr, ("m_transport is not null when it should be"));
 	DEBUG_ASSERTCRASH(TheNAT == nullptr, ("TheNAT is not null when it should be"));
 
+#ifdef __APPLE__
+	UnsignedInt localIP = GenOnlineP2P_ResolveLocalIP();
+#else
 	UnsignedInt localIP = TheGameSpyInfo->getInternalIP();
+#endif
 	setLocalIP(localIP);
 
 	delete TheNAT;
@@ -605,9 +613,16 @@ void GameSpyStagingRoom::startGame(Int gameID)
 	else
 //#endif // defined(RTS_DEBUG)
 	{
+#ifdef __APPLE__
+		GenOnlineP2P_ApplyPeerAddresses(m_slot, MAX_SLOTS);
+		launchGame();
+		if (TheGameSpyInfo)
+			TheGameSpyInfo->leaveStagingRoom();
+#else
 		TheNAT = NEW NAT();
 		TheNAT->attachSlotList(m_slot, getLocalSlotNum(), m_localIP);
 		TheNAT->establishConnectionPaths();
+#endif
 	}
 }
 

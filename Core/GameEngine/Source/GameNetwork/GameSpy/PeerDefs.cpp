@@ -48,6 +48,10 @@
 #include "GameNetwork/RankPointValue.h"
 #include "GameLogic/GameLogic.h"
 
+#ifdef __APPLE__
+#include "MacOSOnlineLobby.h"
+#endif
+
 
 GameSpyInfoInterface *TheGameSpyInfo = nullptr;
 extern GameSpyStagingRoom *TheGameSpyGame = nullptr;
@@ -402,6 +406,10 @@ void GameSpyInfo::joinBestGroupRoom()
 
 		if (minID > 0)
 		{
+#ifdef __APPLE__
+			minID = 0;
+			DEBUG_LOG(("joinBestGroupRoom: macOS override - using room 0 'ALL GAMES' for full lobby visibility"));
+#endif
 			PeerRequest req;
 			req.peerRequestType = PeerRequest::PEERREQUEST_JOINGROUPROOM;
 			req.groupRoom.id = minID;
@@ -645,6 +653,10 @@ void SetUpGameSpy( const char *motdBuffer, const char *configBuffer )
 	ThePinger->startThreads();
 
 	TheRankPointValues = NEW RankPoints;
+
+#ifdef __APPLE__
+	GenOnline_FetchMOTD();
+#endif
 }
 
 void TearDownGameSpy()

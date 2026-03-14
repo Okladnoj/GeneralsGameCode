@@ -34,6 +34,7 @@
 #ifdef __APPLE__
 #include "MacOSOnlineLogin.h"
 #include "MacOSOnlineWebSocket.h"
+#include "MacOSOnlineLobby.h"
 #endif
 
 #include <fcntl.h>
@@ -937,6 +938,10 @@ void HTTPThinkWrapper()
 		DLOG_NETWORK("LOGIN_FLOW: setLocalPassword");
 		TheGameSpyInfo->setLocalPassword("");
 
+		DLOG_NETWORK("LOGIN_FLOW: setLocalIPs");
+		UnsignedInt localIP = GenOnlineP2P_ResolveLocalIP();
+		TheGameSpyInfo->setLocalIPs(localIP, localIP);
+
 		DLOG_NETWORK("LOGIN_FLOW: clearGroupRoomList");
 		TheGameSpyInfo->clearGroupRoomList();
 
@@ -966,36 +971,13 @@ void HTTPThinkWrapper()
 		DLOG_NETWORK("LOGIN_FLOW: emulating peer connection via GenOnline WebSocket (no IRC peerchat needed)");
 #ifdef __APPLE__
 		{
-			PeerResponse lobbyRoom;
-			lobbyRoom.peerResponseType = PeerResponse::PEERRESPONSE_GROUPROOM;
-			lobbyRoom.groupRoom.id = 1;
-			lobbyRoom.groupRoom.maxWaiting = 200;
-			lobbyRoom.groupRoom.numGames = 0;
-			lobbyRoom.groupRoom.numPlaying = 0;
-			lobbyRoom.groupRoom.numWaiting = 1;
-			lobbyRoom.groupRoomName = "Lobby";
-			TheGameSpyPeerMessageQueue->addResponse(lobbyRoom);
-
-			PeerResponse qmRoom;
-			qmRoom.peerResponseType = PeerResponse::PEERRESPONSE_GROUPROOM;
-			qmRoom.groupRoom.id = 2;
-			qmRoom.groupRoom.maxWaiting = 200;
-			qmRoom.groupRoom.numGames = 0;
-			qmRoom.groupRoom.numPlaying = 0;
-			qmRoom.groupRoom.numWaiting = 0;
-			qmRoom.groupRoomName = "quickmatch";
-			TheGameSpyPeerMessageQueue->addResponse(qmRoom);
-
-			PeerResponse sentinel;
-			sentinel.peerResponseType = PeerResponse::PEERRESPONSE_GROUPROOM;
-			sentinel.groupRoom.id = 0;
-			sentinel.groupRoom.maxWaiting = 200;
-			sentinel.groupRoom.numGames = 0;
-			sentinel.groupRoom.numPlaying = 0;
-			sentinel.groupRoom.numWaiting = 0;
-			sentinel.groupRoomName = "";
-			TheGameSpyPeerMessageQueue->addResponse(sentinel);
-			DLOG_NETWORK("LOGIN_FLOW: emulated group rooms (Lobby=1, quickmatch=2, sentinel=0)");
+			DLOG_NETWORK("LOGIN_FLOW: sending PEERREQUEST_LOGIN (rooms will be fetched via REST in PeerThread)");
+			PeerRequest peerReq;
+			peerReq.peerRequestType = PeerRequest::PEERREQUEST_LOGIN;
+			peerReq.nick = session->displayName;
+			peerReq.login.profileID = static_cast<Int>(session->userId);
+			peerReq.authtoken = session->sessionToken;
+			TheGameSpyPeerMessageQueue->addRequest(peerReq);
 		}
 #else
 		DLOG_NETWORK("LOGIN_FLOW: sending PEERREQUEST_LOGIN to connect to chat");

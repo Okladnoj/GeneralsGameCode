@@ -24,6 +24,9 @@ set(MAIN_SRC
     Source/Main/MacOSOpenURL.mm
     Source/Main/MacOSOnlineLogin.mm
     Source/Main/MacOSOnlineWebSocket.mm
+    Source/Main/MacOSOnlineWSBridge.cpp
+    Source/Main/MacOSOnlineLobby.mm
+    Source/Main/MacOSOnlineP2P.mm
 )
 
 # ── Client (display, text rendering) ──
