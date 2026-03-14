@@ -17,7 +17,7 @@ game engine code.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    Game Client (macOS)                    │
+│                    Game Client (macOS)                   │
 │                                                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
 │  │ MainMenuUtils│  │ BuddyThread  │  │  PeerThread    │  │
@@ -25,13 +25,13 @@ game engine code.
 │  └──────┬───────┘  └──────┬───────┘  └───────┬────────┘  │
 │         │                 │                  │           │
 │  ┌──────▼───────────────────────────────────────────┐    │
-│  │          MacOSOnlineLogin.mm                      │    │
-│  │          MacOSOnlineWebSocket.mm                  │    │
+│  │          MacOSOnlineLogin.mm                     │    │
+│  │          MacOSOnlineWebSocket.mm                 │    │
 │  └──────────────┬─────────────────┬─────────────────┘    │
 └─────────────────┼─────────────────┼──────────────────────┘
                   │ HTTPS           │ WSS
                   ▼                 ▼
-┌─────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────┐
 │             GeneralsOnlineServices                       │
 │          (api.playgenerals.online)                       │
 │                                                          │
@@ -39,7 +39,7 @@ game engine code.
 │  │  CheckLogin    │  │LoginWithToken│  │  WebSocket   │  │
 │  │  (game code)   │  │(refresh JWT) │  │  Controller  │  │
 │  └────────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -161,6 +161,10 @@ TheGameSpyInfo->setCachedLocalPlayerStats(localPSStats);
 | `Core/GameEngine/Source/GameNetwork/GameSpy/MainMenuUtils.cpp` | Session setup orchestration |
 | `Platform/MacOS/Source/Main/MacOSOnlineWebSocket.mm` | WebSocket client |
 | `Platform/MacOS/Include/MacOSOnlineWebSocket.h` | WebSocket API |
+| `Platform/MacOS/Source/Main/MacOSOnlineLobby.mm` | REST for rooms + lobbies |
+| `Platform/MacOS/Include/MacOSOnlineLobby.h` | Lobby REST API declarations |
+| `Platform/MacOS/Source/Main/MacOSOnlineWSBridge.cpp` | WS→GameSpy message injection |
+| `Platform/MacOS/Include/MacOSOnlineWSBridge.h` | Bridge API declarations |
 
 ---
 
@@ -226,41 +230,64 @@ passed through the chain but never sent anywhere.
 #ifdef __APPLE__
     m_isConnected = true;
     m_isConnecting = false;
-    // Skip peerConnect (no real IRC connection)
-    // Skip doCDKeyAuthentication (no CD key needed)
+    // Inject PEERRESPONSE_LOGIN to signal connected state
+    PeerResponse resp;
+    resp.peerResponseType = PeerResponse::PEERRESPONSE_LOGIN;
+    TheGameSpyPeerMessageQueue->addResponse(resp);
+    // Fetch group rooms via REST
+    GenOnlineLobby_FetchRooms();
 #else
     peerConnect(peer, nick, profileID, ...);  // real IRC connection
-    doCDKeyAuthentication(peer);               // CD key auth
+    doCDKeyAuthentication(peer);               // CD key auth via registry
 #endif
 ```
 
-### Step 3.3: Group Rooms Injection
+### Step 3.2.1: CD Key Authentication (skipped on macOS)
 
-`MainMenuUtils.cpp` injects emulated group room list (line ~967):
+On Windows, `doCDKeyAuthentication()` reads CD key from Windows Registry
+(`Software\Electronic Arts\EA Games\...\ergc`) and validates it via
+`peerAuthenticateCDKey()`. On macOS:
 
-```cpp
-// Lobby room (custom games)
-PeerResponse lobbyRoom;
-lobbyRoom.peerResponseType = PeerResponse::PEERRESPONSE_GROUPROOM;
-lobbyRoom.groupRoom.id = 1;
-lobbyRoom.groupRoomName = "Lobby";
-TheGameSpyPeerMessageQueue->addResponse(lobbyRoom);
+- No Windows Registry exists → `GetStringFromRegistry()` returns `false`
+- `peerAuthenticateCDKey()` is a GameSpy SDK stub → no-op
+- Authentication is handled via OAuth (session_token JWT)
+- CD key auth is skipped entirely with `#ifdef __APPLE__`
 
-// Quick match room
-PeerResponse qmRoom;
-qmRoom.peerResponseType = PeerResponse::PEERRESPONSE_GROUPROOM;
-qmRoom.groupRoom.id = 2;
-qmRoom.groupRoomName = "quickmatch";
-TheGameSpyPeerMessageQueue->addResponse(qmRoom);
+If not skipped, `doCDKeyAuthentication` returns `SERIAL_NONEXISTENT (0)`,
+which forces `m_isConnected = false` and prevents lobby operations.
 
-// Sentinel (end-of-list marker, id=0)
-PeerResponse sentinel;
-sentinel.peerResponseType = PeerResponse::PEERRESPONSE_GROUPROOM;
-sentinel.groupRoom.id = 0;
-TheGameSpyPeerMessageQueue->addResponse(sentinel);
+### Step 3.3: Group Rooms via REST
+
+`GenOnlineLobby_FetchRooms()` in `MacOSOnlineLobby.mm` fetches rooms from
+the server and injects them as `PEERRESPONSE_GROUPROOM` messages:
+
+```
+GET /env/live/contract/1/Rooms
+Authorization: Bearer <session_token>
 ```
 
-This enables the QUICKMATCH and CUSTOM MATCH buttons in WOLWelcomeMenu.
+Response (from `data/rooms.json` on server):
+```json
+[
+  { "id": 0, "name": "ALL GAMES", "flags": 1 },
+  { "id": 1, "name": "General",   "flags": 0 },
+  { "id": 2, "name": "1v1",       "flags": 0 },
+  { "id": 3, "name": "2v2",       "flags": 0 },
+  ...
+]
+```
+
+Each room is injected via `GenOnlineWS_InjectGroupRoom()` in
+`MacOSOnlineWSBridge.cpp`, which formats it as a `PEERRESPONSE_GROUPROOM`
+message identical to what Windows receives from `listGroupRoomsCallback`.
+
+Room 0 "ALL GAMES" is the **sentinel** — when `WOLWelcomeMenu` receives
+a GROUPROOM with id=0, it calls `enableControls(TRUE)` to unlock buttons.
+
+The call is **synchronous** (uses `dispatch_semaphore_t`) because it runs
+on the PeerThread which expects blocking operations.
+
+Receiving room id=0 enables QUICKMATCH and CUSTOM MATCH buttons in WOLWelcomeMenu.
 
 ### Step 3.4: Other Emulated Operations
 
@@ -297,6 +324,41 @@ TheShell->push("Menus/WOLWelcomeMenu.wnd");
 WOLWelcomeMenu shows buttons: **QUICKMATCH**, **CUSTOM MATCH**, **BUDDIES**,
 **RANKINGS**, etc. The buttons become enabled when the game detects that both
 BuddyThread and PeerThread are "connected" and group rooms exist.
+
+### Step 4.1: Joining a Group Room
+
+When user clicks CUSTOM MATCH, `TheGameSpyInfo->joinBestGroupRoom()` is called
+(`PeerDefs.cpp` line ~378). This iterates all group rooms and picks the one
+with fewest waiting players (excluding quickmatch channel).
+
+**macOS:** `joinBestGroupRoom` forces room 0 "ALL GAMES" regardless of
+the selection algorithm. Room 0 has `flags = ROOM_FLAGS_SHOW_ALL_MATCHES`,
+which makes `GET /Lobbies` return all lobbies across all rooms.
+
+The join triggers `PEERREQUEST_JOINGROUPROOM` → `PeerThread` → emulated
+success → `PEERRESPONSE_JOINGROUPROOM` → WOLWelcomeMenu transitions to
+`WOLCustomLobby.wnd`.
+
+### Step 4.2: Lobby List Fetching
+
+When WOLCustomLobby opens, it sends `PEERREQUEST_STARTGAMELIST`. On macOS,
+`PeerThread` handles this by scheduling `GenOnlineLobby_FetchList()` with a
+**1.5 second delay** (via `std::thread` + `sleep_for`):
+
+```
+GET /env/live/contract/1/Lobbies
+Authorization: Bearer <session_token>
+```
+
+The 1.5s delay ensures the server has processed the preceding `ChangeRoom`
+WebSocket message (msg_id=3) before the REST query runs.
+
+Each lobby in the response is injected as `PEERRESPONSE_STAGINGROOM` via
+`GenOnlineWS_InjectLobbyListEntry()`. After all entries are injected,
+a `PEERRESPONSE_STAGINGROOMLISTCOMPLETE` sentinel is sent.
+
+The lobby list is refreshed periodically (game sends `PEERREQUEST_STARTGAMELIST`
+every few seconds while WOLCustomLobby is visible).
 
 ---
 
@@ -407,10 +469,35 @@ Beyond WebSocket, the server exposes REST endpoints for stateless queries:
 | Login UI | WOLLoginMenu shown, GenTool fills/intercepts | WOLLoginMenu skipped entirely |
 | gpConnect | Intercepted at DLL level, fakes success | `#ifdef` skips call, sets connected |
 | peerConnect | Intercepted at DLL level, fakes success | `#ifdef` skips call, sets connected |
-| CD key auth | Intercepted, returns OK | `#ifdef` path skips entirely |
+| CD key auth | Registry key + peerAuthenticateCDKey | Skipped (OAuth replaces CD key) |
+| Group rooms | `peerListGroupRooms()` → callback | REST `GET /Rooms` → inject |
+| Lobby list | `peerStartListingGames()` → callback | REST `GET /Lobbies` → inject (1.5s delay) |
+| Room joining | `peerJoinGroupRoom()` | WS `msg_id=3` + emulated success |
 | Browser OAuth | GenTool opens browser, polls CheckLogin | MacOSOnlineLogin opens browser, polls |
 | Auto-login | GenTool uses saved refresh_token | NSUserDefaults saves refresh_token |
 | WebSocket | GenTool manages WS connection | MacOSOnlineWebSocket.mm manages |
+
+---
+
+## Server-Side Behavior Notes
+
+### Lobby Filtering by Room
+
+`LobbiesController.cs` filters lobbies by `networkRoomID`. Rooms with
+`flags = ROOM_FLAGS_SHOW_ALL_MATCHES (1)` bypass this filter — server sets
+`bIncludeAllNetworkRooms = true`. Only room 0 "ALL GAMES" has this flag.
+
+For rooms with `flags = 0`, the server uses the user's `networkRoomID`
+from session data. The local variable `networkRoomID` in the controller
+(line ~143) is initialized to `-1` and not reassigned from session data,
+so non-"ALL GAMES" rooms may return empty results.
+
+### ChangeRoom Processing Delay
+
+`ChangeRoom` (msg_id=3) via WebSocket is processed asynchronously.
+REST `GET /Lobbies` may return stale results if called before the server
+finishes processing the room change. A 1.5s delay before the REST call
+accounts for this.
 
 ---
 
@@ -419,10 +506,12 @@ Beyond WebSocket, the server exposes REST endpoints for stateless queries:
 1. ~~**Wire WebSocket to game UI**~~ — ✅ DONE (NET-09)
 2. ~~**Implement lobby create/join**~~ — ✅ DONE (NET-10)
 3. ~~**Implement P2P signaling**~~ — ✅ DONE (NET-11): WS send/recv, transport hook, disconnect, TURN creds
-4. **Implement friend system** — Subscribe to social updates, friend list UI
-5. **Implement matchmaking** — Quickmatch queue via REST + WebSocket
-6. **Implement stats reporting** — Post game results, display leaderboards
-7. **Handle reconnection** — WebSocket disconnect → auto-reconnect with refresh_token
+4. ~~**Fix lobby display**~~ — ✅ DONE: rooms via REST, CD key skip, room 0 workaround
+5. **Implement friend system** — Subscribe to social updates, friend list UI
+6. **Implement matchmaking** — Quickmatch queue via REST + WebSocket
+7. **Implement stats reporting** — Post game results, display leaderboards
+8. **Handle reconnection** — WebSocket disconnect → auto-reconnect with refresh_token
+9. **Fix server networkRoomID bug** — `LobbiesController.cs` line 143 needs `networkRoomID = sourceData.networkRoomID`
 
 ---
 
