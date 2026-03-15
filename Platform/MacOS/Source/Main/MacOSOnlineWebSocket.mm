@@ -5,6 +5,16 @@
 #include "MacOSOnlineLobby.h"
 #include "MacOSDebugLog.h"
 
+void GenOnlineWS_InjectBuddyMessage(int profileID, const char* nick, const char* text);
+void GenOnlineWS_InjectBuddyRequest(int profileID, const char* nick, const char* reason);
+void GenOnlineWS_InjectBuddyStatus(int profileID, const char* nick, int gpStatus, const char* statusString, const char* location);
+
+extern "C" {
+void GenOnlineWS_InjectQMStatus(int qmStatus);
+void GenOnlineWS_InjectQMJoinLobby(long long lobbyId);
+void GenOnlineWS_InjectGameStart();
+}
+
 #ifdef __APPLE__
 
 static GenOnlineWSState s_wsState = GenOnlineWSState::Disconnected;
@@ -121,6 +131,13 @@ static void handleLobbyChatFromServer(NSDictionary* json) {
   NSString* message = json[@"message"];
   if (!sender || !message) return;
 
+  if ([message hasPrefix:@"__UTM__SL:"]) {
+    NSString* options = [message substringFromIndex:[@"__UTM__SL:" length]];
+    GenOnlineWS_InjectStagingRoomUTM([sender UTF8String], [options UTF8String]);
+    DLOG_NETWORK("GenOnlineWS: injected UTM_SL from '%s'", [sender UTF8String]);
+    return;
+  }
+
   GenOnlineWS_InjectChatMessage(
       [sender UTF8String],
       [message UTF8String],
@@ -204,6 +221,68 @@ static void handleMessage(NSURLSessionWebSocketMessage* message) {
   case 28:
     handleFullMeshCheckComplete(json);
     break;
+  case 20: {
+    long long lobbyId = [json[@"lobby_id"] longLongValue];
+    DLOG_NETWORK("GenOnlineWS: MATCHMAKING_JOIN_LOBBY lobby_id=%lld", lobbyId);
+    GenOnlineWS_InjectQMJoinLobby(lobbyId);
+    break;
+  }
+  case 21: {
+    DLOG_NETWORK("GenOnlineWS: MATCHMAKING_START_GAME — injecting GAMESTART");
+    GenOnlineWS_InjectGameStart();
+    break;
+  }
+  case 22: {
+    NSString* message = json[@"message"];
+    DLOG_NETWORK("GenOnlineWS: MATCHMAKING_MESSAGE: '%s'",
+                 message ? [message UTF8String] : "");
+    break;
+  }
+  case 29: {
+    NSString* displayName = json[@"display_name"];
+    DLOG_NETWORK("GenOnlineWS: SOCIAL_NEW_FRIEND_REQUEST from '%s'",
+                 displayName ? [displayName UTF8String] : "");
+    GenOnlineWS_InjectBuddyRequest(0, displayName ? [displayName UTF8String] : "",
+                                    "wants to be your friend");
+    break;
+  }
+  case 31: {
+    long long sourceUserId = [json[@"source_user_id"] longLongValue];
+    NSString* message = json[@"message"];
+    DLOG_NETWORK("GenOnlineWS: SOCIAL_FRIEND_CHAT from %lld: '%s'",
+                 sourceUserId, message ? [message UTF8String] : "");
+    GenOnlineWS_InjectBuddyMessage((int)sourceUserId, "",
+                                    message ? [message UTF8String] : "");
+    break;
+  }
+  case 32: {
+    NSString* displayName = json[@"display_name"];
+    bool online = [json[@"online"] boolValue];
+    DLOG_NETWORK("GenOnlineWS: SOCIAL_FRIEND_STATUS_CHANGED '%s' online=%d",
+                 displayName ? [displayName UTF8String] : "", online);
+    GenOnlineWS_InjectBuddyStatus(0, displayName ? [displayName UTF8String] : "",
+                                   online ? 1 : 0, online ? "Online" : "Offline", "");
+    break;
+  }
+  case 35: {
+    int numOnline = [json[@"num_online"] intValue];
+    int numPending = [json[@"num_pending"] intValue];
+    DLOG_NETWORK("GenOnlineWS: SOCIAL_OVERALL_STATUS online=%d pending=%d",
+                 numOnline, numPending);
+    break;
+  }
+  case 36: {
+    NSString* displayName = json[@"display_name"];
+    DLOG_NETWORK("GenOnlineWS: SOCIAL_FRIEND_REQUEST_ACCEPTED by '%s'",
+                 displayName ? [displayName UTF8String] : "");
+    GenOnlineWS_InjectBuddyStatus(0, displayName ? [displayName UTF8String] : "",
+                                   1, "Online", "");
+    break;
+  }
+  case 37: {
+    DLOG_NETWORK("GenOnlineWS: SOCIAL_FRIENDS_LIST_DIRTY (re-fetch needed)");
+    break;
+  }
   default:
     DLOG_NETWORK("GenOnlineWS: unhandled msg_id=%d", wsMessageId);
     break;
@@ -333,6 +412,54 @@ void GenOnlineWS_SendPing() {
   DLOG_NETWORK("GenOnlineWS: sent PING");
 }
 
+static volatile int s_measuredLatencyMs = -1;
+static volatile bool s_latencyMeasureInFlight = false;
+
+void GenOnlineWS_StartLatencyMeasurement() {
+  s_measuredLatencyMs = -1;
+  s_latencyMeasureInFlight = true;
+
+  if (!s_wsTask || s_wsState != GenOnlineWSState::Connected) {
+    DLOG_NETWORK("GenOnlineWS: StartLatencyMeasurement — WS not connected, will retry in update");
+    return;
+  }
+
+  CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
+
+  [s_wsTask sendPingWithPongReceiveHandler:^(NSError* error) {
+    if (!error) {
+      CFAbsoluteTime elapsed = CFAbsoluteTimeGetCurrent() - startTime;
+      int rttMs = (int)(elapsed * 1000.0);
+      s_measuredLatencyMs = rttMs;
+      DLOG_NETWORK("GenOnlineWS: latency measured = %dms (WS ping/pong)", rttMs);
+    } else {
+      DLOG_NETWORK("GenOnlineWS: latency ping failed: %s",
+                   [[error localizedDescription] UTF8String]);
+      s_measuredLatencyMs = -1;
+    }
+    s_latencyMeasureInFlight = false;
+  }];
+}
+
+int GenOnlineWS_GetMeasuredLatency() {
+  if (s_latencyMeasureInFlight) {
+    if (s_wsState == GenOnlineWSState::Connected && s_measuredLatencyMs == -1) {
+      CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
+      [s_wsTask sendPingWithPongReceiveHandler:^(NSError* error) {
+        if (!error) {
+          CFAbsoluteTime elapsed = CFAbsoluteTimeGetCurrent() - startTime;
+          int rttMs = (int)(elapsed * 1000.0);
+          s_measuredLatencyMs = rttMs;
+          DLOG_NETWORK("GenOnlineWS: latency measured (retry) = %dms", rttMs);
+        }
+        s_latencyMeasureInFlight = false;
+      }];
+    }
+    return -1;
+  }
+  return s_measuredLatencyMs;
+}
+
 void GenOnlineWS_SendChangeRoom(int roomId) {
   NSDictionary* msg = @{@"msg_id" : @(3), @"room" : @(roomId)};
   sendJSON(msg);
@@ -437,6 +564,16 @@ void GenOnlineWS_SendSignal(long long targetUserId, const unsigned char* payload
   };
   sendJSON(msg);
   DLOG_NETWORK("GenOnlineWS: sent Signal(target=%lld, %d bytes)", targetUserId, payloadLen);
+}
+
+void GenOnlineWS_SendFriendChat(long long targetUserId, const char* message) {
+  NSDictionary* msg = @{
+    @"msg_id" : @(30),
+    @"target_user_id" : @(targetUserId),
+    @"message" : [NSString stringWithUTF8String:message]
+  };
+  sendJSON(msg);
+  DLOG_NETWORK("GenOnlineWS: sent FriendChat(target=%lld, msg=%s)", targetUserId, message);
 }
 
 #endif // __APPLE__

@@ -297,6 +297,10 @@ static void startPings(void) {
   Int timeout = TheGameSpyConfig->getPingTimeoutInMs();
   Int reps = TheGameSpyConfig->getNumPingRepetitions();
 
+#ifdef __APPLE__
+  printf("[PING] startPings: %d servers, timeout=%d, reps=%d\n", (int)pingServers.size(), timeout, reps); fflush(stdout);
+#endif
+
   for (std::list<AsciiString>::const_iterator it = pingServers.begin();
        it != pingServers.end(); ++it) {
     AsciiString pingServer = *it;
@@ -304,6 +308,9 @@ static void startPings(void) {
     req.hostname = pingServer.str();
     req.repetitions = reps;
     req.timeout = timeout;
+#ifdef __APPLE__
+    printf("[PING] queuing ping to: %s\n", pingServer.str()); fflush(stdout);
+#endif
     ThePinger->addRequest(req);
   }
 }
@@ -776,13 +783,20 @@ void WOLLoginMenuShutdown(WindowLayout *layout, void *userData) {
 
 // this is used to check if we've got all the pings
 static void checkLogin(void) {
-  if (loggedInOK && ThePinger && !ThePinger->arePingsInProgress()) {
-    // save off our ping string, and end those threads
-    AsciiString pingStr = ThePinger->getPingString(1000);
-    DEBUG_LOG(("Ping string is %s", pingStr.str()));
-    TheGameSpyInfo->setPingString(pingStr);
-    // delete ThePinger;
-    // ThePinger = nullptr;
+  if (loggedInOK) {
+    if (ThePinger && ThePinger->arePingsInProgress()) {
+      // Still pinging... wait until next frame
+      return;
+    }
+    
+    if (ThePinger) {
+      AsciiString pingStr = ThePinger->getPingString(1000);
+      DEBUG_LOG(("Ping string is %s", pingStr.str()));
+      TheGameSpyInfo->setPingString(pingStr);
+    } else {
+      // Fallback if Pinger is completely stripped
+      TheGameSpyInfo->setPingString("00");
+    }
 
     buttonPushed = true;
     loggedInOK = false; // don't try this again
@@ -854,12 +868,14 @@ void WOLLoginMenuUpdate(WindowLayout *layout, void *userData) {
         TheGameSpyInfo->setLocalIPs(resp.player.internalIP,
                                     resp.player.externalIP);
         TheGameSpyInfo->readAdditionalDisconnects();
-        // TheGameSpyInfo->setLocalEmail( resp.player.email );
-        // TheGameSpyInfo->setLocalPassword( resp)
 
         GameSpyMiscPreferences miscPref;
         TheGameSpyInfo->setMaxMessagesPerUpdate(
             miscPref.getMaxMessagesPerUpdate());
+
+#ifdef __APPLE__
+        startPings();
+#endif
       } break;
       case PeerResponse::PEERRESPONSE_DISCONNECT: {
         loginAttemptTime = 0;

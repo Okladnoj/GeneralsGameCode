@@ -135,9 +135,24 @@ static Bool doFileTransfer( AsciiString filename, MapTransferLoadScreen *ls, Int
 //-------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------
 
+static const char *findLastPathSep( const char *str )
+{
+	const char *lastBackslash = strrchr(str, '\\');
+	const char *lastSlash = strrchr(str, '/');
+	if (!lastBackslash) return lastSlash;
+	if (!lastSlash) return lastBackslash;
+	return (lastSlash > lastBackslash) ? lastSlash : lastBackslash;
+}
+
+#ifdef __APPLE__
+static const char PATH_SEP = '/';
+#else
+static const char PATH_SEP = '\\';
+#endif
+
 AsciiString GetBasePathFromPath( AsciiString path )
 {
-	const char *s = path.reverseFind('\\');
+	const char *s = findLastPathSep(path.str());
 	if (s)
 	{
 		Int len = s - path.str();
@@ -153,7 +168,7 @@ AsciiString GetBasePathFromPath( AsciiString path )
 
 AsciiString GetFileFromPath( AsciiString path )
 {
-	const char *s = path.reverseFind('\\');
+	const char *s = findLastPathSep(path.str());
 	if (s)
 		return s+1;
 	return path;
@@ -189,7 +204,7 @@ AsciiString GetPreviewFromMap( AsciiString path )
 	AsciiString base = GetBasePathFromPath(path);
 
 	AsciiString out;
-	out.format("%s\\%s.tga", base.str(), fname.str());
+	out.format("%s%c%s.tga", base.str(), PATH_SEP, fname.str());
 	return out;
 }
 
@@ -198,7 +213,7 @@ AsciiString GetINIFromMap( AsciiString path )
 	AsciiString base = GetBasePathFromPath(path);
 
 	AsciiString out;
-	out.format("%s\\map.ini", base.str());
+	out.format("%s%cmap.ini", base.str(), PATH_SEP);
 	return out;
 }
 
@@ -207,7 +222,7 @@ AsciiString GetStrFileFromMap( AsciiString path )
 	AsciiString base = GetBasePathFromPath(path);
 
 	AsciiString out;
-	out.format("%s\\map.str", base.str());
+	out.format("%s%cmap.str", base.str(), PATH_SEP);
 	return out;
 }
 
@@ -216,7 +231,7 @@ AsciiString GetSoloINIFromMap( AsciiString path )
 	AsciiString base = GetBasePathFromPath(path);
 
 	AsciiString out;
-	out.format("%s\\solo.ini", base.str());
+	out.format("%s%csolo.ini", base.str(), PATH_SEP);
 	return out;
 }
 
@@ -225,7 +240,7 @@ AsciiString GetAssetUsageFromMap( AsciiString path )
 	AsciiString base = GetBasePathFromPath(path);
 
 	AsciiString out;
-	out.format("%s\\assetusage.txt", base.str());
+	out.format("%s%cassetusage.txt", base.str(), PATH_SEP);
 	return out;
 }
 
@@ -234,7 +249,7 @@ AsciiString GetReadmeFromMap( AsciiString path )
 	AsciiString base = GetBasePathFromPath(path);
 
 	AsciiString out;
-	out.format("%s\\readme.txt", base.str());
+	out.format("%s%creadme.txt", base.str(), PATH_SEP);
 	return out;
 }
 

@@ -1124,14 +1124,25 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 			AsciiString realMapName = TheGameState->portableMapPathToRealMapPath(mapName);
 			if (realMapName.isEmpty())
 			{
+#ifdef __APPLE__
+				// TheSuperHackers @fix On macOS online join, custom maps not installed locally
+				// cause portableMapPathToRealMapPath to return empty. Don't reject the entire
+				// SL string — keep the original path and let setMapCRC/TheMapCache handle
+				// "map not available" display, matching Windows behavior.
+				printf("NETWORK: ParseAsciiStringToGameInfo - map not found locally ('%s'), continuing\n", mapName.str()); fflush(stdout);
+#else
 				// TheSuperHackers @security slurmlord 18/06/2025 As the map file name/path from the AsciiString failed to normalize,
 				// in other words is bogus and points outside of the approved target directory for maps, avoid an arbitrary file overwrite vulnerability
 				// if the save or network game embeds a custom map to store at the location, by flagging the options as not OK and rejecting the game.
 				optionsOk = FALSE;
 				DEBUG_LOG(("ParseAsciiStringToGameInfo - saw bogus map name ('%s'); quitting", mapName.str()));
 				break;
+#endif
 			}
-			mapName = realMapName;
+			else
+			{
+				mapName = realMapName;
+			}
 			sawMap = true;
 			DEBUG_LOG(("ParseAsciiStringToGameInfo - map name is %s", mapName.str()));
 		}

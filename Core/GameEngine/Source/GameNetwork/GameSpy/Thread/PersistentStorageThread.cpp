@@ -42,6 +42,11 @@
 
 #include "Common/SubsystemInterface.h"
 
+#ifdef __APPLE__
+std::string GenOnlineStats_FetchKVPairs(int profileId);
+void GenOnlineStats_UpdateKVPairs(int profileId, const std::string& kvPairs);
+#endif
+
 
 //-------------------------------------------------------------------------
 
@@ -577,6 +582,10 @@ PSPlayerStats GameSpyPSMessageQueue::findPlayerStatsByID( Int id )
 
 Bool PSThreadClass::tryConnect()
 {
+#ifdef __APPLE__
+	DLOG_NETWORK("PS_THREAD tryConnect: macOS OAuth (always connected)");
+	return true;
+#else
 	Int result;
 
 	DLOG_NETWORK("PS_THREAD tryConnect: m_opCount=%d", m_opCount);
@@ -599,6 +608,7 @@ Bool PSThreadClass::tryConnect()
 
 	DLOG_NETWORK("PS_THREAD tryConnect: SUCCESS");
 	return true;
+#endif
 }
 
 static void persAuthCallback(int localid, int profileid, int authenticated, char *errmsg, void *instance)
@@ -840,6 +850,77 @@ void PSThreadClass::Thread_Function()
 			DLOG_NETWORK("PS_THREAD: got request type=%d", req.requestType);
 			switch (req.requestType)
 			{
+#ifdef __APPLE__
+			case PSRequest::PSREQUEST_SENDGAMERESTOGAMESPY:
+				{
+					DLOG_NETWORK("PS_THREAD: macOS SENDGAMERESTOGAMESPY via REST (TODO)");
+				}
+				break;
+			case PSRequest::PSREQUEST_READPLAYERSTATS:
+				{
+					if (!MESSAGE_QUEUE->getLocalPlayerID())
+					{
+						MESSAGE_QUEUE->setLocalPlayerID(req.player.id);
+						MESSAGE_QUEUE->setEmail(req.email);
+						MESSAGE_QUEUE->setNick(req.nick);
+						MESSAGE_QUEUE->setPassword(req.password);
+					}
+					DLOG_NETWORK("PS_THREAD: macOS READPLAYERSTATS id=%d via REST", req.player.id);
+
+					std::string kvData = GenOnlineStats_FetchKVPairs(req.player.id);
+
+					PSResponse resp;
+					if (kvData.empty())
+					{
+						DLOG_NETWORK("PS_THREAD: macOS stats fetch returned empty for id=%d", req.player.id);
+						// Do not return PSRESPONSE_COULDNOTCONNECT here as it triggers a disruptive 
+						// global error popup ("Could not connect to the persistent storage server").
+						// Return an empty/default stats response instead.
+						resp.responseType = PSResponse::PSRESPONSE_PLAYERSTATS;
+						resp.player.id = req.player.id;
+					}
+					else
+					{
+						DLOG_NETWORK("PS_THREAD: macOS stats fetched for id=%d kvLen=%zu", req.player.id, kvData.size());
+						resp.responseType = PSResponse::PSRESPONSE_PLAYERSTATS;
+						resp.player = GameSpyPSMessageQueueInterface::parsePlayerKVPairs(kvData);
+						resp.player.id = req.player.id;
+					}
+
+					TheGameSpyPSMessageQueue->addResponse(resp);
+
+					if (req.player.id == MESSAGE_QUEUE->getLocalPlayerID() && TheGameSpyGame && TheGameSpyGame->getUseStats())
+					{
+						gotLocalPlayerData();
+					}
+				}
+				break;
+			case PSRequest::PSREQUEST_UPDATEPLAYERLOCALE:
+				{
+					DLOG_NETWORK("PS_THREAD: macOS UPDATEPLAYERLOCALE (skipped, server uses OAuth locale)");
+				}
+				break;
+			case PSRequest::PSREQUEST_UPDATEPLAYERSTATS:
+				{
+					DLOG_NETWORK("PS_THREAD: macOS UPDATEPLAYERSTATS id=%d via REST", req.player.id);
+
+					if (TheGameSpyPSMessageQueue)
+						TheGameSpyPSMessageQueue->trackPlayerStats(req.player);
+
+					std::string kvPairs = GameSpyPSMessageQueueInterface::formatPlayerKVPairs(req.player);
+					GenOnlineStats_UpdateKVPairs(req.player.id, kvPairs);
+				}
+				break;
+			case PSRequest::PSREQUEST_READCDKEYSTATS:
+				{
+					DLOG_NETWORK("PS_THREAD: macOS READCDKEYSTATS skipped (no CD keys)");
+					PSResponse resp;
+					resp.responseType = PSResponse::PSRESPONSE_PREORDER;
+					resp.preorder = TRUE;
+					TheGameSpyPSMessageQueue->addResponse(resp);
+				}
+				break;
+#else
 			case PSRequest::PSREQUEST_SENDGAMERESTOGAMESPY:
 				{
 					DLOG_NETWORK("PS_THREAD: SENDGAMERESTOGAMESPY");
@@ -1038,6 +1119,7 @@ void PSThreadClass::Thread_Function()
 					}
 				}
 				break;
+#endif
 			}
 		}
 

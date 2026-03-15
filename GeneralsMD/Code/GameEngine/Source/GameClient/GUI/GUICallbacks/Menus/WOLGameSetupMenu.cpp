@@ -1667,7 +1667,9 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 			{
 				// haven't seen ourselves
 				buttonPushed = true;
-				DEBUG_LOG(("Haven't seen ourselves in slotlist"));
+#ifdef __APPLE__
+				printf("NETWORK: DIAG_SL: Haven't seen ourselves in slotlist after 10s! isHosting=%d lastSlotlistTime=%d enterTime=%d now=%d\n", isHosting, lastSlotlistTime, enterTime, timeGetTime()); fflush(stdout);
+#endif
 				if (TheGameSpyGame)
 					TheGameSpyGame->reset();
 				TheGameSpyInfo->leaveStagingRoom();
@@ -1730,6 +1732,9 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		{
 				break;
 			}
+#ifdef __APPLE__
+			printf("NETWORK: DIAG_SL: GameSetup got response type=%d\n", resp.peerResponseType); fflush(stdout);
+#endif
 			switch (resp.peerResponseType)
 			{
 			case PeerResponse::PEERRESPONSE_FAILEDTOHOST:
@@ -1957,45 +1962,35 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 			case PeerResponse::PEERRESPONSE_ROOMUTM:
 				{
 					sawImportantMessage = TRUE;
-#if defined(RTS_DEBUG)
-					if (g_debugSlots)
-					{
-						DEBUG_LOG(("About to process a room UTM.  Command is '%s', command options is '%s'",
-							resp.command.c_str(), resp.commandOptions.c_str()));
-					}
+#ifdef __APPLE__
+					printf("NETWORK: DIAG_SL: ROOMUTM received. command='%s' nick='%s' optionsLen=%d\n",
+						resp.command.c_str(), resp.nick.c_str(), (int)resp.commandOptions.length()); fflush(stdout);
 #endif
 					if (strcmp(resp.command.c_str(), "SL") == 0)
 					{
-						// slotlist
 						GameSpyStagingRoom *game = TheGameSpyInfo->getCurrentStagingRoom();
-						Bool isValidSlotList = game && game->getSlot(0) && game->getSlot(0)->isPlayer( resp.nick.c_str() ) && !TheGameSpyInfo->amIHost();
+						Bool hasGame = (game != nullptr);
+						Bool hasSlot0 = hasGame && (game->getSlot(0) != nullptr);
+						Bool slot0IsPlayer = FALSE;
+						Bool isHost = TheGameSpyInfo->amIHost();
+						if (hasSlot0) {
+							slot0IsPlayer = game->getSlot(0)->isPlayer( resp.nick.c_str() );
+#ifdef __APPLE__
+							printf("NETWORK: DIAG_SL: slot0 isHuman=%d name='%ls' sender='%s' isPlayer=%d isHost=%d\n",
+								game->getSlot(0)->isHuman(), game->getSlot(0)->getName().str(),
+								resp.nick.c_str(), slot0IsPlayer, isHost); fflush(stdout);
+#endif
+						}
+						Bool isValidSlotList = hasGame && hasSlot0 && slot0IsPlayer && !isHost;
+#ifdef __APPLE__
+						printf("NETWORK: DIAG_SL: isValidSlotList=%d (hasGame=%d hasSlot0=%d slot0IsPlayer=%d isHost=%d)\n",
+							isValidSlotList, hasGame, hasSlot0, slot0IsPlayer, isHost); fflush(stdout);
+#endif
 						if (!isValidSlotList)
 						{
-							SLOTLIST_DEBUG_LOG(("Not a valid slotlist"));
-							if (!game)
-							{
-								SLOTLIST_DEBUG_LOG(("No game!"));
-							}
-							else
-							{
-								if (!game->getSlot(0))
-								{
-									SLOTLIST_DEBUG_LOG(("No slot 0!"));
-								}
-								else
-								{
-									if (TheGameSpyInfo->amIHost())
-									{
-										SLOTLIST_DEBUG_LOG(("I'm the host!"));
-									}
-									else
-									{
-										SLOTLIST_DEBUG_LOG(("Not from the host!  isHuman:%d, name:'%ls', sender:'%s'",
-											game->getSlot(0)->isHuman(), game->getSlot(0)->getName().str(),
-											resp.nick.c_str()));
-									}
-								}
-							}
+#ifdef __APPLE__
+							printf("NETWORK: DIAG_SL: REJECTED slotlist!\n"); fflush(stdout);
+#endif
 						}
 						else // isValidSlotList
 						{
@@ -2024,6 +2019,10 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 								}
 							}
 							Bool optionsOK = ParseAsciiStringToGameInfo(game, options.str());
+#ifdef __APPLE__
+					printf("NETWORK: DIAG_SL: ParseAsciiStringToGameInfo result=%d options='%.200s'\n",
+						optionsOK, options.str()); fflush(stdout);
+#endif
 							if (TheNAT)
 							{
 								for (i=0; i<MAX_SLOTS; ++i)
@@ -2045,28 +2044,39 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 							}
 							Int newLocalSlotNum = (game->isInGame()) ? game->getLocalSlotNum() : -1;
 							Bool isInGame = newLocalSlotNum >= 0;
+#ifdef __APPLE__
+							printf("NETWORK: DIAG_SL: after parse: newLocalSlot=%d isInGame=%d optionsOK=%d\n",
+								newLocalSlotNum, isInGame, optionsOK); fflush(stdout);
+#endif
 							if (!optionsOK)
 							{
-								SLOTLIST_DEBUG_LOG(("Options are bad!  bailing!"));
+#ifdef __APPLE__
+								printf("NETWORK: DIAG_SL: Options are BAD! bailing!\n"); fflush(stdout);
+#endif
 								break;
 							}
 							else
 							{
-								SLOTLIST_DEBUG_LOG(("Options are good, local slot is %d", newLocalSlotNum));
 								if (!isInGame)
 								{
-									SLOTLIST_DEBUG_LOG(("Not in game; players are:"));
+#ifdef __APPLE__
+									printf("NETWORK: DIAG_SL: NOT in game. Slot dump:\n"); fflush(stdout);
 									for (Int i=0; i<MAX_SLOTS; ++i)
 									{
 										const GameSpyGameSlot *slot = game->getGameSpySlot(i);
-										if (slot && slot->isHuman())
-										{
-											UnicodeString munkee;
-											munkee.format(L"\t%d: %ls", i, slot->getName().str());
-											SLOTLIST_DEBUG_LOG(("%ls", munkee.str()));
+										if (slot) {
+											printf("NETWORK: DIAG_SL:   slot[%d] isHuman=%d isOpen=%d name='%ls'\n",
+												i, slot->isHuman(), slot->isOpen(), slot->getName().str());
 										}
 									}
+									fflush(stdout);
+#endif
 								}
+#ifdef __APPLE__
+								else {
+									printf("NETWORK: DIAG_SL: IN GAME at slot %d\n", newLocalSlotNum); fflush(stdout);
+								}
+#endif
 							}
 							WOLDisplaySlotList();
 
@@ -2075,6 +2085,9 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 							if (isInGame)
 							{
 								lastSlotlistTime = timeGetTime();
+#ifdef __APPLE__
+								printf("NETWORK: DIAG_SL: lastSlotlistTime updated to %d\n", lastSlotlistTime); fflush(stdout);
+#endif
 								if ( (oldMapCRC ^ newMapCRC) || (!wasInGame && isInGame) )
 								{
 									// it changed.  send it

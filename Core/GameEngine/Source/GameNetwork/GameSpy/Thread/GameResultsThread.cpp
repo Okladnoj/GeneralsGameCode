@@ -205,6 +205,12 @@ Bool GameResultsQueue::areGameResultsBeingSent()
 
 void GameResultsThreadClass::Thread_Function()
 {
+#ifdef __APPLE__
+	while (running)
+	{
+		Switch_Thread();
+	}
+#else
 	try {
 	GameResultsRequest req;
 
@@ -266,6 +272,7 @@ void GameResultsThreadClass::Thread_Function()
 	} catch ( ... ) {
 		DEBUG_CRASH(("Exception in results thread!"));
 	}
+#endif
 }
 
 //-------------------------------------------------------------------------

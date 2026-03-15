@@ -604,11 +604,11 @@ static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
 		}
 		else if (game->getLadderPort())
 		{
-			GadgetListBoxAddEntryText(win, TheGameText->fetch("GUI:UnknownLadder"), gameColor, index, COLUMN_LADDER);
+			GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_LADDER);
 		}
 		else
 		{
-			GadgetListBoxAddEntryText(win, TheGameText->fetch("GUI:NoLadder"), gameColor, index, COLUMN_LADDER);
+			GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_LADDER);
 		}
 	}
 	else

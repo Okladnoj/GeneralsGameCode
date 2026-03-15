@@ -41,6 +41,8 @@ void GenOnline_SaveSession(void);
 
 void GenOnline_ClearSavedSession(void);
 
+int GenOnline_MeasureAPILatency(void);
+
 #ifdef __cplusplus
 }
 #endif

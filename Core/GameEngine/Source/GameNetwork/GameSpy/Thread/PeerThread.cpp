@@ -50,6 +50,7 @@
 #ifdef __APPLE__
 #include "MacOSOnlineWebSocket.h"
 #include "MacOSOnlineLobby.h"
+#include "MacOSOnlineQM.h"
 #include <thread>
 #include <chrono>
 #endif
@@ -1513,15 +1514,7 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 					incomingRequest.password.c_str()
 				);
 
-				PeerResponse resp;
-				resp.peerResponseType = PeerResponse::PEERRESPONSE_JOINSTAGINGROOM;
-				resp.joinStagingRoom.id = incomingRequest.stagingRoom.id;
-				resp.joinStagingRoom.ok = TRUE;
-				resp.joinStagingRoom.isHostPresent = TRUE;
-				resp.joinStagingRoom.result = PEERJoinSuccess;
-				TheGameSpyPeerMessageQueue->addResponse(resp);
-
-				DLOG_NETWORK("PEER_THREAD: macOS join lobby %d via REST", incomingRequest.stagingRoom.id);
+				DLOG_NETWORK("PEER_THREAD: macOS join lobby %d via REST (response deferred to callback)", incomingRequest.stagingRoom.id);
 #else
 				m_groupRoomID = 0;
 				updateBuddyStatus( BUDDY_ONLINE );
@@ -1581,8 +1574,10 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 
 			case PeerRequest::PEERREQUEST_MESSAGEPLAYER:
 				{
+#ifndef __APPLE__
 					std::string s = WideCharStringToMultiByte(incomingRequest.text.c_str());
 					peerMessagePlayer( peer, incomingRequest.nick.c_str(), s.c_str(), (incomingRequest.message.isAction)?ActionMessage:NormalMessage );
+#endif
 				}
 				break;
 
@@ -1614,6 +1609,7 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 					DEBUG_LOG(("PEERREQUEST_PUSHSTATS: stats are %d,%d,%d,%d,%d,%d",
 						incomingRequest.statsToPush.locale, incomingRequest.statsToPush.wins, incomingRequest.statsToPush.losses, incomingRequest.statsToPush.rankPoints, incomingRequest.statsToPush.side, incomingRequest.statsToPush.preorder));
 
+#ifndef __APPLE__
 					// Testing alternate way to push stats
 #ifdef USE_BROADCAST_KEYS
 					snprintf(s_valueBuffers[0], 20, "%d", incomingRequest.statsToPush.locale);
@@ -1639,6 +1635,7 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 					peerSetGlobalWatchKeys(peer, StagingRoom, 0, nullptr, PEERFalse);
 					peerSetGlobalWatchKeys(peer, GroupRoom,   6, keys, PEERTrue);
 					peerSetGlobalWatchKeys(peer, StagingRoom, 6, keys, PEERTrue);
+#endif
 #endif
 				}
 				break;
@@ -1674,12 +1671,18 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 					STATECHANGED_LOG(("peerStateChanged() at time %d (difference of %d ms)", now, diff));
 					*/
 
+#ifdef __APPLE__
+					std::string utmStr = std::string("__UTM__SL:") + incomingRequest.options;
+					GenOnlineWS_SendLobbyChat(AsciiString(utmStr.c_str()).str());
+#else
 					peerUTMRoom( peer, StagingRoom, "SL/", incomingRequest.options.c_str(), PEERFalse ); // send the full string to people in the room
+#endif
 				}
 				break;
 
 			case PeerRequest::PEERREQUEST_GETEXTENDEDSTAGINGROOMINFO:
 				{
+#ifndef __APPLE__
 					SBServer server = findServerByID( incomingRequest.stagingRoom.id );
 					if (server)
 					{
@@ -1690,6 +1693,7 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 					{
 						DEBUG_LOG(("Tried to update non-existent server!"));
 					}
+#endif
 				}
 				break;
 
@@ -1889,7 +1893,9 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 
 			case PeerRequest::PEERREQUEST_STOPGAMELIST:
 			{
+#ifndef __APPLE__
 				peerStopListingGames( peer );
+#endif
 			}
 			break;
 
@@ -1906,25 +1912,87 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 
 		case PeerRequest::PEERREQUEST_UTMPLAYER:
 			{
+#ifndef __APPLE__
 				if (!incomingRequest.nick.empty())
 				{
 					peerUTMPlayer( peer, incomingRequest.nick.c_str(), incomingRequest.id.c_str(), incomingRequest.options.c_str(), PEERFalse );
 				}
+#endif
 			}
 			break;
 
-			case PeerRequest::PEERREQUEST_UTMROOM:
+		case PeerRequest::PEERREQUEST_UTMROOM:
+			{
+#ifdef __APPLE__
+				if (incomingRequest.UTM.isStagingRoom && incomingRequest.id == "SL")
 				{
-					peerUTMRoom( peer, (incomingRequest.UTM.isStagingRoom)?StagingRoom:GroupRoom, incomingRequest.id.c_str(), incomingRequest.options.c_str(), PEERFalse );
+					std::string utmStr = std::string("__UTM__SL:") + incomingRequest.options;
+					GenOnlineWS_SendLobbyChat(AsciiString(utmStr.c_str()).str());
 				}
-				break;
+#else
+				peerUTMRoom( peer, (incomingRequest.UTM.isStagingRoom)?StagingRoom:GroupRoom, incomingRequest.id.c_str(), incomingRequest.options.c_str(), PEERFalse );
+#endif
+			}
+			break;
 
 			case PeerRequest::PEERREQUEST_STARTQUICKMATCH:
 				{
+#ifdef __APPLE__
+					DEBUG_LOG(("PEER_THREAD(macOS): STARTQUICKMATCH — registering via REST"));
+
+					std::vector<int> selectedMapIndices;
+					for (size_t i = 0; i < incomingRequest.qmMaps.size(); ++i) {
+						if (incomingRequest.qmMaps[i]) {
+							selectedMapIndices.push_back((int)i);
+						}
+					}
+
+					int playlistId = incomingRequest.QM.ladderID;
+
+					bool ok = GenOnlineQM_Register(
+						playlistId,
+						selectedMapIndices,
+						incomingRequest.QM.exeCRC,
+						incomingRequest.QM.iniCRC
+					);
+
+					PeerResponse resp;
+					resp.peerResponseType = PeerResponse::PEERRESPONSE_QUICKMATCHSTATUS;
+					if (ok) {
+						resp.qmStatus.status = QM_WORKING;
+						DEBUG_LOG(("PEER_THREAD(macOS): QM registered OK, status=QM_WORKING"));
+					} else {
+						resp.qmStatus.status = QM_COULDNOTFINDBOT;
+						DEBUG_LOG(("PEER_THREAD(macOS): QM register FAILED"));
+					}
+					TheGameSpyPeerMessageQueue->addResponse(resp);
+#else
 					m_qmInfo = incomingRequest;
 					doQuickMatch( peer );
+#endif
 				}
 				break;
+
+#ifdef __APPLE__
+			case PeerRequest::PEERREQUEST_WIDENQUICKMATCHSEARCH:
+				{
+					DEBUG_LOG(("PEER_THREAD(macOS): WIDENQUICKMATCH — calling REST"));
+					GenOnlineQM_Widen();
+				}
+				break;
+
+			case PeerRequest::PEERREQUEST_STOPQUICKMATCH:
+				{
+					DEBUG_LOG(("PEER_THREAD(macOS): STOPQUICKMATCH — deregistering via REST"));
+					GenOnlineQM_Deregister();
+
+					PeerResponse resp;
+					resp.peerResponseType = PeerResponse::PEERRESPONSE_QUICKMATCHSTATUS;
+					resp.qmStatus.status = QM_STOPPED;
+					TheGameSpyPeerMessageQueue->addResponse(resp);
+				}
+				break;
+#endif
 
 			}
 		}

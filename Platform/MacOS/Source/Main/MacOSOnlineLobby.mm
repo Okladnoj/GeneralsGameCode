@@ -168,12 +168,14 @@ void GenOnlineLobby_Join(int lobbyId, const char* password) {
   s_lastResult = 0;
 
   NSString* urlStr = [NSString
-      stringWithFormat:@"%s/env/%s/contract/%s/Lobbies/%d/join",
+      stringWithFormat:@"%s/env/%s/contract/%s/Lobby/%d",
                        kLobbyApiURL, kLobbyEnv, kLobbyContract, lobbyId];
 
-  NSMutableURLRequest* request = createAuthorizedRequest(urlStr, @"POST");
+  NSMutableURLRequest* request = createAuthorizedRequest(urlStr, @"PUT");
 
   NSMutableDictionary* body = [NSMutableDictionary dictionary];
+  body[@"preferred_port"] = @(8088);
+  body[@"has_map"] = @(YES);
   if (password && strlen(password) > 0) {
     body[@"password"] = [NSString stringWithUTF8String:password];
   }
@@ -189,6 +191,7 @@ void GenOnlineLobby_Join(int lobbyId, const char* password) {
   }
   [request setHTTPBody:jsonData];
 
+  s_createdLobbyId = lobbyId;
   DLOG_NETWORK("GenOnlineLobby: joining lobby %d", lobbyId);
 
   NSURLSessionDataTask* task = [getLobbySession()
@@ -199,7 +202,9 @@ void GenOnlineLobby_Join(int lobbyId, const char* password) {
 
           if (error || !data) {
             DLOG_NETWORK("GenOnlineLobby: join network error");
+            s_createdLobbyId = 0;
             s_lastResult = -1;
+            GenOnlineWS_InjectJoinStagingRoomFailure(lobbyId, 4);
             return;
           }
 
@@ -213,12 +218,14 @@ void GenOnlineLobby_Join(int lobbyId, const char* password) {
                                       encoding:NSUTF8StringEncoding];
             DLOG_NETWORK("GenOnlineLobby: join FAILED: %s",
                          bodyStr ? [bodyStr UTF8String] : "(nil)");
+            s_createdLobbyId = 0;
             s_lastResult = -1;
+            int reason = (status == 406) ? 3 : 4;
+            GenOnlineWS_InjectJoinStagingRoomFailure(lobbyId, reason);
             return;
           }
 
           DLOG_NETWORK("GenOnlineLobby: joined lobby %d!", lobbyId);
-          s_createdLobbyId = lobbyId;
 
           NSError* parseError = nil;
           NSDictionary* json =
@@ -235,6 +242,115 @@ void GenOnlineLobby_Join(int lobbyId, const char* password) {
           }
 
           s_lastResult = 1;
+
+          NSString* detailsUrl = [NSString
+              stringWithFormat:@"%s/env/%s/contract/%s/Lobby/%d",
+                               kLobbyApiURL, kLobbyEnv, kLobbyContract, lobbyId];
+          NSMutableURLRequest* detailsReq = createAuthorizedRequest(detailsUrl, @"GET");
+
+          dispatch_semaphore_t detailsSem = dispatch_semaphore_create(0);
+          static const char* s_fetchedNames[8] = {};
+          static char s_nameBufs[8][64] = {};
+          static int s_fetchedCount = 0;
+          for (int i = 0; i < 8; ++i) { s_fetchedNames[i] = nullptr; s_nameBufs[i][0] = '\0'; }
+          s_fetchedCount = 0;
+          NSURLSessionConfiguration* detCfg =
+              [NSURLSessionConfiguration ephemeralSessionConfiguration];
+          detCfg.timeoutIntervalForRequest = 5.0;
+          NSURLSession* detSession = [NSURLSession sessionWithConfiguration:detCfg];
+
+          NSURLSessionDataTask* detailsTask = [detSession
+              dataTaskWithRequest:detailsReq
+                completionHandler:^(NSData* detData, NSURLResponse* detResp,
+                                    NSError* detErr) {
+                  if (detErr || !detData) {
+                    dispatch_semaphore_signal(detailsSem);
+                    return;
+                  }
+                  NSHTTPURLResponse* detHttp = (NSHTTPURLResponse*)detResp;
+                  if ([detHttp statusCode] < 200 || [detHttp statusCode] >= 300) {
+                    dispatch_semaphore_signal(detailsSem);
+                    return;
+                  }
+                  NSError* detParseErr = nil;
+                  NSDictionary* detJson =
+                      [NSJSONSerialization JSONObjectWithData:detData
+                                                      options:0
+                                                        error:&detParseErr];
+                  if (detParseErr || !detJson || !detJson[@"lobby"]) {
+                    dispatch_semaphore_signal(detailsSem);
+                    return;
+                  }
+                  NSDictionary* lobby = detJson[@"lobby"];
+                  NSArray* members = lobby[@"Members"];
+                  NSString* mapPath = lobby[@"MapPath"];
+                  NSNumber* rngSeed = lobby[@"RNGSeed"];
+                  NSNumber* startCash = lobby[@"StartingCash"];
+                  NSNumber* limSW = lobby[@"IsLimitSuperweapons"];
+                  NSNumber* trackStats = lobby[@"TrackStats"];
+                  NSString* hostName = @"";
+
+                  if (members && [members isKindOfClass:[NSArray class]]) {
+                    int cnt = (int)[members count];
+                    if (cnt > 8) cnt = 8;
+                    s_fetchedCount = cnt;
+
+                    LobbySlotInfo slots[8] = {};
+                    static char slotNameBufs[8][64];
+
+                    for (int i = 0; i < cnt; ++i) {
+                      NSDictionary* m = members[i];
+                      NSString* dn = m[@"DisplayName"];
+                      NSNumber* ss = m[@"SlotState"];
+                      NSNumber* side = m[@"Side"];
+                      NSNumber* col = m[@"Color"];
+                      NSNumber* team = m[@"Team"];
+                      NSNumber* sp = m[@"StartingPosition"];
+                      NSNumber* hm = m[@"HasMap"];
+                      NSNumber* rdy = m[@"IsReady"];
+
+                      if (dn) {
+                        strncpy(slotNameBufs[i], [dn UTF8String], 63);
+                        slotNameBufs[i][63] = '\0';
+                        strncpy(s_nameBufs[i], [dn UTF8String], 63);
+                        s_nameBufs[i][63] = '\0';
+                      }
+                      s_fetchedNames[i] = s_nameBufs[i];
+
+                      if (i == 0 && dn) hostName = dn;
+
+                      slots[i].displayName = slotNameBufs[i];
+                      slots[i].slotState = ss ? [ss intValue] : 0;
+                      slots[i].side = side ? [side intValue] : 0;
+                      slots[i].color = col ? [col intValue] : -1;
+                      slots[i].team = team ? [team intValue] : -1;
+                      slots[i].startPos = sp ? [sp intValue] : -1;
+                      slots[i].hasMap = hm ? [hm boolValue] : 0;
+                      slots[i].isAccepted = rdy ? [rdy boolValue] : 0;
+                    }
+
+                    const char* mapPathStr = mapPath ? [mapPath UTF8String] : "";
+                    int seedVal = rngSeed ? [rngSeed intValue] : 0;
+                    unsigned int cashVal = startCash ? [startCash unsignedIntValue] : 10000;
+                    int useStatsVal = trackStats ? [trackStats boolValue] : 1;
+                    unsigned short swRestriction = limSW ? ([limSW boolValue] ? 1 : 0) : 0;
+
+                    GenOnlineWS_InjectSlotListUTM(
+                        [hostName UTF8String], mapPathStr,
+                        0x3F, 0, 0,
+                        seedVal, 100, useStatsVal, cashVal,
+                        swRestriction, 0,
+                        slots, cnt);
+                    DLOG_NETWORK("GenOnlineLobby: join FetchDetails injected SL with %d slots", cnt);
+                  }
+                  dispatch_semaphore_signal(detailsSem);
+                }];
+          [detailsTask resume];
+          dispatch_semaphore_wait(detailsSem,
+              dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
+
+          GenOnlineWS_InjectJoinStagingRoomSuccessWithPlayers(
+              lobbyId, s_fetchedNames, s_fetchedCount);
         }];
   [task resume];
 }
@@ -342,31 +458,76 @@ void GenOnlineLobby_FetchDetails(int lobbyId) {
             return;
           }
 
-          NSString* name = lobby[@"Name"];
+          NSString* mapPath = lobby[@"MapPath"];
+          NSNumber* rngSeed = lobby[@"RNGSeed"];
+          NSNumber* startingCash = lobby[@"StartingCash"];
+          NSNumber* limitSuperweapons = lobby[@"IsLimitSuperweapons"];
+          NSNumber* useStats = lobby[@"TrackStats"];
           NSArray* members = lobby[@"Members"];
-          int playerCount = 0;
-          int maxSlots = 8;
 
-          if (members && [members isKindOfClass:[NSArray class]]) {
-            for (NSDictionary* member in members) {
-              NSNumber* slotState = member[@"SlotState"];
-              if (slotState && [slotState intValue] == 1) {
-                ++playerCount;
-              }
-            }
-            maxSlots = (int)[members count];
+          NSString* hostName = @"";
+          if (members && [members isKindOfClass:[NSArray class]] &&
+              [members count] > 0) {
+            NSDictionary* firstMember = members[0];
+            NSString* name = firstMember[@"DisplayName"];
+            if (name) hostName = name;
           }
 
-          DLOG_NETWORK("GenOnlineLobby: details id=%d name='%s' players=%d/%d",
-                       lobbyId,
-                       name ? [name UTF8String] : "(nil)",
-                       playerCount, maxSlots);
+          int slotCount = 0;
+          LobbySlotInfo slots[8] = {};
+          static char slotNames[8][64];
 
-          GenOnlineWS_InjectLobbyUpdate(
-              lobbyId,
-              name ? [name UTF8String] : "Unknown",
-              playerCount,
-              maxSlots);
+          if (members && [members isKindOfClass:[NSArray class]]) {
+            slotCount = (int)[members count];
+            if (slotCount > 8) slotCount = 8;
+
+            for (int i = 0; i < slotCount; ++i) {
+              NSDictionary* member = members[i];
+
+              NSString* name = member[@"DisplayName"];
+              NSNumber* slotState = member[@"SlotState"];
+              NSNumber* side = member[@"Side"];
+              NSNumber* color = member[@"Color"];
+              NSNumber* team = member[@"Team"];
+              NSNumber* startPos = member[@"StartingPosition"];
+              NSNumber* hasMap = member[@"HasMap"];
+              NSNumber* isReady = member[@"IsReady"];
+
+              if (name) {
+                strncpy(slotNames[i], [name UTF8String], 63);
+                slotNames[i][63] = '\0';
+              } else {
+                slotNames[i][0] = '\0';
+              }
+
+              slots[i].displayName = slotNames[i];
+              slots[i].slotState = slotState ? [slotState intValue] : 0;
+              slots[i].side = side ? [side intValue] : 0;
+              slots[i].color = color ? [color intValue] : -1;
+              slots[i].team = team ? [team intValue] : -1;
+              slots[i].startPos = startPos ? [startPos intValue] : -1;
+              slots[i].hasMap = hasMap ? [hasMap boolValue] : 0;
+              slots[i].isAccepted = isReady ? [isReady boolValue] : 0;
+            }
+          }
+
+          const char* mapPathStr = mapPath ? [mapPath UTF8String] : "";
+          int seedVal = rngSeed ? [rngSeed intValue] : 0;
+          unsigned int cashVal = startingCash ? [startingCash unsignedIntValue] : 10000;
+          int useStatsVal = useStats ? [useStats boolValue] : 1;
+          unsigned short swRestriction = limitSuperweapons ? ([limitSuperweapons boolValue] ? 1 : 0) : 0;
+
+          DLOG_NETWORK("GenOnlineLobby: details id=%d map='%s' host='%s' seed=%d cash=%u slots=%d",
+                       lobbyId, mapPathStr,
+                       [hostName UTF8String], seedVal, cashVal, slotCount);
+
+          GenOnlineWS_InjectSlotListUTM(
+              [hostName UTF8String], mapPathStr,
+              0x3F, 0, 0,
+              seedVal, 100, useStatsVal, cashVal,
+              swRestriction, 0,
+              slots, slotCount);
+          DLOG_NETWORK("GenOnlineLobby: FetchDetails complete. Successfully injected WS __UTM__SL: for live slot updates.");
         }];
   [task resume];
 }
@@ -544,7 +705,7 @@ void GenOnlineLobby_FetchList(void) {
 
                 memberInfos[memberCount].displayName = [dn UTF8String];
                 memberInfos[memberCount].userId = uid ? [uid intValue] : 0;
-                memberInfos[memberCount].slotState = 1;
+                memberInfos[memberCount].slotState = 5;
                 memberInfos[memberCount].team = slotTeam ? [slotTeam intValue] : -1;
                 memberInfos[memberCount].color = slotColor ? [slotColor intValue] : -1;
                 memberInfos[memberCount].faction = slotFaction ? [slotFaction intValue] : -1;

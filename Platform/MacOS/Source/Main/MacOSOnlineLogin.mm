@@ -339,4 +339,57 @@ void GenOnline_TryAutoLogin() {
   [task resume];
 }
 
+int GenOnline_MeasureAPILatency(void) {
+  NSString* urlStr = [NSString
+      stringWithFormat:@"%s/env/%s/contract/%s/Health",
+                       kGenOnlineApiURL, kGenOnlineEnv, kGenOnlineContract];
+  NSURL* url = [NSURL URLWithString:urlStr];
+  NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:url];
+  [request setHTTPMethod:@"HEAD"];
+  [request setCachePolicy:NSURLRequestReloadIgnoringLocalCacheData];
+
+  NSURLSessionConfiguration* config =
+      [NSURLSessionConfiguration ephemeralSessionConfiguration];
+  config.timeoutIntervalForRequest = 3.0;
+  NSURLSession* session = [NSURLSession sessionWithConfiguration:config];
+
+  __block int measuredMs = -1;
+  dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+
+  CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
+
+  NSURLSessionDataTask* task = [session
+      dataTaskWithRequest:request
+        completionHandler:^(NSData* data, NSURLResponse* response,
+                            NSError* error) {
+          CFAbsoluteTime elapsed = CFAbsoluteTimeGetCurrent() - startTime;
+          int rttMs = (int)(elapsed * 1000.0);
+
+          if (error) {
+            DLOG_NETWORK("GenOnline: latency measure error: %s",
+                         [[error localizedDescription] UTF8String]);
+            measuredMs = -1;
+          } else {
+            NSHTTPURLResponse* httpResp = (NSHTTPURLResponse*)response;
+            measuredMs = (httpResp.statusCode >= 200 && httpResp.statusCode < 500)
+                             ? rttMs
+                             : -1;
+          }
+
+          DLOG_NETWORK("GenOnline: API latency = %dms", measuredMs);
+          dispatch_semaphore_signal(sem);
+        }];
+  [task resume];
+
+  dispatch_semaphore_wait(sem,
+      dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC));
+
+  if (measuredMs < 0) {
+    DLOG_NETWORK("GenOnline: latency measure timeout or failure, defaulting to 100ms");
+    measuredMs = 100;
+  }
+
+  return measuredMs;
+}
+
 #endif // __APPLE__

@@ -36,6 +36,15 @@
 
 #include "Common/SubsystemInterface.h"
 
+#ifdef __APPLE__
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip_icmp.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#endif
+
 //-------------------------------------------------------------------------
 
 static const Int NumWorkerThreads = 10;
@@ -246,11 +255,13 @@ void PingThreadClass::Thread_Function()
 	try {
 	PingRequest req;
 
+#ifndef __APPLE__
 	WSADATA wsaData;
 
 	// Fire up winsock (prob already done, but doesn't matter)
 	WORD wVersionRequested = MAKEWORD(1, 1);
 	WSAStartup( wVersionRequested, &wsaData );
+#endif
 
 	while ( running )
 	{
@@ -324,7 +335,9 @@ void PingThreadClass::Thread_Function()
 		Switch_Thread();
 	}
 
+#ifndef __APPLE__
 	WSACleanup();
+#endif
 	} catch ( ... ) {
 		DEBUG_CRASH(("Exception in ping thread!"));
 	}
@@ -422,7 +435,109 @@ DWORD WINAPI IcmpSendEcho(
 
 Int PingThreadClass::doPing(UnsignedInt IP, Int timeout)
 {
-#ifdef _UNIX
+#ifdef __APPLE__
+   // macOS non-privileged ICMP using SOCK_DGRAM (Darwin 19+, no root needed)
+
+   int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
+   if (sock < 0) {
+      printf("[PING] socket(SOCK_DGRAM, IPPROTO_ICMP) failed: errno=%d (%s)\n", errno, strerror(errno)); fflush(stdout);
+      return -1;
+   }
+
+   struct timeval tv;
+   tv.tv_sec = timeout / 1000;
+   tv.tv_usec = (timeout % 1000) * 1000;
+   setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+   struct sockaddr_in addr;
+   memset(&addr, 0, sizeof(addr));
+   addr.sin_family = AF_INET;
+   addr.sin_addr.s_addr = IP;
+
+   // Build ICMP echo request packet
+   uint8_t packet[64];
+   memset(packet, 0, sizeof(packet));
+
+   struct icmp *icmpHdr = (struct icmp *)packet;
+   icmpHdr->icmp_type = ICMP_ECHO;
+   icmpHdr->icmp_code = 0;
+   icmpHdr->icmp_id = htons((uint16_t)(getpid() & 0xFFFF));
+   static uint16_t s_seq = 0;
+   icmpHdr->icmp_seq = htons(s_seq++);
+
+   // Fill data portion
+   for (int k = 0; k < 32; k++)
+      packet[8 + k] = (uint8_t)('A' + (k % 26));
+
+   // Compute checksum
+   int packetLen = 8 + 32;
+   icmpHdr->icmp_cksum = 0;
+   uint32_t sum = 0;
+   const uint16_t *ptr = (const uint16_t *)packet;
+   int remaining = packetLen;
+   while (remaining > 1) {
+      sum += *ptr++;
+      remaining -= 2;
+   }
+   if (remaining == 1)
+      sum += *(const uint8_t *)ptr;
+   sum = (sum >> 16) + (sum & 0xFFFF);
+   sum += (sum >> 16);
+   icmpHdr->icmp_cksum = (uint16_t)(~sum);
+
+   struct timeval sendTime;
+   gettimeofday(&sendTime, NULL);
+
+   struct in_addr debugAddr;
+   debugAddr.s_addr = IP;
+   printf("[PING] sending ICMP echo to %s (timeout=%dms)\n", inet_ntoa(debugAddr), timeout); fflush(stdout);
+
+   ssize_t sent = sendto(sock, packet, packetLen, 0, (struct sockaddr *)&addr, sizeof(addr));
+   if (sent <= 0) {
+      printf("[PING] sendto failed: errno=%d (%s)\n", errno, strerror(errno)); fflush(stdout);
+      close(sock);
+      return -1;
+   }
+
+   uint8_t recvBuf[256];
+   struct sockaddr_in fromAddr;
+   socklen_t fromLen = sizeof(fromAddr);
+   ssize_t received = recvfrom(sock, recvBuf, sizeof(recvBuf), 0, (struct sockaddr *)&fromAddr, &fromLen);
+   close(sock);
+
+   if (received < 0) {
+      printf("[PING] recvfrom failed/timeout: errno=%d (%s)\n", errno, strerror(errno)); fflush(stdout);
+      return -1;
+   }
+
+   if (received < 8) {
+      printf("[PING] reply too short: %zd bytes\n", received); fflush(stdout);
+      return -1;
+   }
+
+   struct icmp *replyIcmp = (struct icmp *)recvBuf;
+   if (replyIcmp->icmp_type != ICMP_ECHOREPLY) {
+      printf("[PING] got ICMP type=%d (not ECHOREPLY), ignoring\n", replyIcmp->icmp_type); fflush(stdout);
+      return -1;
+   }
+
+   uint16_t expectedId = htons((uint16_t)(getpid() & 0xFFFF));
+   if (replyIcmp->icmp_id != expectedId) {
+      printf("[PING] ICMP id mismatch: got=%d expected=%d\n", ntohs(replyIcmp->icmp_id), ntohs(expectedId)); fflush(stdout);
+      return -1;
+   }
+
+   struct timeval recvTime;
+   gettimeofday(&recvTime, NULL);
+
+   Int pingMs = (Int)((recvTime.tv_sec - sendTime.tv_sec) * 1000 +
+                      (recvTime.tv_usec - sendTime.tv_usec) / 1000);
+   if (pingMs < 0) pingMs = 0;
+   if (pingMs > timeout) pingMs = timeout;
+
+   printf("[PING] reply from %s: %dms\n", inet_ntoa(debugAddr), pingMs); fflush(stdout);
+   return pingMs;
+#elif defined(_UNIX)
    (void)IP;
    (void)timeout;
    return -1;

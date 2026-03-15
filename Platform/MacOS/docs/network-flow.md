@@ -424,7 +424,7 @@ All messages are JSON with an `msg_id` field:
 | Chat (lobby) | ✅ Send `GenOnlineWS_SendLobbyChat()` (msg_id=10) + recv (msg_id=11) → UI |
 | Room member list | ✅ Recv (msg_id=4) → `GenOnlineWS_InjectMemberJoin()` → UI |
 | Lobby list | ✅ Recv (msg_id=7) → `GenOnlineWS_InjectLobbyListEntry()` → UI |
-| Lobby create/join | ✅ REST `POST /Lobbies` + `POST /Lobbies/{id}/join` |
+| Lobby create/join | ✅ REST `POST /Lobbies` + `PUT /Lobby/{id}` |
 | Lobby update | ✅ Recv (msg_id=6) → `GenOnlineWS_InjectLobbyUpdate()` |
 | Ready state | ✅ `GenOnlineWS_SendReady()` (msg_id=5) via setAccept/unAccept hooks |
 | Game start | ✅ Send `GenOnlineWS_SendStartGame()` (msg_id=13) + countdown (23) |
@@ -501,17 +501,196 @@ accounts for this.
 
 ---
 
+## Appendix: Join Staging Room — Full Flow Specification
+
+### Windows Flow (reference — tested, stable)
+
+The complete sequence from user clicking "Join" to entering the staging room:
+
+```
+[WOLLobbyMenu.cpp]
+ 1. CRC check: compare local exeCRC/iniCRC with roomToJoin→getExeCRC/getIniCRC
+ 2. Ladder check: verify ladder if applicable
+ 3. Full check: reject if numPlayers == MAX_SLOTS
+ 4. markAsStagingRoomJoiner(selectedID)
+    → m_joinedStagingRoom = TRUE, m_isHosting = FALSE
+    → m_localStagingRoom.reset() + enterGame()
+    → find selectedID in m_stagingRooms (cached from PEERRESPONSE_STAGINGROOM)
+    → GameInfoToAsciiString(info) → ParseAsciiStringToGameInfo(&m_localStagingRoom)
+    → copies host/slot/map/options into m_localStagingRoom
+ 5. SetLobbyAttemptHostJoin(TRUE)
+ 6. If password → overlay; else:
+ 7. Send PEERREQUEST_JOINSTAGINGROOM { text=gameName, id=selectedID, password="" }
+
+[PeerThread.cpp — PEERREQUEST_JOINSTAGINGROOM handler (Windows #else)]
+ 8. peerLeaveRoom(GroupRoom), peerLeaveRoom(StagingRoom)
+ 9. findServerByID(id) → SBServer
+10. peerJoinStagingRoom(peer, server, password, joinRoomCallback, this)
+    → GameSpy async call via IRC
+
+[PeerThread.cpp — joinRoomCallback (async)]
+11. Build PeerResponse PEERRESPONSE_JOINSTAGINGROOM:
+    - resp.joinStagingRoom.ok = success
+    - resp.joinStagingRoom.result = result (PEERJoinSuccess, PEERFullRoom, etc.)
+    - resp.joinStagingRoom.isHostPresent = FALSE (initially)
+    - peerEnumPlayers(StagingRoom, stagingRoomPlayerEnum, &resp)
+      → for each player: stagingRoomPlayerNames[index] = nick
+      → if player has PEER_FLAG_OP: isHostPresent = TRUE
+12. addResponse(resp)
+
+[WOLLobbyMenu.cpp — PEERRESPONSE_JOINSTAGINGROOM handler]
+13. If resp.ok == TRUE:
+    - getCurrentStagingRoom() → returns &m_localStagingRoom (because m_joinedStagingRoom=TRUE)
+    - Iterate resp.stagingRoomPlayerNames[0..MAX_SLOTS-1]
+    - Compare each with room→getConstSlot(0)→getName() (the host)
+    - If match found → isHostPresent = TRUE
+14. If ok && isHostPresent → transition to GameSpyGameOptionsMenu
+15. If !ok || !isHostPresent → show error dialog, rejoin group room
+```
+
+### Staging Room Cache — Data Flow
+
+```
+[REST /Lobbies response] → GenOnlineLobby_FetchList()
+  → GenOnlineWS_InjectLobbyListEntry() per lobby
+    → PeerResponse::PEERRESPONSE_STAGINGROOM (PEER_ADD)
+      → fills: stagingRoomPlayerNames[], profileID[], color[], faction[]
+        stagingRoomMapName, stagingRoom.{id, exeCRC, iniCRC, maxPlayers, numPlayers}
+
+[WOLLobbyMenu.cpp — PEERRESPONSE_STAGINGROOM handler]
+  → Creates GameSpyStagingRoom room
+  → Sets slot states from stagingRoomPlayerNames[] and profileID[]
+  → Sets map from stagingRoomMapName
+  → TheGameSpyInfo→addStagingRoom(room)
+    → m_stagingRooms[room.getID()] = newRoom
+
+[markAsStagingRoomJoiner(id)]
+  → m_stagingRooms.find(id)
+  → GameInfoToAsciiString(info) → ParseAsciiStringToGameInfo(&m_localStagingRoom)
+```
+
+### macOS Mapping
+
+| Windows step | macOS equivalent |
+|-------------|-----------------|
+| `peerJoinStagingRoom()` | `GenOnlineLobby_Join()` → `PUT /Lobby/{id}` |
+| `joinRoomCallback` (async) | REST completionHandler (async) |
+| `peerEnumPlayers()` → `stagingRoomPlayerEnum` | Fill from `getCurrentStagingRoom()` cache |
+| Response sent from callback | `GenOnlineWS_InjectJoinStagingRoomSuccess/Failure()` |
+| `PEERJoinSuccess` | HTTP 200 → success |
+| `PEERFullRoom` | HTTP 406 → reason=3 |
+| `PEERJoinFailed` | Any other HTTP error → reason=4 |
+
+### Key Invariants
+
+1. `markAsStagingRoomJoiner(id)` is called BEFORE `PEERREQUEST_JOINSTAGINGROOM`
+2. Staging room data must exist in `m_stagingRooms[id]` at call time
+3. `PEERRESPONSE_JOINSTAGINGROOM` must NOT be sent until server confirms join
+4. Response must include `stagingRoomPlayerNames[]` matching host name in slot 0
+5. `getCurrentStagingRoom()` returns `&m_localStagingRoom` when `m_joinedStagingRoom=TRUE`
+
+### Live Updates in Staging Room — Windows UTM vs macOS WS
+
+On Windows, while in `WOLGameSetupMenu`, the host broadcasts slot data to all clients
+using UTM (User-To-Many) messages:
+
+```
+Host changes anything → GameInfoToAsciiString(game) → UTM "SL" broadcast  
+Client receives PEERRESPONSE_ROOMUTM "SL":
+  → ParseAsciiStringToGameInfo(game, options.str())
+  → WOLDisplaySlotList()
+```
+
+### SL String Format (confirmed from `GameInfoToAsciiString`, GameInfo.cpp:962)
+
+Full format (Zero Hour, `#else` branch of `RTS_GENERALS`):
+```
+US=<useStats>;M=<2hexContentsMask><mapDirPath>;MC=<mapCRC_hex>;MS=<mapSize>;SD=<seed>;C=<crcInterval>;SR=<superweaponRestriction>;SC=<startingCash>;O=<oldFactionsOnly Y|N>;S=<slotList>;
+```
+
+`M=` field: first 2 characters are hex `mapContentsMask`, followed by portable map
+directory path (forward slashes, no file extension, no filename — just directory).
+Example: `M=3fmaps/tournament island` where `3f` = contentsMask, `maps/tournament island` = path.
+Parser (`ParseAsciiStringToGameInfo`) reconstructs full path:
+`maps\tournament island\tournament island.map` by duplicating last segment + adding extension.
+
+Slot format per human player:
+```
+H<name>,<IP_hex>,<port>,<accepted T|F><hasMap T|F>,<color>,<playerTemplate>,<startPos>,<team>,<NATBehavior>:
+```
+
+Other slot types: `O:` (open), `X:` (closed), `C<difficulty>,<color>,<template>,<startPos>,<team>:` (AI).
+
+Real example from runtime log:
+```
+US=1;M=3f! casino island v1_04 by dr_detox\! casino island v1_04 by dr_detox.map;MC=0;MS=0;SD=694860187;C=100;SR=1;SC=10000;O=N;S=Hsonmackali,0,0,TT,4,-1,-1,0,0:HDima Ok,0,0,FT,-1,-1,-1,-1,0:O:O:X:X:X;
+```
+
+### macOS SL Data Flow (confirmed)
+
+The SL string on macOS is NOT constructed by our bridge code. It comes from the
+**same `GameInfoToAsciiString()` function** used by Windows:
+
+```
+REST /Lobbies → GenOnlineLobby_FetchList()
+  → GenOnlineWS_InjectLobbyListEntry() per lobby
+    → PEERRESPONSE_STAGINGROOM → TheGameSpyInfo→addStagingRoom()
+      → m_stagingRooms[id] cached
+
+User clicks Join → markAsStagingRoomJoiner(id)
+  → m_stagingRooms.find(id)
+  → GameInfoToAsciiString(cachedRoom) → ParseAsciiStringToGameInfo(&m_localStagingRoom)
+  → m_localStagingRoom populated with host/slot/map data
+
+PUT /Lobby/{id} → HTTP 200
+  → sync GET /Lobby/{id} (FetchDetails) → parse Members[]
+  → InjectSlotListUTM() → PEERRESPONSE_ROOMUTM "SL" with SL string from cached data
+  → InjectJoinStagingRoomSuccessWithPlayers()
+
+WOLLobbyMenu receives JOINSTAGINGROOM:
+  → checks slot0 name matches resp.stagingRoomPlayerNames[i]
+  → isHostPresent=TRUE → transitions to GameSpyGameOptionsMenu
+
+WOLGameSetupMenu receives ROOMUTM "SL":
+  → isValidSlotList check: game exists, slot0 matches sender, not host → TRUE
+  → ParseAsciiStringToGameInfo(game, options) → fills slots from SL string
+  → WOLDisplaySlotList()
+```
+
+### ParseAsciiStringToGameInfo — Security Patch Issue
+
+`GameInfo.cpp:1124-1132` (TheSuperHackers `@security` patch) calls
+`portableMapPathToRealMapPath(mapName)`. If the map is not installed locally
+(custom maps), this returns empty → the patch sets `optionsOk = FALSE` and
+**rejects the entire SL string**.
+
+On Windows, unknown maps show "map not available" in the UI but **slots still
+display correctly**. The security patch is too aggressive for the join flow —
+it was designed to prevent arbitrary file overwrites during map transfers, but
+it also prevents slot display for any lobby with a custom map.
+
+**Consequence:** `ParseAsciiStringToGameInfo` returns `FALSE` → `newLocalSlotNum=-1`
+→ `isInGame=FALSE` → `lastSlotlistTime` never set → after 10 seconds,
+`WOLGameSetupMenu` kicks player back to lobby ("Haven't seen ourselves in slotlist").
+
+Server `LobbyMember` fields available (from `GET /Lobby/{id}` response):
+- `DisplayName`, `UserID`, `Side`, `Color`, `Team`, `SlotState`, `SlotIndex`, `HasMap`
+
+
+---
+
 ## TODO / Next Steps
 
 1. ~~**Wire WebSocket to game UI**~~ — ✅ DONE (NET-09)
 2. ~~**Implement lobby create/join**~~ — ✅ DONE (NET-10)
 3. ~~**Implement P2P signaling**~~ — ✅ DONE (NET-11): WS send/recv, transport hook, disconnect, TURN creds
 4. ~~**Fix lobby display**~~ — ✅ DONE: rooms via REST, CD key skip, room 0 workaround
-5. **Implement friend system** — Subscribe to social updates, friend list UI
-6. **Implement matchmaking** — Quickmatch queue via REST + WebSocket
-7. **Implement stats reporting** — Post game results, display leaderboards
-8. **Handle reconnection** — WebSocket disconnect → auto-reconnect with refresh_token
-9. **Fix server networkRoomID bug** — `LobbiesController.cs` line 143 needs `networkRoomID = sourceData.networkRoomID`
+5. ~~**Implement friend system**~~ — ✅ WIRED (NET-13): buddy intercepts + WS dispatch, needs runtime testing
+6. ~~**Implement matchmaking**~~ — ✅ WIRED (NET-12): QM REST + WS, lobby-based flow, needs runtime testing
+7. ~~**Implement stats**~~ — ✅ WIRED (NET-14): READ done, UPDATE wired, needs runtime testing
+8. **Fix staging room live updates** — 🔴 NET-10.1: FetchDetails must parse Members[] and inject SL UTM
+9. **Handle reconnection** — WebSocket disconnect → auto-reconnect with refresh_token
+10. **Fix server networkRoomID bug** — `LobbiesController.cs` line 143 needs `networkRoomID = sourceData.networkRoomID`
 
 ---
 
@@ -545,3 +724,147 @@ created or joined.
 - Client would use stored TURN credentials to relay UDP through Cloudflare
 - Game's existing `Transport.cpp` UDP layer would route through TURN server
 - **Not yet implemented** — direct P2P works for most LAN/same-network setups
+
+---
+
+## Phase 7: Quick Match (Matchmaking)
+
+### Entry Point
+
+`WOLQuickMatchMenu.cpp` → `ButtonStart` → `PEERREQUEST_STARTQUICKMATCH`
+
+### Windows Legacy Flow (GameSpy MatchBot — original game)
+
+The original Windows client joins a QM IRC channel, finds a matchbot via `peerEnumPlayers`,
+sends `\CINFO` payloads (maps, side, color, NAT, CRCs), and waits in a state machine:
+`QM_JOININGQMCHANNEL` → `QM_LOOKINGFORBOT` → `QM_WORKING` → `QM_MATCHED`
+
+On `QM_MATCHED`, the UI handler (`WOLQuickMatchMenu.cpp:1318`) directly calls:
+- `enterGame()`, `setSeed()`, `markGameAsQM()`, sets map, fills all slots with
+  playerNames/IP/side/color/NAT from the matchbot reply, then `startGame(0)`.
+- No lobby is involved. The game starts directly from matchbot data.
+
+### Server Flow (GenTool Windows + macOS — current implementation)
+
+The server's `MatchmakingManager` replaces the matchbot entirely.
+The flow is **lobby-based**, not matchbot-based:
+
+1. `PUT /Matchmaking` → register in queue
+2. Server creates a real lobby (`LobbyManager.CreateLobby`)
+3. Server sends `msg_id=20` → all clients join the lobby
+4. After all joined + 5 sec countdown: server sends `msg_id=21` → start game
+
+This means the game transitions from QM UI → staging room (lobby) → game start.
+The `QM_MATCHED` handler in `WOLQuickMatchMenu.cpp` is **never used** in server flow.
+
+**PeerThread intercepts (ifdef __APPLE__):**
+
+| Request | REST Call | Injected Response |
+|---------|-----------|-------------------|
+| `PEERREQUEST_STARTQUICKMATCH` | `PUT /Matchmaking` | `QM_WORKING` or `QM_COULDNOTFINDBOT` |
+| `PEERREQUEST_WIDENQUICKMATCHSEARCH` | `POST /Matchmaking/Widen` | — |
+| `PEERREQUEST_STOPQUICKMATCH` | `DELETE /Matchmaking` | `QM_STOPPED` |
+
+**WebSocket messages (server → client):**
+
+| msg_id | Name | Action |
+|--------|------|--------|
+| 22 | `MATCHMAKING_MESSAGE` | Log status text (info-only, e.g. "Searching...", "2/2 players") |
+| 20 | `MATCHMAKING_JOIN_LOBBY` | `GenOnlineLobby_Join(lobby_id)` — transition to staging room |
+| 21 | `MATCHMAKING_START_GAME` | `GenOnlineWS_InjectGameStart()` → `PEERRESPONSE_GAMESTART` |
+
+### Key Insight
+
+`msg_id=21` injects `PEERRESPONSE_GAMESTART` (identical to custom match lobby start),
+NOT `QM_MATCHED`. The game is already in the lobby at this point (from msg_id=20).
+The staging room handler (`WOLGameSetupMenu.cpp:1741`) processes GAMESTART the same
+way for both custom match and QM.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `Platform/MacOS/Include/MacOSOnlineQM.h` | Header |
+| `Platform/MacOS/Source/Main/MacOSOnlineQM.mm` | REST bridge (register, widen, deregister) |
+| `Platform/MacOS/Source/Main/MacOSOnlineWSBridge.cpp` | `InjectQMStatus`, `InjectGameStart`, `InjectQMJoinLobby` |
+| `Platform/MacOS/Source/Main/MacOSOnlineWebSocket.mm` | WS dispatch for msg_id 20, 21, 22 |
+| `Core/.../PeerThread.cpp` | `#ifdef __APPLE__` intercepts for 3 QM requests |
+
+---
+
+## Ping System
+
+### Overview
+
+The game uses an ICMP ping system for two critical purposes:
+1. **Login ping string** — latency measurement to known servers, encoded as hex and stored via `TheGameSpyInfo→setPingString()`. Gets transmitted as QR2 key `stagingServerPingString` so other players see your ping in lobby list.
+2. **In-game disconnect detection** — `DisconnectManager` pings servers during stalls to determine if internet is down or if a specific player disconnected.
+
+### Architecture (Windows)
+
+```
+PingerInterface (PingThread.h)     ← abstract interface, ThePinger global
+  └── Pinger (PingThread.cpp)      ← concrete impl
+        ├── addRequest(PingRequest)     ← thread-safe queue
+        ├── getResponse(PingResponse)   ← thread-safe queue
+        ├── getPingString(timeout)      ← hex-encoded latencies
+        ├── arePingsInProgress()        ← request!=response count
+        └── PingThreadClass[10]         ← 10 worker threads
+              └── doPing(IP, timeout)   ← Windows: LoadLibrary("ICMP.DLL") → IcmpSendEcho
+```
+
+### Usage Points (confirmed in code)
+
+| Location | File | What it does |
+|----------|------|-------------|
+| Login flow | `WOLLoginMenu.cpp:295` | `startPings()` → pings all servers from `GSConfig→getPingServers()` |
+| Login completion | `WOLLoginMenu.cpp:778` | `checkLogin()` waits for pings, calls `TheGameSpyInfo→setPingString()` |
+| Lobby list | `WOLLobbyMenu.cpp:1240` | `room.setPingString(resp.stagingServerPingString)` — per-room ping display |
+| Join staging room | `WOLGameSetupMenu.cpp:1075` | `slot→setPingString(TheGameSpyInfo→getPingString())` — local player's ping |
+| Host creates room | `WOLGameSetupMenu.cpp:1388` | `hostSlot→setPingString(TheGameSpyInfo→getPingString())` |
+| SL string parse | `WOLGameSetupMenu.cpp:2182` | `slot→setPingString(token)` — ping from SL UTM update |
+| In-game stall | `DisconnectManager.cpp:120-180` | Pings server every 10s during disconnect screen, tracks `pingsReceived/Sent` |
+
+### macOS Problem
+
+```cpp
+// PingThread.cpp:425
+Int PingThreadClass::doPing(UnsignedInt IP, Int timeout)
+{
+#ifdef _UNIX        // ← macOS defines _UNIX
+   (void)IP;
+   (void)timeout;
+   return -1;       // ← ALWAYS returns -1!
+#else
+   // Windows ICMP.DLL implementation...
+#endif
+}
+```
+
+**Consequences:**
+- `doPing()` → `-1` → `goodReps=0` → `avgPing=-1`
+- `getPingString()` → hex "FF" (max timeout) for all servers
+- `DisconnectManager` → `pingsReceived` never incremented → system thinks internet is dead
+- Lobby list shows incorrect/max ping for all rooms
+
+### Solution: POSIX ICMP on macOS
+
+macOS (Darwin 19+) supports **non-privileged ICMP** via:
+```c
+int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
+```
+
+This does NOT require root/sudo. Replace `#ifdef _UNIX return -1` with a real
+ICMP echo implementation using BSD sockets + `select()` for timeout.
+
+### Files
+
+| File | Role |
+|------|------|
+| `Core/.../PingThread.cpp:doPing()` | Needs `#ifdef __APPLE__` implementation |
+| `Core/.../PingThread.cpp:Thread_Function()` | Uses `WSAStartup/WSACleanup` — needs `#ifdef` skip on macOS |
+| `Core/.../DisconnectManager.cpp` | Consumer — no changes needed, uses ThePinger interface |
+| `WOLLoginMenu.cpp` | Consumer — calls `startPings()`, `checkLogin()` |
+| `Core/.../GSConfig.cpp` | Provides `getPingServers()` list — verify servers are reachable |
+
+

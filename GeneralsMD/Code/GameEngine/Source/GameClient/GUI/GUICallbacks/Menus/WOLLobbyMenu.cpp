@@ -1090,33 +1090,57 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 				{
 					sawImportantMessage = TRUE;
 					SetLobbyAttemptHostJoin(FALSE);
+#ifdef __APPLE__
+					printf("NETWORK: DIAG_SL: LobbyMenu JOINSTAGINGROOM: ok=%d result=%d isHostPresent_resp=%d\n",
+						resp.joinStagingRoom.ok, resp.joinStagingRoom.result, resp.joinStagingRoom.isHostPresent);
+					fflush(stdout);
+#endif
 					Bool isHostPresent = TRUE;
 					if (resp.joinStagingRoom.ok == PEERTrue)
 					{
 						GameSpyStagingRoom *room = TheGameSpyInfo->getCurrentStagingRoom();
 						if (!room)
 						{
+#ifdef __APPLE__
+							printf("NETWORK: DIAG_SL: LobbyMenu: no room!\n"); fflush(stdout);
+#endif
 							isHostPresent = FALSE;
 						}
 						else
 						{
 							isHostPresent = FALSE;
+							AsciiString slot0Name;
+							if (room->getConstSlot(0))
+								slot0Name.translate(room->getConstSlot(0)->getName());
+#ifdef __APPLE__
+							printf("NETWORK: DIAG_SL: LobbyMenu: room exists, slot0Name='%s'\n", slot0Name.str()); fflush(stdout);
+#endif
 							for (Int i=0; i<MAX_SLOTS; ++i)
 							{
 								AsciiString hostName;
 								hostName.translate(room->getConstSlot(0)->getName());
 								const char *firstPlayer = resp.stagingRoomPlayerNames[i].c_str();
+#ifdef __APPLE__
+								printf("NETWORK: DIAG_SL: LobbyMenu: slot[%d] playerName='%s' vs hostName='%s'\n", i, firstPlayer, hostName.str()); fflush(stdout);
+#endif
 								if (strcmp(hostName.str(), firstPlayer) == 0)
 								{
-									DEBUG_LOG(("Saw host %s == %s in slot %d", hostName.str(), firstPlayer, i));
+#ifdef __APPLE__
+									printf("NETWORK: DIAG_SL: LobbyMenu: HOST FOUND! host=%s player=%s slot=%d\n", hostName.str(), firstPlayer, i); fflush(stdout);
+#endif
 									isHostPresent = TRUE;
 								}
 							}
 						}
 					}
+#ifdef __APPLE__
+					printf("NETWORK: DIAG_SL: LobbyMenu: final isHostPresent=%d joinOk=%d\n", isHostPresent, resp.joinStagingRoom.ok); fflush(stdout);
+#endif
 					if (resp.joinStagingRoom.ok == PEERTrue && isHostPresent)
 					{
-						// Woohoo!  On to our next screen!
+#ifdef __APPLE__
+						printf("NETWORK: DIAG_SL: LobbyMenu: transitioning to GameSpyGameOptionsMenu!\n"); fflush(stdout);
+#endif
 						buttonPushed = true;
 						nextScreen = "Menus/GameSpyGameOptionsMenu.wnd";
 						TheShell->pop();

@@ -71,6 +71,8 @@
 #include "GameNetwork/GameSpy/PeerDefs.h"
 #include "GameNetwork/GameSpy/PeerThread.h"
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
+#include "GameNetwork/GameSpy/PingThread.h"
+#include "GameNetwork/GameSpy/GSConfig.h"
 #include "Common/GameSpyMiscPreferences.h"
 
 #include "WWDownload/Registry.h"
@@ -925,7 +927,12 @@ void HTTPThinkWrapper()
 
 		TheWritableGlobalData->m_firewallBehavior = 1;
 		DLOG_NETWORK("LOGIN_FLOW: calling SetUpGameSpy");
-		SetUpGameSpy(nullptr, nullptr);
+		SetUpGameSpy(MOTDBuffer, configBuffer);
+
+		delete[] MOTDBuffer;
+		MOTDBuffer = nullptr;
+		delete[] configBuffer;
+		configBuffer = nullptr;
 
 		DLOG_NETWORK("LOGIN_FLOW: setLocalBaseName");
 		TheGameSpyInfo->setLocalBaseName(session->displayName);
@@ -942,15 +949,26 @@ void HTTPThinkWrapper()
 		UnsignedInt localIP = GenOnlineP2P_ResolveLocalIP();
 		TheGameSpyInfo->setLocalIPs(localIP, localIP);
 
+		DLOG_NETWORK("LOGIN_FLOW: loadSavedIgnoreList");
+		TheGameSpyInfo->loadSavedIgnoreList();
+
+		DLOG_NETWORK("LOGIN_FLOW: readAdditionalDisconnects");
+		TheGameSpyInfo->readAdditionalDisconnects();
+
+		DLOG_NETWORK("LOGIN_FLOW: setMaxMessagesPerUpdate");
+		GameSpyMiscPreferences miscPref;
+		TheGameSpyInfo->setMaxMessagesPerUpdate(miscPref.getMaxMessagesPerUpdate());
+
 		DLOG_NETWORK("LOGIN_FLOW: clearGroupRoomList");
 		TheGameSpyInfo->clearGroupRoomList();
 
-		DLOG_NETWORK("LOGIN_FLOW: GameSpyMiscPreferences");
-		GameSpyMiscPreferences mPref;
+		DLOG_NETWORK("LOGIN_FLOW: SignalUIInteraction LOGIN");
+		SignalUIInteraction(SHELL_SCRIPT_HOOK_GENERALS_ONLINE_LOGIN);
+
 		DLOG_NETWORK("LOGIN_FLOW: getCachedStats");
 		PSPlayerStats localPSStats =
 			GameSpyPSMessageQueueInterface::parsePlayerKVPairs(
-				mPref.getCachedStats().str());
+				miscPref.getCachedStats().str());
 		DLOG_NETWORK("LOGIN_FLOW: setCachedLocalPlayerStats");
 		localPSStats.id = TheGameSpyInfo->getLocalProfileID();
 		TheGameSpyInfo->setCachedLocalPlayerStats(localPSStats);
@@ -979,6 +997,9 @@ void HTTPThinkWrapper()
 			peerReq.authtoken = session->sessionToken;
 			TheGameSpyPeerMessageQueue->addRequest(peerReq);
 		}
+
+		DLOG_NETWORK("LOGIN_FLOW: starting async latency measurement to GenOnline");
+		GenOnlineWS_StartLatencyMeasurement();
 #else
 		DLOG_NETWORK("LOGIN_FLOW: sending PEERREQUEST_LOGIN to connect to chat");
 		{

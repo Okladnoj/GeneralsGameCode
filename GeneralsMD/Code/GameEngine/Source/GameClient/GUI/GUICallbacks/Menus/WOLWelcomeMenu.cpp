@@ -68,8 +68,12 @@
 #include "GameNetwork/GameSpy/PersistentStorageDefs.h"
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 #include "GameNetwork/GameSpy/ThreadUtils.h"
+#include "GameNetwork/GameSpy/PingThread.h"
 #ifndef __APPLE__
 #include "GameNetwork/WOLBrowser/WebBrowser.h"
+#else
+#include "MacOSOnlineWebSocket.h"
+#include "GameNetwork/GameSpy/GSConfig.h"
 #endif
 
 // PRIVATE DATA
@@ -641,6 +645,42 @@ void WOLWelcomeMenuUpdate(WindowLayout *layout, void *userData) {
 
   if (TheShell->isAnimFinished() && !buttonPushed &&
       TheGameSpyPeerMessageQueue) {
+#ifdef __APPLE__
+    if (TheGameSpyInfo) {
+      static bool s_pingStringSet = false;
+      if (!s_pingStringSet) {
+        int latencyMs = GenOnlineWS_GetMeasuredLatency();
+        if (latencyMs >= 0) {
+          Int pingTimeout = TheGameSpyConfig ? TheGameSpyConfig->getPingTimeoutInMs() : 1000;
+          int numPingServers = TheGameSpyConfig ? (int)TheGameSpyConfig->getPingServers().size() : 6;
+          if (numPingServers <= 0) numPingServers = 6;
+
+          if (latencyMs > pingTimeout) latencyMs = pingTimeout;
+          int halfLatency = latencyMs / 2;
+          int hexVal = halfLatency * 255 / pingTimeout;
+          if (hexVal > 255) hexVal = 255;
+
+          AsciiString pingStr;
+          for (int i = 0; i < numPingServers; i++) {
+            AsciiString hex;
+            hex.format("%02X", hexVal);
+            pingStr.concat(hex);
+          }
+
+          TheGameSpyInfo->setPingString(pingStr);
+          s_pingStringSet = true;
+
+          Int selfPing = TheGameSpyInfo->getPingValue(pingStr);
+          Int cutGood = TheGameSpyConfig ? TheGameSpyConfig->getPingCutoffGood() : 300;
+          Int cutBad = TheGameSpyConfig ? TheGameSpyConfig->getPingCutoffBad() : 600;
+          printf("[PING] WS latency=%dms, halfLatency=%d, hexVal=%02X, pingString=[%s], selfPing=%dms → %s\n",
+                 latencyMs, halfLatency, hexVal, pingStr.str(), selfPing,
+                 selfPing < cutGood ? "GREEN" : (selfPing < cutBad ? "YELLOW" : "RED"));
+          fflush(stdout);
+        }
+      }
+    }
+#endif
     HandleBuddyResponses();
     HandlePersistentStorageResponses();
 

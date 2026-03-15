@@ -27,6 +27,10 @@ set(MAIN_SRC
     Source/Main/MacOSOnlineWSBridge.cpp
     Source/Main/MacOSOnlineLobby.mm
     Source/Main/MacOSOnlineP2P.mm
+    Source/Main/MacOSOnlineStats.mm
+    Source/Main/MacOSOnlineSocial.mm
+    Source/Main/MacOSOnlineQM.mm
+    Source/Main/MacOSMapDownloader.mm
 )
 
 # ── Client (display, text rendering) ──

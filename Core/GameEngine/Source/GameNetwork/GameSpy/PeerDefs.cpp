@@ -573,12 +573,14 @@ void GameSpyInfo::markAsStagingRoomJoiner( Int game )
 	m_joinedStagingRoom = TRUE; m_isHosting = FALSE;
 	m_localStagingRoom.reset();
 	m_localStagingRoom.enterGame();
+	printf("NETWORK: markAsStagingRoomJoiner(%d) stagingRooms.size=%d\n", game, (int)m_stagingRooms.size()); fflush(stdout);
 	StagingRoomMap::iterator it = m_stagingRooms.find(game);
 	if (it != m_stagingRooms.end())
 	{
 		GameSpyStagingRoom *info = it->second;
 		info->cleanUpSlotPointers();
 		AsciiString options = GameInfoToAsciiString(info);
+		printf("NETWORK: markAsStagingRoomJoiner: options=[%s]\n", options.str()); fflush(stdout);
 #ifdef DEBUG_CRASHING
 		Bool res =
 #endif
@@ -591,7 +593,13 @@ void GameSpyInfo::markAsStagingRoomJoiner( Int game )
 		m_localStagingRoom.setAllowObservers(info->getAllowObservers());
 		m_localStagingRoom.setHasPassword(info->getHasPassword());
 		m_localStagingRoom.setGameName(info->getGameName());
-		DEBUG_LOG(("Joining game: host is %ls", m_localStagingRoom.getConstSlot(0)->getName().str()));
+		printf("NETWORK: markAsStagingRoomJoiner: host=[%ls] map=[%s]\n",
+			m_localStagingRoom.getConstSlot(0)->getName().str(),
+			m_localStagingRoom.getMap().str()); fflush(stdout);
+	}
+	else
+	{
+		printf("NETWORK: markAsStagingRoomJoiner: game %d NOT FOUND in m_stagingRooms!\n", game); fflush(stdout);
 	}
 }
 

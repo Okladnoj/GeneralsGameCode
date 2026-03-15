@@ -40,6 +40,27 @@
 #include "mutex.h"
 #include "thread.h"
 
+#ifdef __APPLE__
+#include <vector>
+#include <cstdint>
+struct GenOnlineFriendEntry {
+  int64_t userId;
+  char displayName[64];
+  bool online;
+  char presence[64];
+};
+struct GenOnlineFriendList {
+  std::vector<GenOnlineFriendEntry> friends;
+  std::vector<GenOnlineFriendEntry> pendingRequests;
+};
+GenOnlineFriendList GenOnlineSocial_FetchFriends();
+void GenOnlineSocial_SendFriendRequest(int64_t targetUserId);
+void GenOnlineSocial_AcceptFriendRequest(int64_t targetUserId);
+void GenOnlineSocial_RejectFriendRequest(int64_t targetUserId);
+void GenOnlineSocial_RemoveFriend(int64_t targetUserId);
+void GenOnlineWS_SendFriendChat(int64_t targetUserId, const char* message);
+#endif
+
 
 //-------------------------------------------------------------------------
 
@@ -301,6 +322,34 @@ void BuddyThreadClass::Thread_Function()
 					loginResponse.profile = m_profileID;
 					TheGameSpyBuddyMessageQueue->addResponse(loginResponse);
 				}
+				{
+					GenOnlineFriendList friendList = GenOnlineSocial_FetchFriends();
+					for (const auto& f : friendList.friends) {
+						BuddyResponse statusResp;
+						statusResp.buddyResponseType = BuddyResponse::BUDDYRESPONSE_STATUS;
+						statusResp.profile = (int)f.userId;
+						strlcpy(statusResp.arg.status.nick, f.displayName, GP_NICK_LEN);
+						statusResp.arg.status.email[0] = '\0';
+						statusResp.arg.status.countrycode[0] = '\0';
+						statusResp.arg.status.status = f.online ? GP_ONLINE : GP_OFFLINE;
+						strlcpy(statusResp.arg.status.statusString,
+							f.online ? "Online" : "Offline", GP_STATUS_STRING_LEN);
+						statusResp.arg.status.location[0] = '\0';
+						TheGameSpyBuddyMessageQueue->addResponse(statusResp);
+					}
+					for (const auto& p : friendList.pendingRequests) {
+						BuddyResponse requestResp;
+						requestResp.buddyResponseType = BuddyResponse::BUDDYRESPONSE_REQUEST;
+						requestResp.profile = (int)p.userId;
+						strlcpy(requestResp.arg.request.nick, p.displayName, GP_NICK_LEN);
+						requestResp.arg.request.email[0] = '\0';
+						requestResp.arg.request.countrycode[0] = '\0';
+						wcslcpy(requestResp.arg.request.text, L"", GP_REASON_LEN);
+						TheGameSpyBuddyMessageQueue->addResponse(requestResp);
+					}
+					DEBUG_LOG(("BUDDY: macOS fetched %zu friends, %zu pending",
+						friendList.friends.size(), friendList.pendingRequests.size()));
+				}
 				if (!TheGameSpyPeerMessageQueue->isConnected() && !TheGameSpyPeerMessageQueue->isConnecting())
 				{
 					PeerRequest req;
@@ -330,7 +379,9 @@ void BuddyThreadClass::Thread_Function()
 			case BuddyRequest::BUDDYREQUEST_DELETEACCT:
 				m_isdeleting =  true;
 				// TheSuperHackers @tweak OmniBlade API was updated since Generals released to require a callback. Passing -1 will make our wrapper ignore this.
+#ifndef __APPLE__
 				gpDeleteProfile( con, callbackWrapper, (void *)(-1) );
+#endif
 				break;
 			case BuddyRequest::BUDDYREQUEST_LOGOUT:
 				m_isConnecting = m_isConnected = false;
@@ -342,7 +393,11 @@ void BuddyThreadClass::Thread_Function()
 				{
 					std::string s = WideCharStringToMultiByte( incomingRequest.arg.message.text );
 					DEBUG_LOG(("Sending a buddy message to %d [%s]", incomingRequest.arg.message.recipient, s.c_str()));
+#ifdef __APPLE__
+					GenOnlineWS_SendFriendChat((int64_t)incomingRequest.arg.message.recipient, s.c_str());
+#else
 					gpSendBuddyMessage( con, incomingRequest.arg.message.recipient, s.c_str() );
+#endif
 				}
 				break;
 			case BuddyRequest::BUDDYREQUEST_LOGINNEW:
@@ -352,6 +407,7 @@ void BuddyThreadClass::Thread_Function()
 					m_email = incomingRequest.arg.login.email;
 					m_pass = incomingRequest.arg.login.password;
 					m_isNewAccount = TRUE;
+#ifndef __APPLE__
 					// TheSuperHackers @tweak OmniBlade API was updated since Generals release to require uniquenick which is the same as nick and cdkey is an empty string here.
 					m_isConnected = (gpConnectNewUser( con, incomingRequest.arg.login.nick, incomingRequest.arg.login.nick, incomingRequest.arg.login.email,
 						incomingRequest.arg.login.password, "", (incomingRequest.arg.login.hasFirewall)?GP_FIREWALL:GP_NO_FIREWALL,
@@ -360,33 +416,59 @@ void BuddyThreadClass::Thread_Function()
 					{
 						gpSetInfoMask( con, GP_MASK_NONE ); // don't share info
 					}
+#endif
 					m_isConnecting = false;
 				}
 				break;
 			case BuddyRequest::BUDDYREQUEST_ADDBUDDY:
 				{
+#ifdef __APPLE__
+					DEBUG_LOG(("BUDDY: macOS send friend request to %d", incomingRequest.arg.addbuddy.id));
+					GenOnlineSocial_SendFriendRequest((int64_t)incomingRequest.arg.addbuddy.id);
+#else
 					std::string s = WideCharStringToMultiByte( incomingRequest.arg.addbuddy.text );
 					gpSendBuddyRequest( con, incomingRequest.arg.addbuddy.id, s.c_str() );
+#endif
 				}
 				break;
 			case BuddyRequest::BUDDYREQUEST_DELBUDDY:
 				{
+#ifdef __APPLE__
+					DEBUG_LOG(("BUDDY: macOS remove friend %d", incomingRequest.arg.profile.id));
+					GenOnlineSocial_RemoveFriend((int64_t)incomingRequest.arg.profile.id);
+#else
 					gpDeleteBuddy( con, incomingRequest.arg.profile.id );
+#endif
 				}
 				break;
 			case BuddyRequest::BUDDYREQUEST_OKADD:
 				{
+#ifdef __APPLE__
+					DEBUG_LOG(("BUDDY: macOS accept friend request from %d", incomingRequest.arg.profile.id));
+					GenOnlineSocial_AcceptFriendRequest((int64_t)incomingRequest.arg.profile.id);
+#else
 					gpAuthBuddyRequest( con, incomingRequest.arg.profile.id );
+#endif
 				}
 				break;
 			case BuddyRequest::BUDDYREQUEST_DENYADD:
 				{
+#ifdef __APPLE__
+					DEBUG_LOG(("BUDDY: macOS deny friend request from %d", incomingRequest.arg.profile.id));
+					GenOnlineSocial_RejectFriendRequest((int64_t)incomingRequest.arg.profile.id);
+#else
 					gpDenyBuddyRequest( con, incomingRequest.arg.profile.id );
+#endif
 				}
 				break;
 			case BuddyRequest::BUDDYREQUEST_SETSTATUS:
 				{
-					//don't blast our 'Loading' status with 'Online'.
+#ifdef __APPLE__
+					DEBUG_LOG(("BUDDY: macOS set status %d:%s (server uses WS presence)",
+						incomingRequest.arg.status.status, incomingRequest.arg.status.statusString));
+					lastStatus = incomingRequest.arg.status.status;
+					lastStatusString = incomingRequest.arg.status.statusString;
+#else
 					if (lastStatus == GP_PLAYING && lastStatusString == "Loading" && incomingRequest.arg.status.status == GP_ONLINE)
 						break;
 
@@ -396,6 +478,7 @@ void BuddyThreadClass::Thread_Function()
 						incomingRequest.arg.status.locationString );
 					lastStatus = incomingRequest.arg.status.status;
 					lastStatusString = incomingRequest.arg.status.statusString;
+#endif
 				}
 				break;
 			}
