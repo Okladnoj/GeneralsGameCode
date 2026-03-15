@@ -397,6 +397,11 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 			}
 			else if (myGame->getLocalSlotNum() == i)
 			{
+#ifdef __APPLE__
+				printf("NETWORK: DIAG_ACCEPT: localSlot=%d hasMap=%d isAccepted=%d amIHost=%d willTransfer=%d map='%s'\n",
+					i, slot->hasMap(), slot->isAccepted(), myGame->amIHost(), willTransfer, myGame->getMap().str());
+				fflush(stdout);
+#endif
 				if(slot->isAccepted() && !myGame->amIHost())
 				{
 					EnableAcceptControls(FALSE, myGame, comboPlayer, comboColor, comboPlayerTemplate,
@@ -410,6 +415,10 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 					}
 					else
 					{
+#ifdef __APPLE__
+						printf("NETWORK: DIAG_ACCEPT: NO MAP! EnableAcceptControls(willTransfer=%d)\n", willTransfer);
+						fflush(stdout);
+#endif
 						EnableAcceptControls(willTransfer, myGame, comboPlayer, comboColor, comboPlayerTemplate,
 							comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
 					}

@@ -1911,15 +1911,24 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 			break;
 
 		case PeerRequest::PEERREQUEST_UTMPLAYER:
+		{
+#ifdef __APPLE__
+			if (!incomingRequest.nick.empty())
 			{
-#ifndef __APPLE__
-				if (!incomingRequest.nick.empty())
-				{
-					peerUTMPlayer( peer, incomingRequest.nick.c_str(), incomingRequest.id.c_str(), incomingRequest.options.c_str(), PEERFalse );
-				}
-#endif
+				std::string cmd = incomingRequest.id;
+				if (!cmd.empty() && cmd.back() == '/')
+					cmd.pop_back();
+				std::string utmStr = std::string("__UTM__") + cmd + "/" + incomingRequest.options;
+				GenOnlineWS_SendLobbyChat(AsciiString(utmStr.c_str()).str());
 			}
-			break;
+#else
+			if (!incomingRequest.nick.empty())
+			{
+				peerUTMPlayer( peer, incomingRequest.nick.c_str(), incomingRequest.id.c_str(), incomingRequest.options.c_str(), PEERFalse );
+			}
+#endif
+		}
+		break;
 
 		case PeerRequest::PEERREQUEST_UTMROOM:
 			{

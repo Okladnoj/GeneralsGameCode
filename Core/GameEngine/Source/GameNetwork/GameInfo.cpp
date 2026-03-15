@@ -297,7 +297,7 @@ Bool GameSlot::isAI() const
 Bool GameSlot::isPlayer( AsciiString userName ) const
 {
 	UnicodeString uName;
-	uName.translate(userName);
+	uName.set(MultiByteToWideCharSingleLine(userName.str()).c_str());
 	return (m_state == SLOT_PLAYER && !m_name.compareNoCase(uName));
 }
 
@@ -649,6 +649,9 @@ void GameInfo::setMapCRC( UnsignedInt mapCRC )
 	if (!TheMapCache)
 		return;
 
+#ifdef __APPLE__
+	printf("NETWORK: setMapCRC called: CRC=%X inGame=%d localSlot=%d mapName='%s'\n", mapCRC, m_inGame, m_inGame ? getLocalSlotNum() : -99, m_mapName.str()); fflush(stdout);
+#endif
 	// check the map cache
 	if (m_inGame && getLocalSlotNum() >= 0)
 	{
@@ -659,24 +662,26 @@ void GameInfo::setMapCRC( UnsignedInt mapCRC )
 		std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->find(lowerMap);
 		if (it == TheMapCache->end())
 		{
-			/*
-			DEBUG_LOG(("GameInfo::setMapCRC - could not find map file."));
-			it = TheMapCache->begin();
-			while (it != TheMapCache->end())
+#ifdef __APPLE__
+			printf("NETWORK: setMapCRC - NOT FOUND key='%s' cacheSize=%d\n", lowerMap.str(), (int)TheMapCache->size()); fflush(stdout);
+			int dbgCount = 0;
+			for (auto dbgIt = TheMapCache->begin(); dbgIt != TheMapCache->end() && dbgCount < 10; ++dbgIt, ++dbgCount)
 			{
-				DEBUG_LOG(("\t\"%s\"", it->first.str()));
-				++it;
+				printf("NETWORK: setMapCRC - cache[%d]='%s'\n", dbgCount, dbgIt->first.str()); fflush(stdout);
 			}
-			*/
+#endif
 			getSlot(getLocalSlotNum())->setMapAvailability(false);
 		}
-		else if (m_mapCRC != it->second.m_CRC)
+		else if (m_mapCRC != 0 && m_mapCRC != it->second.m_CRC)
 		{
 			DEBUG_LOG(("GameInfo::setMapCRC - map CRC's do not match (%X/%X).", m_mapCRC, it->second.m_CRC));
 			getSlot(getLocalSlotNum())->setMapAvailability(false);
 		}
 		else
 		{
+#ifdef __APPLE__
+			printf("NETWORK: setMapCRC - FOUND key='%s' CRC=%X (hostCRC=%X)\n", lowerMap.str(), it->second.m_CRC, m_mapCRC); fflush(stdout);
+#endif
 			//DEBUG_LOG(("GameInfo::setMapCRC - map CRC's match."));
 			getSlot(getLocalSlotNum())->setMapAvailability(true);
 		}
@@ -701,7 +706,7 @@ void GameInfo::setMapSize( UnsignedInt mapSize )
 			DEBUG_LOG(("GameInfo::setMapSize - could not find map file."));
 			getSlot(getLocalSlotNum())->setMapAvailability(false);
 		}
-		else if (m_mapCRC != it->second.m_CRC)
+		else if (m_mapCRC != 0 && m_mapCRC != it->second.m_CRC)
 		{
 			DEBUG_LOG(("GameInfo::setMapSize - map CRC's do not match."));
 			getSlot(getLocalSlotNum())->setMapAvailability(false);
@@ -1121,15 +1126,35 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 			mapName.concat(token);
 			mapName.concat('.');
 			mapName.concat(TheMapCache->getMapExtension());
+#ifdef __APPLE__
+			// TODO(PS_PATH): C&C:O REST API sends 'M=' options without portable prefix (UserData\Maps\ or Maps\).
+			// If missing, portableMapPathToRealMapPath fails because it expects the prefix. We guess the prefix
+			// by checking Official maps first, and assume UserData (custom map) if missing.
+			if (!mapName.startsWithNoCase("Maps\\") && !mapName.startsWithNoCase("UserData\\Maps\\"))
+			{
+				AsciiString officialTest = "Maps\\";
+				officialTest.concat(mapName);
+				AsciiString officialReal = TheGameState->portableMapPathToRealMapPath(officialTest);
+				if (TheFileSystem->doesFileExist(officialReal.str()))
+				{
+					mapName = officialTest;
+				}
+				else
+				{
+					AsciiString customTest = "UserData\\Maps\\";
+					customTest.concat(mapName);
+					mapName = customTest;
+				}
+			}
+#endif
+
 			AsciiString realMapName = TheGameState->portableMapPathToRealMapPath(mapName);
 			if (realMapName.isEmpty())
 			{
 #ifdef __APPLE__
-				// TheSuperHackers @fix On macOS online join, custom maps not installed locally
-				// cause portableMapPathToRealMapPath to return empty. Don't reject the entire
-				// SL string — keep the original path and let setMapCRC/TheMapCache handle
-				// "map not available" display, matching Windows behavior.
-				printf("NETWORK: ParseAsciiStringToGameInfo - map not found locally ('%s'), continuing\n", mapName.str()); fflush(stdout);
+				// TODO(PS_PATH): Online join with custom maps causes portableMapPathToRealMapPath to fail if
+				// the map is not installed locally. Don't reject the entire SL string — keep original path.
+				printf("NETWORK: ParseAsciiStringToGameInfo - map not found via portableMapPath, using '%s'\n", mapName.str()); fflush(stdout);
 #else
 				// TheSuperHackers @security slurmlord 18/06/2025 As the map file name/path from the AsciiString failed to normalize,
 				// in other words is bogus and points outside of the approved target directory for maps, avoid an arbitrary file overwrite vulnerability
@@ -1543,8 +1568,22 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 		for(Int i = 0; i<MAX_SLOTS; i++)
 			game->setSlot(i,newSlot[i]);
 
+#ifdef __APPLE__
+		{
+			Int ls = game->getLocalSlotNum();
+			Bool hm = (ls >= 0) ? game->getConstSlot(ls)->hasMap() : false;
+			printf("NETWORK: ParseAscii PRE-setMapCRC: localSlot=%d hasMap=%d mapCRC=%X inGame=%d\n", ls, hm, mapCRC, game->isInGame()); fflush(stdout);
+		}
+#endif
 		game->setMap(mapName);
 		game->setMapCRC(mapCRC);
+#ifdef __APPLE__
+		{
+			Int ls = game->getLocalSlotNum();
+			Bool hm = (ls >= 0) ? game->getConstSlot(ls)->hasMap() : false;
+			printf("NETWORK: ParseAscii POST-setMapCRC: localSlot=%d hasMap=%d\n", ls, hm); fflush(stdout);
+		}
+#endif
 		game->setMapSize(mapSize);
 		game->setMapContentsMask(mapContentsMask);
 		game->setSeed(seed);

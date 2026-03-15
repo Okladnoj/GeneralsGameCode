@@ -718,7 +718,13 @@ MapCache *TheMapCache = nullptr;
 
 Bool WouldMapTransfer( const AsciiString& mapName )
 {
+#ifdef __APPLE__
+	// TODO(PS_PATH): On macOS, we don't have map transfer implemented yet. But to allow ACCEPT button
+	// to enable for custom maps, we pretend it would transfer (like Windows GenTool does).
+	return TRUE;
+#else
 	return mapName.startsWithNoCase(TheMapCache->getUserMapDir());
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------

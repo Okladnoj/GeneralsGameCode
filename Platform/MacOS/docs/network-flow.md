@@ -694,6 +694,70 @@ Server `LobbyMember` fields available (from `GET /Lobby/{id}` response):
 
 ---
 
+## Confirmed Issues (2026-03-15 diagnostic session)
+
+### Issue 1: Host Controls Disabled — NOT A BUG
+
+`amIHost()` returns TRUE correctly when we create a lobby. Diagnostic log confirms:
+```
+DIAG_HOST: InitWOLGameGadgets: amIHost=1 slot0='Dima Ok' localName='Dima Ok' inGame=1
+```
+
+Controls (Limit Superweapons, Starting Cash, Limit Armies) appear disabled because
+`isUsingStats=1` (Record Stats is checked). This is **correct Windows behavior** —
+ranked stats games disable these controls to prevent exploits (WOLGameSetupMenu.cpp:1185):
+```cpp
+if (isUsingStats) {
+    checkBoxLimitSuperweapons->winEnable( FALSE );
+    comboBoxStartingCash->winEnable( FALSE );
+    checkBoxLimitArmies->winEnable( FALSE );
+}
+```
+
+### Issue 2: SL UTM Echo-Back — EXPECTED
+
+Host sends SL UTM via WS lobby chat (`__UTM__SL:` prefix). WebSocket broadcasts to ALL
+members including the sender. Host receives own SL, parses it, checks `isValidSlotList`:
+```
+isValidSlotList = hasGame && hasSlot0 && slot0IsPlayer && !isHost;
+```
+
+Since `isHost=1`, the host's own SL is correctly rejected (`!isHost` = FALSE).
+On Windows, IRC UTM is sent only to OTHER room members, so host never sees its own SL.
+Our WS echo is harmless because the `!isHost` guard filters it.
+
+### Issue 3: Unicode Nicknames Break isPlayer() — ROOT CAUSE OF ACCEPT BUG
+
+When joining a lobby hosted by a player with emoji/Unicode in their name:
+```
+DIAG_SL: slot0 isHuman=1 name='Kevin 🆅🅸🅿' sender='Kevin 🆅🅸🅿' isPlayer=0
+```
+
+Names appear identical in log but `isPlayer()` returns FALSE. This is because:
+
+1. `resp.nick` is `std::string` (UTF-8 narrow string from WS bridge)
+2. `isPlayer(AsciiString userName)` calls `uName.translate(userName)` — ASCII→UnicodeString
+3. `translate()` is a byte-for-byte conversion that does NOT handle multi-byte UTF-8
+4. Multi-byte emoji characters (🆅🅸🅿) get corrupted during translate
+5. `GameSlot::m_name` is stored as UnicodeString (set from SL parse which also has encoding issues)
+6. The corrupted representations may differ → `compareNoCase()` fails
+
+This causes:
+- `slot0IsPlayer=0` → `isValidSlotList=0` → ALL SL UTM updates are rejected
+- No `UpdateSlotList()` → no `EnableAcceptControls()` → ACCEPT stays disabled
+- After 10 seconds: "Haven't seen ourselves in slotlist" → kicks player
+
+On Windows, GameSpy IRC uses ASCII-only nicknames. Emoji names only exist in the
+GenOnline ecosystem where names come from playgenerals.online accounts (UTF-8).
+
+**Fix needed**: `isValidSlotList` check must use UTF-8-aware comparison, or the SL
+UTM `nick` field must match the encoding of `GameSlot::m_name`.
+
+**Why some lobbies work**: Players with ASCII-only names (no emoji/Unicode) pass the
+`isPlayer()` check correctly. Only lobbies hosted by players with Unicode names fail.
+
+---
+
 ## Appendix: TURN Credentials Flow
 
 TURN credentials are provided by Cloudflare via the server. They are NOT sent

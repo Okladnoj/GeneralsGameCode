@@ -1161,6 +1161,19 @@ void InitWOLGameGadgets()
   GadgetCheckBoxSetChecked(checkBoxUseStats, isUsingStats );
   checkBoxUseStats->winSetTooltip( TheGameText->fetch( isUsingStats ? "TOOLTIP:UseStatsOn" : "TOOLTIP:UseStatsOff" ) );
 
+#ifdef __APPLE__
+  {
+    Bool isHost = TheGameSpyGame->amIHost();
+    AsciiString slot0Name;
+    if (TheGameSpyGame->getConstSlot(0))
+      slot0Name.translate(TheGameSpyGame->getConstSlot(0)->getName());
+    AsciiString localName = TheGameSpyInfo->getLocalName();
+    printf("NETWORK: DIAG_HOST: InitWOLGameGadgets: amIHost=%d slot0='%s' localName='%s' inGame=%d TheGameSpyInfo->amIHost=%d\n",
+      isHost, slot0Name.str(), localName.str(), TheGameSpyGame->isInGame(), TheGameSpyInfo->amIHost());
+    fflush(stdout);
+  }
+#endif
+
   if ( !TheGameSpyGame->amIHost() )
   {
     checkBoxLimitSuperweapons->winEnable( false );

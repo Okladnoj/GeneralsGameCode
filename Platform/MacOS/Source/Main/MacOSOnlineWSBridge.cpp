@@ -94,6 +94,19 @@ void GenOnlineWS_InjectStagingRoomUTM(const char* hostName, const char* options)
     DLOG_NETWORK("WSBridge: injected StagingRoom UTM for '%s'", hostName);
 }
 
+void GenOnlineWS_InjectPlayerUTM(const char* nick, const char* command, const char* options) {
+    if (!TheGameSpyPeerMessageQueue) return;
+
+    PeerResponse resp;
+    resp.peerResponseType = PeerResponse::PEERRESPONSE_PLAYERUTM;
+    resp.nick = nick;
+    resp.command = command;
+    resp.commandOptions = options;
+
+    TheGameSpyPeerMessageQueue->addResponse(resp);
+    DLOG_NETWORK("WSBridge: injected PlayerUTM from '%s' cmd='%s' opts='%s'", nick, command, options);
+}
+
 void GenOnlineWS_InjectSlotListUTM(const char* hostName, const char* mapPath,
                                     int mapContentsMask, unsigned int mapCRC, unsigned int mapSize,
                                     int seed, int crcInterval, int useStats, unsigned int startingCash,
@@ -104,9 +117,22 @@ void GenOnlineWS_InjectSlotListUTM(const char* hostName, const char* mapPath,
     char slOptions[2048];
     int pos = 0;
 
+    // SL M= field expects directory-only path (e.g. "invisible boundaries").
+    // ParseAsciiStringToGameInfo duplicates last segment and adds .map extension.
+    // API returns full path like "invisible boundaries\invisible boundaries.map"
+    // so we strip the filename portion (everything after last backslash).
+    char cleanMapPath[512] = {0};
+    if (mapPath) {
+        strncpy(cleanMapPath, mapPath, sizeof(cleanMapPath) - 1);
+        char* lastSlash = strrchr(cleanMapPath, '\\');
+        if (lastSlash) {
+            *lastSlash = '\0';
+        }
+    }
+
     pos += snprintf(slOptions + pos, sizeof(slOptions) - pos,
         "US=%d;M=%02x%s;MC=%X;MS=%d;SD=%d;C=%d;SR=%u;SC=%u;O=%c;S=",
-        useStats, mapContentsMask, mapPath ? mapPath : "",
+        useStats, mapContentsMask, cleanMapPath,
         mapCRC, mapSize, seed, crcInterval,
         superweaponRestriction, startingCash,
         oldFactionsOnly ? 'Y' : 'N');

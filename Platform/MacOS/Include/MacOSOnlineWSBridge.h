@@ -30,6 +30,7 @@ extern "C" {
 
 void GenOnlineWS_InjectChatMessage(const char* nick, const char* text, int isAction);
 void GenOnlineWS_InjectStagingRoomUTM(const char* hostName, const char* options);
+void GenOnlineWS_InjectPlayerUTM(const char* nick, const char* command, const char* options);
 void GenOnlineWS_InjectMemberListBegin(void);
 void GenOnlineWS_InjectMemberJoin(const char* nick, int profileID);
 void GenOnlineWS_InjectMemberLeft(const char* nick);

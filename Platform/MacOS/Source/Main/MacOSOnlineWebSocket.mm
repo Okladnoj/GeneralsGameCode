@@ -1,3 +1,4 @@
+#include <string>
 #import <Foundation/Foundation.h>
 #include "MacOSOnlineWebSocket.h"
 #include "MacOSOnlineWSBridge.h"
@@ -131,20 +132,45 @@ static void handleLobbyChatFromServer(NSDictionary* json) {
   NSString* message = json[@"message"];
   if (!sender || !message) return;
 
-  if ([message hasPrefix:@"__UTM__SL:"]) {
-    NSString* options = [message substringFromIndex:[@"__UTM__SL:" length]];
-    GenOnlineWS_InjectStagingRoomUTM([sender UTF8String], [options UTF8String]);
-    DLOG_NETWORK("GenOnlineWS: injected UTM_SL from '%s'", [sender UTF8String]);
+  NSString* actualMessage = message;
+  NSString* actualSender = sender;
+
+  if ([message hasPrefix:@"["]) {
+    NSRange closeBracket = [message rangeOfString:@"] "];
+    if (closeBracket.location != NSNotFound) {
+      actualSender = [message substringWithRange:NSMakeRange(1, closeBracket.location - 1)];
+      actualMessage = [message substringFromIndex:closeBracket.location + closeBracket.length];
+    }
+  }
+
+  if ([actualMessage hasPrefix:@"__UTM__SL:"]) {
+    NSString* options = [actualMessage substringFromIndex:[@"__UTM__SL:" length]];
+    GenOnlineWS_InjectStagingRoomUTM([actualSender UTF8String], [options UTF8String]);
+    DLOG_NETWORK("GenOnlineWS: injected UTM_SL from '%s'", [actualSender UTF8String]);
+    return;
+  }
+
+  if ([actualMessage hasPrefix:@"__UTM__"]) {
+    NSString* rest = [actualMessage substringFromIndex:[@"__UTM__" length]];
+    std::string full([rest UTF8String]);
+    size_t slashPos = full.find('/');
+    if (slashPos != std::string::npos) {
+      std::string cmd = full.substr(0, slashPos);
+      std::string opts = full.substr(slashPos + 1);
+      GenOnlineWS_InjectPlayerUTM([actualSender UTF8String], cmd.c_str(), opts.c_str());
+      DLOG_NETWORK("GenOnlineWS: injected UTM_PLAYER from '%s' cmd='%s' opts='%s'",
+                   [actualSender UTF8String], cmd.c_str(), opts.c_str());
+    }
     return;
   }
 
   GenOnlineWS_InjectChatMessage(
-      [sender UTF8String],
-      [message UTF8String],
+      [actualSender UTF8String],
+      [actualMessage UTF8String],
       false);
 
   DLOG_NETWORK("GenOnlineWS: lobby chat from '%s': %s",
-               [sender UTF8String], [message UTF8String]);
+               [actualSender UTF8String], [actualMessage UTF8String]);
 }
 
 static void handleLobbyUpdate(NSDictionary* json) {
