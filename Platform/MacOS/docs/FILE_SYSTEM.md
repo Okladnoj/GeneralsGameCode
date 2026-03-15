@@ -159,18 +159,13 @@ Loose CWD > Loose ZH > Loose Base > BIG CWD > BIG ZH > BIG Base
 
 Этот путь определяется через `portableMapPathToRealMapPath()` в `GameState.cpp`.
 
-### macOS: проблемы хранения
+### macOS: хранение карт
 
-На macOS writable directory **не определён**. Нужен аналог:
+На macOS кастомные карты сохраняются в `getUserMapDir()` (аналог Windows My Documents):
 
 ```
-~/Library/Application Support/Command and Conquer Generals Zero Hour/Maps/
+~/Library/Application Support/Generals Zero Hour/Maps/
 ```
-
-Этот путь должен быть:
-1. Добавлен в `TheLocalFileSystem->addSearchPath()` при инициализации
-2. Использоваться `portableMapPathToRealMapPath()` для поиска карт
-3. Использоваться `processFile()` в `ConnectionManager.cpp` при сохранении
 
 ### P2P Map Transfer — поток данных
 
@@ -208,10 +203,16 @@ GenTool/GenPatcher на Windows загружает ranked карты с `gentool
 На macOS реализован аналогичный механизм:
 
 - **`MacOSMapDownloader.mm`** — нативное NSWindow с прогресс-баром
-- Скачивает `Maps_All_Ranked_ZH.zip` с `gentool.net/download/`
-- Распаковывает в `$GENERALS_INSTALL_PATH/Command and Conquer Generals Zero Hour/Maps/`
-- Доступен через macOS menu bar: **Tools → Download Ranked Maps...** (⌘M)
+- Ranked: скачивает `Maps_All_Ranked_ZH.zip` с `gentool.net/download/`
+- Custom: скачивает из `github.com/TheSuperHackers/GeneralsRankedMaps` (backlog/)
+- Распаковывает в `getUserMapDir()` (`~/Library/Application Support/Generals Zero Hour/Maps/`)
+- Доступен через macOS menu bar: **Tools → Download Ranked Maps** (⌘M) / **Download Custom Maps**
 - Работает из любого состояния игры (главное меню, скирмиш, LAN, онлайн)
+
+### Mod Resources (.big)
+
+Кастомные `.big` моды (например, ControlBar HD) хранятся в `Platform/MacOS/Resources/`.
+CMake автоматически создаёт симлинки из `Resources/*.big` в ZH install path при конфигурации.
 
 Источники данных GenTool:
 - `gentool.net/download/Maps_All_Ranked_ZH.zip` — полный пак ranked карт

@@ -220,3 +220,18 @@ target_precompile_headers(macos_platform PRIVATE
 
 # ── Integration Tests ──
 add_subdirectory(Tests)
+
+# ── Install mod resources (.big) into ZH game directory ──
+set(MACOS_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+if(DEFINED ENV{GENERALS_INSTALL_PATH})
+    set(ZH_GAME_DIR "$ENV{GENERALS_INSTALL_PATH}/Command and Conquer Generals Zero Hour")
+    file(GLOB MACOS_BIG_FILES "${MACOS_RESOURCES_DIR}/*.big")
+    foreach(BIG_FILE ${MACOS_BIG_FILES})
+        get_filename_component(BIG_NAME "${BIG_FILE}" NAME)
+        set(BIG_DEST "${ZH_GAME_DIR}/${BIG_NAME}")
+        if(NOT EXISTS "${BIG_DEST}")
+            message(STATUS "Linking mod: ${BIG_NAME}")
+            file(CREATE_LINK "${BIG_FILE}" "${BIG_DEST}" SYMBOLIC)
+        endif()
+    endforeach()
+endif()
