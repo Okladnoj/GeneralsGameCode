@@ -5,6 +5,8 @@
 #include <execinfo.h>
 #include <unistd.h>
 #include "MacOSDisplayManager.h"
+#include "MacOSMapDownloader.h"
+#include "MacOSDebugLog.h"
 
 @interface MacOSWindow : NSWindow
 @end
@@ -88,6 +90,10 @@ static BOOL g_ShouldQuit = NO;
 - (void)windowDidEndLiveResize:(NSNotification *)notification {
   MacOSDisplayManager::instance().syncToWindowSize();
 }
+
+- (void)showMapDownloader:(id)sender {
+  GenMapDownloader_ShowWindow();
+}
 @end
 static id g_WindowDelegate = nil;
 static id g_AppDelegate = nil;
@@ -149,6 +155,36 @@ int MacOS_Main(int argc, char *argv[]) {
 
     // Finish launching to ensure NSApp is ready
     [NSApp finishLaunching];
+
+    // Setup macOS menu bar with "Tools > Download Ranked Maps..." item
+    {
+      NSMenu* mainMenu = [[NSMenu alloc] init];
+
+      // App menu (required for Quit shortcut)
+      NSMenuItem* appMenuItem = [[NSMenuItem alloc] init];
+      NSMenu* appMenu = [[NSMenu alloc] initWithTitle:@"Generals"];
+      [appMenu addItemWithTitle:@"About Generals"
+                         action:@selector(orderFrontStandardAboutPanel:)
+                  keyEquivalent:@""];
+      [appMenu addItem:[NSMenuItem separatorItem]];
+      [appMenu addItemWithTitle:@"Quit Generals"
+                         action:@selector(terminate:)
+                  keyEquivalent:@"q"];
+      [appMenuItem setSubmenu:appMenu];
+      [mainMenu addItem:appMenuItem];
+
+      // Tools menu
+      NSMenuItem* toolsMenuItem = [[NSMenuItem alloc] init];
+      NSMenu* toolsMenu = [[NSMenu alloc] initWithTitle:@"Tools"];
+      NSMenuItem* mapItem = [toolsMenu addItemWithTitle:@"Download Ranked Maps..."
+                                                 action:@selector(showMapDownloader:)
+                                          keyEquivalent:@"m"];
+      [mapItem setKeyEquivalentModifierMask:NSEventModifierFlagCommand];
+      [toolsMenuItem setSubmenu:toolsMenu];
+      [mainMenu addItem:toolsMenuItem];
+
+      [NSApp setMainMenu:mainMenu];
+    }
 
     // TheSuperHackers @fix macOS: Disable Automatic Termination.
     // macOS automatically terminates apps it considers "idle" — but our game
@@ -258,10 +294,19 @@ void *MacOS_CreateWindow(int width, int height, const char *title) {
 
 void MacOS_PumpEvents() {
   static int pumpCount = 0;
+  static bool mapCheckDone = false;
   BOOL isActive = [NSApp isActive];
+
+  if (!mapCheckDone && pumpCount > 600) {
+    mapCheckDone = true;
+    if (!GenMapDownloader_HasRankedMaps()) {
+      DLOG_NETWORK("MacOS_PumpEvents: no ranked maps found — showing download prompt");
+      GenMapDownloader_ShowWindow();
+    }
+  }
+
   if (pumpCount++ % 500 == 0) {
     NSWindow *keyWin = [NSApp keyWindow];
-    // Heartbeat reduced to once per 500
   }
 
   if (pumpCount % 100 == 0 && !isActive) {

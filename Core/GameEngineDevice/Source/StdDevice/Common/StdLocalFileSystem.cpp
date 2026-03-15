@@ -233,8 +233,24 @@ void StdLocalFileSystem::getFileListInDirectory(const AsciiString& currentDirect
 	// The default iterator constructor creates an end iterator
 	done = iter == std::filesystem::directory_iterator();
 
+#ifdef __APPLE__
+	// TheSuperHackers @info If directory not found in CWD, try search paths
+	std::string resolvedDir;
+	if (ec && !std::filesystem::path(fixedDirectory).is_absolute()) {
+		for (const auto& searchPath : m_searchPaths) {
+			resolvedDir = searchPath + fixedDirectory;
+			std::error_code search_ec;
+			iter = std::filesystem::directory_iterator(resolvedDir.c_str(), search_ec);
+			if (!search_ec) {
+				ec = search_ec;
+				done = iter == std::filesystem::directory_iterator();
+				break;
+			}
+		}
+	}
+#endif
+
 	if (ec) {
-		DEBUG_LOG(("StdLocalFileSystem::getFileListInDirectory - Error opening directory %s", fixedDirectory.c_str()));
 		return;
 	}
 
@@ -242,9 +258,12 @@ void StdLocalFileSystem::getFileListInDirectory(const AsciiString& currentDirect
 		std::string filenameStr = iter->path().filename().string();
 		if (!iter->is_directory() && iter->path().extension() == searchExt &&
 			(strcmp(filenameStr.c_str(), ".") != 0 && strcmp(filenameStr.c_str(), "..") != 0)) {
-			// if we haven't already, add this filename to the list.
-			// a stl set should only allow one copy of each filename
-			AsciiString newFilename = iter->path().string().c_str();
+			AsciiString newFilename = asciisearch;
+			if (newFilename.str()[newFilename.getLength()-1] != '/' &&
+				newFilename.str()[newFilename.getLength()-1] != '\\') {
+				newFilename.concat('\\');
+			}
+			newFilename.concat(filenameStr.c_str());
 			if (filenameList.find(newFilename) == filenameList.end()) {
 				filenameList.insert(newFilename);
 			}
@@ -255,28 +274,31 @@ void StdLocalFileSystem::getFileListInDirectory(const AsciiString& currentDirect
 	}
 
 	if (searchSubdirectories) {
-		auto iter = std::filesystem::directory_iterator(fixedDirectory, ec);
+		std::string subScanDir = fixedDirectory;
+#ifdef __APPLE__
+		if (!resolvedDir.empty()) {
+			subScanDir = resolvedDir;
+		}
+#endif
+		auto subIter = std::filesystem::directory_iterator(subScanDir, ec);
 
 		if (ec) {
-			DEBUG_LOG(("StdLocalFileSystem::getFileListInDirectory - Error opening subdirectory %s", fixedDirectory.c_str()));
 			return;
 		}
 
-		// The default iterator constructor creates an end iterator
-		done = iter == std::filesystem::directory_iterator();
+		done = subIter == std::filesystem::directory_iterator();
 
 		while (!done) {
-			std::string filenameStr = iter->path().filename().string();
-			if(iter->is_directory() &&
+			std::string filenameStr = subIter->path().filename().string();
+			if(subIter->is_directory() &&
 				(strcmp(filenameStr.c_str(), ".") != 0 && strcmp(filenameStr.c_str(), "..") != 0)) {
 				AsciiString tempsearchstr(filenameStr.c_str());
 
-				// recursively add files in subdirectories if required.
-				getFileListInDirectory(tempsearchstr, originalDirectory, searchName, filenameList, searchSubdirectories);
+				getFileListInDirectory(tempsearchstr, asciisearch, searchName, filenameList, searchSubdirectories);
 			}
 
-			iter++;
-			done = iter == std::filesystem::directory_iterator();
+			subIter++;
+			done = subIter == std::filesystem::directory_iterator();
 		}
 	}
 }
