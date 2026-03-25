@@ -464,8 +464,8 @@ protected:
 class GameWindowDummy : public GameWindow {
   MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(GameWindowDummy, "GameWindowDummy")
 public:
-  virtual void winDrawBorder() {}
-  virtual void *winGetUserData(void) { return nullptr; }
+	virtual void winDrawBorder() override {}
+	virtual void* winGetUserData() override { return nullptr; }
 };
 
 // ModalWindow ----------------------------------------------------------------

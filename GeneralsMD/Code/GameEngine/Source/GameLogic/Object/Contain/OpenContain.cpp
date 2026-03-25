@@ -880,6 +880,10 @@ void OpenContain::onDie( const DamageInfo * damageInfo )
 	if (!getOpenContainModuleData()->m_dieMuxData.isDieApplicable(getObject(), damageInfo))
 		return;
 
+#if !RETAIL_COMPATIBLE_CRC
+	killRidersWhoAreNotFreeToExit();
+#endif
+
 	//Check to see if we are going to inflict damage on contained units.
 	if( getDamagePercentageToUnits() > 0 )
 	{
@@ -887,7 +891,9 @@ void OpenContain::onDie( const DamageInfo * damageInfo )
 		processDamageToContained(getDamagePercentageToUnits());
 	}
 
+#if RETAIL_COMPATIBLE_CRC
 	killRidersWhoAreNotFreeToExit();
+#endif
 
 	// Leaving this commented out to show it can't work.  We are about to die, so they will have zero
 	// chance to hit an exitState::Update.  At least we would clean them up in onDelete.
@@ -1045,8 +1051,8 @@ void OpenContain::exitObjectViaDoor( Object *exitObj, ExitDoorType exitDoor )
 		std::vector<Coord3D> exitPath;
 		exitPath.push_back(endPosition);
 		exitPath.push_back(endPosition); // Do it twice, in case units stack up due to brief flying.  jba.
-		if (m_rallyPointExists) {
-			exitPath.push_back(m_rallyPoint);
+		if (const Coord3D *rallyPoint = getRallyPoint()) {
+			exitPath.push_back(*rallyPoint);
 		}
 
 		if( ai )
@@ -1462,6 +1468,7 @@ void OpenContain::orderAllPassengersToHackInternet( CommandSourceType commandSou
 void OpenContain::processDamageToContained(Real percentDamage)
 {
 	const OpenContainModuleData *data = getOpenContainModuleData();
+	const bool killContained = percentDamage == 1.0f;
 
 #if RETAIL_COMPATIBLE_CRC
 
@@ -1485,7 +1492,7 @@ void OpenContain::processDamageToContained(Real percentDamage)
 			damageInfo.in.m_amount = damage;
 			object->attemptDamage( &damageInfo );
 
-			if( !object->isEffectivelyDead() && percentDamage == 1.0f )
+			if( !object->isEffectivelyDead() && killContained )
 				object->kill(); // in case we are carrying flame proof troops we have been asked to kill
 
 			// TheSuperHackers @info Calls to Object::attemptDamage and Object::kill will not remove
@@ -1542,7 +1549,7 @@ void OpenContain::processDamageToContained(Real percentDamage)
 		damageInfo.in.m_amount = damage;
 		object->attemptDamage( &damageInfo );
 
-		if( !object->isEffectivelyDead() && percentDamage == 1.0f )
+		if( !object->isEffectivelyDead() && killContained )
 			object->kill(); // in case we are carrying flame proof troops we have been asked to kill
 
 		if ( object->isEffectivelyDead() )
@@ -1608,6 +1615,18 @@ const Coord3D *OpenContain::getRallyPoint() const
 {
 	if (m_rallyPointExists)
 		return &m_rallyPoint;
+
+#if !RETAIL_COMPATIBLE_CRC
+	// TheSuperHackers @bugfix arcticdolphin 02/03/2026 Use primary exit interface rally point if available.
+	if (getObject())
+	{
+		ExitInterface *primaryExit = getObject()->getObjectExitInterface();
+		if (primaryExit && primaryExit != static_cast<const ExitInterface *>(this))
+		{
+			return primaryExit->getRallyPoint();
+		}
+	}
+#endif
 
 	return nullptr;
 }
