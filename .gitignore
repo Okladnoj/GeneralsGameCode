@@ -80,3 +80,4 @@ test_bgra.*
 
 # Auto-generated large test data
 Platform/MacOS/Tests/captured_textures_data.cpp
+_tasks/

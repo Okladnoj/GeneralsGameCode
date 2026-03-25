@@ -1911,24 +1911,53 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 			break;
 
 		case PeerRequest::PEERREQUEST_UTMPLAYER:
-		{
+	{
 #ifdef __APPLE__
-			if (!incomingRequest.nick.empty())
+		if (!incomingRequest.nick.empty())
+		{
+			std::string cmd = incomingRequest.id;
+			if (!cmd.empty() && cmd.back() == '/')
+				cmd.pop_back();
+			std::string opts = incomingRequest.options;
+
+			std::string utmStr = std::string("__UTM__") + cmd + "/" + opts;
+			GenOnlineWS_SendLobbyChat(AsciiString(utmStr.c_str()).str());
+
+			if (cmd == "REQ")
 			{
-				std::string cmd = incomingRequest.id;
-				if (!cmd.empty() && cmd.back() == '/')
-					cmd.pop_back();
-				std::string utmStr = std::string("__UTM__") + cmd + "/" + incomingRequest.options;
-				GenOnlineWS_SendLobbyChat(AsciiString(utmStr.c_str()).str());
+				size_t eqPos = opts.find('=');
+				if (eqPos != std::string::npos)
+				{
+					std::string key = opts.substr(0, eqPos);
+					int value = atoi(opts.substr(eqPos + 1).c_str());
+
+					if (key == "PlayerTemplate")
+						GenOnlineLobby_UpdateSide(value, -1);
+					else if (key == "Color")
+						GenOnlineLobby_UpdateColor(value);
+					else if (key == "StartPos")
+						GenOnlineLobby_UpdateStartPos(value);
+					else if (key == "Team")
+						GenOnlineLobby_UpdateTeam(value);
+				}
 			}
-#else
-			if (!incomingRequest.nick.empty())
+			else if (cmd == "accept")
 			{
-				peerUTMPlayer( peer, incomingRequest.nick.c_str(), incomingRequest.id.c_str(), incomingRequest.options.c_str(), PEERFalse );
+				GenOnlineLobby_MarkReady(opts == "true" ? 1 : 0);
 			}
-#endif
+			else if (cmd == "MAP")
+			{
+				GenOnlineLobby_UpdateHasMap(atoi(opts.c_str()));
+			}
 		}
-		break;
+#else
+		if (!incomingRequest.nick.empty())
+		{
+			peerUTMPlayer( peer, incomingRequest.nick.c_str(), incomingRequest.id.c_str(), incomingRequest.options.c_str(), PEERFalse );
+		}
+#endif
+	}
+	break;
 
 		case PeerRequest::PEERREQUEST_UTMROOM:
 			{

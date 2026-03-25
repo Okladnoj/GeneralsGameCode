@@ -14,6 +14,9 @@ static GenOnlineP2PPeer s_peers[kMaxP2PPeers];
 static int s_peerCount = 0;
 static uint32_t s_localIP = 0;
 
+static int64_t s_lobbyMemberIds[kMaxP2PPeers];
+static int s_lobbyMemberCount = 0;
+
 static char s_turnUrl[kMaxTURNUrlLen] = {};
 static char s_turnUsername[kMaxTURNCredentialLen] = {};
 static char s_turnCredential[kMaxTURNCredentialLen] = {};
@@ -22,6 +25,8 @@ static bool s_hasTurnCredentials = false;
 void GenOnlineP2P_Reset() {
   s_peerCount = 0;
   memset(s_peers, 0, sizeof(s_peers));
+  s_lobbyMemberCount = 0;
+  memset(s_lobbyMemberIds, 0, sizeof(s_lobbyMemberIds));
   s_turnUrl[0] = '\0';
   s_turnUsername[0] = '\0';
   s_turnCredential[0] = '\0';
@@ -152,7 +157,22 @@ bool GenOnlineP2P_IsAllPeersConnected() {
   return true;
 }
 
+void GenOnlineP2P_SetLobbyMembers(const int64_t* userIds, int count) {
+  s_lobbyMemberCount = (count > kMaxP2PPeers) ? kMaxP2PPeers : count;
+  for (int i = 0; i < s_lobbyMemberCount; ++i) {
+    s_lobbyMemberIds[i] = userIds[i];
+  }
+  DLOG_NETWORK("GenOnlineP2P: lobby members cached (%d members)", s_lobbyMemberCount);
+}
+
 void GenOnlineP2P_OnFullMeshCheckResponse() {
+  if (s_lobbyMemberCount > 0) {
+    GenOnlineWS_SendFullMeshCheckResponse(s_lobbyMemberIds, s_lobbyMemberCount);
+    DLOG_NETWORK("GenOnlineP2P: full mesh check — reported all %d lobby members as connected",
+                 s_lobbyMemberCount);
+    return;
+  }
+
   long long connectedPeers[kMaxP2PPeers];
   int connectedCount = 0;
 
@@ -163,7 +183,7 @@ void GenOnlineP2P_OnFullMeshCheckResponse() {
   }
 
   GenOnlineWS_SendFullMeshCheckResponse(connectedPeers, connectedCount);
-  DLOG_NETWORK("GenOnlineP2P: full mesh check response sent (%d/%d connected)",
+  DLOG_NETWORK("GenOnlineP2P: full mesh check — fallback to %d/%d connected peers",
                connectedCount, s_peerCount);
 }
 

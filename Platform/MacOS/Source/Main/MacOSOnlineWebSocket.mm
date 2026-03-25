@@ -4,6 +4,7 @@
 #include "MacOSOnlineWSBridge.h"
 #include "MacOSOnlineP2P.h"
 #include "MacOSOnlineLobby.h"
+#include "MacOSOnlineLogin.h"
 #include "MacOSDebugLog.h"
 
 void GenOnlineWS_InjectBuddyMessage(int profileID, const char* nick, const char* text);
@@ -80,14 +81,37 @@ static void handleFullMeshCheckComplete(NSDictionary* json) {
 }
 
 static void handleChatFromServer(NSDictionary* json) {
-  NSString* displayName = json[@"display_name"];
   NSString* messageText = json[@"message"];
-  NSNumber* action = json[@"action"];
-  if (!displayName || !messageText) return;
+  if (!messageText) return;
 
+  NSNumber* action = json[@"action"];
   int isAction = (action && [action boolValue]) ? 1 : 0;
+
+  NSString* nick = @"";
+  NSString* body = messageText;
+
+  if (isAction) {
+    NSString* trimmed = [messageText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+    NSRange spaceRange = [trimmed rangeOfString:@" "];
+    if (spaceRange.location != NSNotFound) {
+      nick = [trimmed substringToIndex:spaceRange.location];
+      body = [trimmed substringFromIndex:spaceRange.location + 1];
+    } else {
+      nick = trimmed;
+      body = @"";
+    }
+  } else {
+    if ([messageText hasPrefix:@"["]) {
+      NSRange closeBracket = [messageText rangeOfString:@"] "];
+      if (closeBracket.location != NSNotFound) {
+        nick = [messageText substringWithRange:NSMakeRange(1, closeBracket.location - 1)];
+        body = [messageText substringFromIndex:closeBracket.location + closeBracket.length];
+      }
+    }
+  }
+
   GenOnlineWS_InjectChatMessage(
-      [displayName UTF8String], [messageText UTF8String], isAction);
+      [nick UTF8String], [body UTF8String], isAction);
 }
 
 static NSMutableDictionary<NSString*, NSNumber*>* s_currentMembers = nil;
@@ -128,12 +152,11 @@ static void handleMemberListUpdate(NSDictionary* json) {
 }
 
 static void handleLobbyChatFromServer(NSDictionary* json) {
-  NSString* sender = json[@"sender"];
   NSString* message = json[@"message"];
-  if (!sender || !message) return;
+  if (!message) return;
 
   NSString* actualMessage = message;
-  NSString* actualSender = sender;
+  NSString* actualSender = @"";
 
   if ([message hasPrefix:@"["]) {
     NSRange closeBracket = [message rangeOfString:@"] "];
@@ -161,6 +184,13 @@ static void handleLobbyChatFromServer(NSDictionary* json) {
       DLOG_NETWORK("GenOnlineWS: injected UTM_PLAYER from '%s' cmd='%s' opts='%s'",
                    [actualSender UTF8String], cmd.c_str(), opts.c_str());
     }
+    return;
+  }
+
+  NSNumber* userId = json[@"user_id"];
+  long long senderUserId = userId ? [userId longLongValue] : 0;
+  const GenOnlineSession* session = GenOnline_GetSession();
+  if (session && senderUserId == session->userId) {
     return;
   }
 

@@ -2,6 +2,7 @@
 #include "MacOSOnlineLobby.h"
 #include "MacOSOnlineLogin.h"
 #include "MacOSOnlineWSBridge.h"
+#include "MacOSOnlineWebSocket.h"
 #include "MacOSOnlineP2P.h"
 #include "MacOSDebugLog.h"
 
@@ -485,6 +486,7 @@ void GenOnlineLobby_FetchDetails(int lobbyId) {
               NSDictionary* member = members[i];
 
               NSString* name = member[@"DisplayName"];
+              NSNumber* memberId = member[@"UserID"];
               NSNumber* slotState = member[@"SlotState"];
               NSNumber* side = member[@"Side"];
               NSNumber* color = member[@"Color"];
@@ -501,6 +503,7 @@ void GenOnlineLobby_FetchDetails(int lobbyId) {
               }
 
               slots[i].displayName = slotNames[i];
+              slots[i].userId = memberId ? [memberId longLongValue] : -1;
               slots[i].slotState = slotState ? [slotState intValue] : 0;
               slots[i].side = side ? [side intValue] : 0;
               slots[i].color = color ? [color intValue] : -1;
@@ -517,17 +520,65 @@ void GenOnlineLobby_FetchDetails(int lobbyId) {
           int useStatsVal = useStats ? [useStats boolValue] : 1;
           unsigned short swRestriction = limitSuperweapons ? ([limitSuperweapons boolValue] ? 1 : 0) : 0;
 
-          DLOG_NETWORK("GenOnlineLobby: details id=%d map='%s' host='%s' seed=%d cash=%u slots=%d",
-                       lobbyId, mapPathStr,
-                       [hostName UTF8String], seedVal, cashVal, slotCount);
+          NSNumber* ownerUserId = lobby[@"Owner"];
+          long long ownerId = ownerUserId ? [ownerUserId longLongValue] : -1;
+          const GenOnlineSession* session = GenOnline_GetSession();
+          bool isHost = (session && session->userId == ownerId);
 
-          GenOnlineWS_InjectSlotListUTM(
-              [hostName UTF8String], mapPathStr,
-              0x3F, 0, 0,
-              seedVal, 100, useStatsVal, cashVal,
-              swRestriction, 0,
-              slots, slotCount);
-          DLOG_NETWORK("GenOnlineLobby: FetchDetails complete. Successfully injected WS __UTM__SL: for live slot updates.");
+          DLOG_NETWORK("GenOnlineLobby: details id=%d map='%s' host='%s' seed=%d cash=%u slots=%d isHost=%d",
+                       lobbyId, mapPathStr,
+                       [hostName UTF8String], seedVal, cashVal, slotCount, isHost);
+
+          if (isHost) {
+            for (int i = 1; i < slotCount; ++i) {
+              if (slots[i].slotState != 5 || slots[i].displayName[0] == '\0') {
+                continue;
+              }
+
+              char optBuf[64];
+
+              snprintf(optBuf, sizeof(optBuf), "PlayerTemplate=%d", slots[i].side);
+              GenOnlineWS_InjectPlayerUTM(slots[i].displayName, "REQ", optBuf);
+
+              snprintf(optBuf, sizeof(optBuf), "Color=%d", slots[i].color);
+              GenOnlineWS_InjectPlayerUTM(slots[i].displayName, "REQ", optBuf);
+
+              snprintf(optBuf, sizeof(optBuf), "Team=%d", slots[i].team);
+              GenOnlineWS_InjectPlayerUTM(slots[i].displayName, "REQ", optBuf);
+
+              snprintf(optBuf, sizeof(optBuf), "StartPos=%d", slots[i].startPos);
+              GenOnlineWS_InjectPlayerUTM(slots[i].displayName, "REQ", optBuf);
+
+              snprintf(optBuf, sizeof(optBuf), "%d", slots[i].hasMap);
+              GenOnlineWS_InjectPlayerUTM(slots[i].displayName, "MAP", optBuf);
+
+              if (slots[i].isAccepted) {
+                GenOnlineWS_InjectPlayerUTM(slots[i].displayName, "accept", "");
+              }
+
+              DLOG_NETWORK("GenOnlineLobby: host-merge slot %d '%s' side=%d color=%d team=%d",
+                           i, slots[i].displayName, slots[i].side, slots[i].color, slots[i].team);
+            }
+          } else {
+            GenOnlineWS_InjectSlotListUTM(
+                [hostName UTF8String], mapPathStr,
+                0x3F, 0, 0,
+                seedVal, 100, useStatsVal, cashVal,
+                swRestriction, 0,
+                slots, slotCount);
+          }
+
+          int64_t humanMemberIds[8];
+          int humanCount = 0;
+          for (int i = 0; i < slotCount; ++i) {
+            if (slots[i].slotState == 5 && slots[i].userId > 0) {
+              humanMemberIds[humanCount++] = slots[i].userId;
+            }
+          }
+          GenOnlineP2P_SetLobbyMembers(humanMemberIds, humanCount);
+
+          DLOG_NETWORK("GenOnlineLobby: FetchDetails complete. isHost=%d cached %d human members.",
+                       isHost, humanCount);
         }];
   [task resume];
 }
@@ -730,10 +781,203 @@ void GenOnlineLobby_FetchList(void) {
                 memberInfos, memberCount);
           }
 
-          DLOG_NETWORK("GenOnlineLobby: injected %lu lobby entries",
+           DLOG_NETWORK("GenOnlineLobby: injected %lu lobby entries",
                        (unsigned long)[lobbies count]);
         }];
   [task resume];
+}
+
+static void postLobbyUpdate(NSDictionary* body) {
+  int lobbyId = GenOnlineLobby_GetCreatedLobbyId();
+  if (lobbyId <= 0) {
+    DLOG_NETWORK("GenOnlineLobby: postLobbyUpdate skipped, no lobby id");
+    return;
+  }
+
+  NSString* urlStr = [NSString
+      stringWithFormat:@"%s/env/%s/contract/%s/Lobby/%d",
+                       kLobbyApiURL, kLobbyEnv, kLobbyContract, lobbyId];
+
+  NSMutableURLRequest* request = createAuthorizedRequest(urlStr, @"POST");
+
+  NSError* jsonError = nil;
+  NSData* jsonData = [NSJSONSerialization dataWithJSONObject:body
+                                                    options:0
+                                                      error:&jsonError];
+  if (jsonError || !jsonData) {
+    DLOG_NETWORK("GenOnlineLobby: postLobbyUpdate JSON serialize error");
+    return;
+  }
+
+  [request setHTTPBody:jsonData];
+
+  NSURLSessionDataTask* task = [getLobbySession()
+      dataTaskWithRequest:request
+        completionHandler:^(NSData* data, NSURLResponse* response,
+                            NSError* error) {
+          NSHTTPURLResponse* httpResp = (NSHTTPURLResponse*)response;
+          long status = httpResp ? [httpResp statusCode] : 0;
+          if (error || status < 200 || status >= 300) {
+            DLOG_NETWORK("GenOnlineLobby: postLobbyUpdate failed HTTP %ld err=%s",
+                         status,
+                         error ? [[error localizedDescription] UTF8String] : "none");
+            return;
+          }
+          DLOG_NETWORK("GenOnlineLobby: postLobbyUpdate OK (HTTP %ld)", status);
+        }];
+  [task resume];
+}
+
+void GenOnlineLobby_UpdateMap(const char* map, const char* mapPath,
+    int mapOfficial, int maxPlayers) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateMap map='%s' path='%s' official=%d maxPlayers=%d",
+               map, mapPath, mapOfficial, maxPlayers);
+  postLobbyUpdate(@{
+    @"field" : @(0),
+    @"map" : [NSString stringWithUTF8String:map],
+    @"map_path" : [NSString stringWithUTF8String:mapPath],
+    @"map_official" : @(mapOfficial ? YES : NO),
+    @"max_players" : @(maxPlayers)
+  });
+}
+
+void GenOnlineLobby_UpdateSide(int side, int startPos) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateSide side=%d startPos=%d", side, startPos);
+  postLobbyUpdate(@{
+    @"field" : @(1),
+    @"side" : @(side),
+    @"start_pos" : @(startPos)
+  });
+}
+
+void GenOnlineLobby_UpdateColor(int color) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateColor color=%d", color);
+  postLobbyUpdate(@{
+    @"field" : @(2),
+    @"color" : @(color)
+  });
+}
+
+void GenOnlineLobby_UpdateStartPos(int startPos) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateStartPos startPos=%d", startPos);
+  postLobbyUpdate(@{
+    @"field" : @(3),
+    @"startpos" : @(startPos)
+  });
+}
+
+void GenOnlineLobby_UpdateTeam(int team) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateTeam team=%d", team);
+  postLobbyUpdate(@{
+    @"field" : @(4),
+    @"team" : @(team)
+  });
+}
+
+void GenOnlineLobby_UpdateStartingCash(unsigned int cash) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateStartingCash cash=%u", cash);
+  postLobbyUpdate(@{
+    @"field" : @(5),
+    @"startingcash" : @(cash)
+  });
+}
+
+void GenOnlineLobby_UpdateLimitSuperweapons(int limit) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateLimitSuperweapons limit=%d", limit);
+  postLobbyUpdate(@{
+    @"field" : @(6),
+    @"limit_superweapons" : @(limit ? YES : NO)
+  });
+}
+
+void GenOnlineLobby_ForceStart(void) {
+  DLOG_NETWORK("GenOnlineLobby: ForceStart");
+  postLobbyUpdate(@{
+    @"field" : @(7)
+  });
+}
+
+void GenOnlineLobby_UpdateHasMap(int hasMap) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateHasMap hasMap=%d", hasMap);
+  postLobbyUpdate(@{
+    @"field" : @(8),
+    @"has_map" : @(hasMap ? YES : NO)
+  });
+}
+
+void GenOnlineLobby_KickUser(long long userId) {
+  DLOG_NETWORK("GenOnlineLobby: KickUser userId=%lld", userId);
+  postLobbyUpdate(@{
+    @"field" : @(11),
+    @"userid" : @(userId)
+  });
+}
+
+void GenOnlineLobby_SetSlotState(int slotIndex, int slotState) {
+  DLOG_NETWORK("GenOnlineLobby: SetSlotState slot=%d state=%d", slotIndex, slotState);
+  postLobbyUpdate(@{
+    @"field" : @(12),
+    @"slot_index" : @(slotIndex),
+    @"slot_state" : @(slotState)
+  });
+}
+
+void GenOnlineLobby_UpdateAISide(int slot, int side, int startPos) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateAISide slot=%d side=%d startPos=%d", slot, side, startPos);
+  postLobbyUpdate(@{
+    @"field" : @(13),
+    @"slot" : @(slot),
+    @"side" : @(side),
+    @"start_pos" : @(startPos)
+  });
+}
+
+void GenOnlineLobby_UpdateAIColor(int slot, int color) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateAIColor slot=%d color=%d", slot, color);
+  postLobbyUpdate(@{
+    @"field" : @(14),
+    @"slot" : @(slot),
+    @"color" : @(color)
+  });
+}
+
+void GenOnlineLobby_UpdateAITeam(int slot, int team) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateAITeam slot=%d team=%d", slot, team);
+  postLobbyUpdate(@{
+    @"field" : @(15),
+    @"slot" : @(slot),
+    @"team" : @(team)
+  });
+}
+
+void GenOnlineLobby_UpdateAIStartPos(int slot, int startPos) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateAIStartPos slot=%d startPos=%d", slot, startPos);
+  postLobbyUpdate(@{
+    @"field" : @(16),
+    @"slot" : @(slot),
+    @"start_pos" : @(startPos)
+  });
+}
+
+void GenOnlineLobby_UpdateMaxCameraHeight(unsigned short maxCamHeight) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateMaxCameraHeight height=%u", maxCamHeight);
+  postLobbyUpdate(@{
+    @"field" : @(17),
+    @"max_camera_height" : @(maxCamHeight)
+  });
+}
+
+void GenOnlineLobby_UpdateJoinability(int joinability) {
+  DLOG_NETWORK("GenOnlineLobby: UpdateJoinability joinability=%d", joinability);
+  postLobbyUpdate(@{
+    @"field" : @(18),
+    @"joinability" : @(joinability)
+  });
+}
+
+void GenOnlineLobby_MarkReady(int ready) {
+  DLOG_NETWORK("GenOnlineLobby: MarkReady ready=%d", ready);
+  GenOnlineWS_SendReady(ready);
 }
 
 #endif // __APPLE__

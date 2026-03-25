@@ -931,4 +931,81 @@ ICMP echo implementation using BSD sockets + `select()` for timeout.
 | `WOLLoginMenu.cpp` | Consumer — calls `startPings()`, `checkLogin()` |
 | `Core/.../GSConfig.cpp` | Provides `getPingServers()` list — verify servers are reachable |
 
+---
 
+## Confirmed Issue (2026-03-16): WS↔IRC Bridge Gap — REQ Not Reaching GenTool Hosts
+
+### Problem
+
+macOS client sends staging room UTM commands (`__UTM__REQ/Color=1`, `__UTM__REQ/Team=0`,
+`__UTM__accept/true`, etc.) via **WebSocket lobby chat** (`msg_id=10`).
+
+Windows GenTool clients use **IRC** (`peerUTMPlayer`/`peerMessageRoom`) for lobby communication.
+
+**The server does NOT bridge WS lobby chat → IRC staging room.** This means:
+
+1. Our `REQ` commands are echoed back to us (msg_id=11, same user_id) but **never reach the Windows host**
+2. The Windows host never updates our slot settings (Color, Team, StartPos, PlayerTemplate)
+3. Host's SL UTM always shows our settings as `-1` (default/unset)
+4. When we Accept, SL from host resets our locally-chosen settings to `-1`
+
+### Evidence from logs
+
+We send: `__UTM__REQ/Color=1`, `__UTM__REQ/Team=0`, `__UTM__REQ/StartPos=1`
+
+Host's SL response shows: `HDima Ok,0,0,TT,-1,-1,-1,-1,0` — all settings are `-1`.
+
+### How Windows GenTool communicates
+
+GenTool hooks GameSpy IRC SDK on Windows. However, in the GeneralsOnline
+architecture, there is NO IRC. GenTool intercepts and replaces GameSpy
+networking with REST + WebSocket communication to the GeneralsOnlineServices backend.
+
+### Confirmed: Settings Flow via Server State (msg_id=6)
+
+GenTool does NOT parse `__UTM__REQ/...` from lobby chat for settings.
+Instead, settings (Color, Side, Team, StartPos, HasMap, IsReady) flow through:
+
+1. Client → REST POST /Lobby/{id} → server updates authoritative lobby state
+2. Server → msg_id=6 (LOBBY_CURRENT_LOBBY_UPDATE) to all lobby members
+3. `WebSocketMessage_CurrentLobbyUpdate` is **empty** — contains only msg_id
+4. Each client → GET /Lobby/{id} → receives full lobby JSON including all Members[]
+5. GenTool host merges server state into local GameInfo → setGameOptions() → SL broadcast
+
+Evidence: zero PLAYERUTM messages from Windows clients in macOS logs.
+Only our own echoed UTMs appear.
+
+### SL Broadcast via Lobby Chat
+
+GenTool host DOES send `__UTM__SL:<options>` via WS lobby chat (msg_id=10→11).
+This is how all clients receive the authoritative slot configuration.
+
+### Pings
+
+Host measures ping to each client via P2P (not from UTM chat).
+"No light" (no ping indicator) = host cannot establish P2P UDP connection.
+
+### Full Mesh Connectivity Check
+
+Server flow: host sends msg_id=26 → server sends msg_id=27 to all →
+everyone responds with msg_id=27 containing connectivity_map (array of UserIDs
+they can reach) → server aggregates and sends msg_id=28 to host.
+
+In the WS architecture, all members are reachable through the server,
+so we report ALL human lobby member UserIDs in our connectivity_map.
+
+### Files Involved
+
+| File | Role |
+|------|------|
+| `MacOSOnlineWebSocket.mm` | Sends/receives msg_id=10/11 (WS lobby chat) |
+| `MacOSOnlineLobby.mm` | REST API wrappers + FetchDetails (GET /Lobby/{id}) |
+| `MacOSOnlineP2P.mm` | Lobby member cache + full mesh check response |
+| `MacOSOnlineWSBridge.cpp` | WS → GameEngine bridge (inject UTM into PeerMessageQueue) |
+| `PeerThread.cpp:1584` | PEERREQUEST_MESSAGEROOM → GenOnlineWS_SendLobbyChat() |
+| `PeerThread.cpp:1904` | PEERREQUEST_UTMPLAYER → GenOnlineWS_SendLobbyChat() |
+| `PeerDefs.cpp:169` | setGameOptions() → SL build + broadcast |
+| `WOLGameSetupMenu.cpp:2207` | Host-side UTM processing (REQ, accept, MAP) |
+| `LobbyManager.cs` | Server: lobby state, full mesh check logic |
+| `WebSocketController.cs` | Server: WS message routing, msg_id dispatch |
+| `Constants.cs:2090` | WebSocketMessage_CurrentLobbyUpdate (empty!) |

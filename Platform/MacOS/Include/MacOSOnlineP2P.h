@@ -34,6 +34,8 @@ void GenOnlineP2P_OnNetworkSignal(int64_t fromUserId, const unsigned char* paylo
 void GenOnlineP2P_OnDisconnectPlayer(int64_t lobbyId, int64_t userId);
 void GenOnlineP2P_OnFullMeshCheckResponse();
 
+void GenOnlineP2P_SetLobbyMembers(const int64_t* userIds, int count);
+
 void GenOnlineP2P_RemovePeer(int64_t userId);
 bool GenOnlineP2P_IsAllPeersConnected();
 

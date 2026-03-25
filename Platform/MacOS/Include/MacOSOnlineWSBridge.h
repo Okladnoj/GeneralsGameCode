@@ -2,6 +2,8 @@
 
 #ifdef __APPLE__
 
+#include <cstdint>
+
 #define MAX_LOBBY_MEMBERS 8
 
 struct LobbyMemberInfo {
@@ -15,6 +17,7 @@ struct LobbyMemberInfo {
 
 struct LobbySlotInfo {
     const char* displayName;
+    int64_t userId;
     int slotState;
     int side;
     int color;

@@ -213,6 +213,13 @@ void GameSpyInfo::addChat( AsciiString nick, Int profileID, UnicodeString msg, B
 	}
 	else
 	{
+#ifdef __APPLE__
+		PlayerInfo p;
+		p.m_name = nick;
+		p.m_profileID = profileID;
+		p.m_flags = 0;
+		addChat( p, msg, isPublic, isAction, win );
+#endif
 	}
 }
 
