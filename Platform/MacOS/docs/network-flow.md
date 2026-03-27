@@ -430,9 +430,12 @@ All messages are JSON with an `msg_id` field:
 | Game start | ✅ Send `GenOnlineWS_SendStartGame()` (msg_id=13) + countdown (23) |
 | Lobby password | ✅ Send remove (msg_id=24) + change (msg_id=25) |
 | MOTD | ✅ REST `GET /MOTD` → chat injection |
-| P2P signaling (send) | ✅ Send functions (msg_id=12,19,26,27), recv→P2P state, transport hook |
+| P2P signaling (send) | ✅ GNS via `GenSignaling::SendSignal` → `GenOnlineWS_SendSignal` (msg_id=12) |
+| P2P signaling (recv) | ✅ GNS via `ReceivedP2PCustomSignal` → `GenSignalingRecvContext` |
+| P2P self-dial filter | ✅ `handleStartSignalling` skips own user_id from msg_id=17 broadcast |
 | P2P disconnect | ✅ Recv (msg_id=18) → remove peer from P2P state array |
-| TURN credentials | ✅ Parsed from REST response (create/join lobby) → P2P state |
+| TURN credentials | ✅ Parsed from REST, applied to GNS only when non-empty |
+| GNS P2P Transport | 🟡 Testing | GNS init + ICE relay-only + polling, needs live verification |
 | Matchmaking | ❌ Not implemented |
 | Friend system | ❌ Not implemented |
 | Stats/Leaderboards | ❌ Not implemented |

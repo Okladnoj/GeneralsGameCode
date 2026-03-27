@@ -39,6 +39,9 @@ void GenOnlineP2P_SetLobbyMembers(const int64_t* userIds, int count);
 void GenOnlineP2P_RemovePeer(int64_t userId);
 bool GenOnlineP2P_IsAllPeersConnected();
 
+void GenOnlineP2P_SetSlotUserId(int slotIndex, int64_t userId);
+
+
 void GenOnlineP2P_SetLocalIP(uint32_t ip);
 uint32_t GenOnlineP2P_GetLocalIP();
 

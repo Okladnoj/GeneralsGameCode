@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #include "MacOSOnlineP2P.h"
 #include "MacOSOnlineWebSocket.h"
+#include "MacOSWebRTC.h"
 #include "MacOSDebugLog.h"
 
 #include <arpa/inet.h>
@@ -13,6 +14,9 @@
 static GenOnlineP2PPeer s_peers[kMaxP2PPeers];
 static int s_peerCount = 0;
 static uint32_t s_localIP = 0;
+
+static int64_t s_slotUserIds[kMaxP2PPeers];
+static int s_slotUserIdCount = 0;
 
 static int64_t s_lobbyMemberIds[kMaxP2PPeers];
 static int s_lobbyMemberCount = 0;
@@ -31,6 +35,8 @@ void GenOnlineP2P_Reset() {
   s_turnUsername[0] = '\0';
   s_turnCredential[0] = '\0';
   s_hasTurnCredentials = false;
+  s_slotUserIdCount = 0;
+  memset(s_slotUserIds, 0, sizeof(s_slotUserIds));
   DLOG_NETWORK("GenOnlineP2P: reset");
 }
 
@@ -275,6 +281,40 @@ extern "C" void GenOnlineP2P_ApplyPeerAddresses(void* slotArray, int slotCount) 
   }
 }
 
+void GenOnlineP2P_SetSlotUserId(int slotIndex, int64_t userId) {
+  if (slotIndex < 0 || slotIndex >= kMaxP2PPeers) {
+    return;
+  }
+
+  s_slotUserIds[slotIndex] = userId;
+  if (slotIndex >= s_slotUserIdCount) {
+    s_slotUserIdCount = slotIndex + 1;
+  }
+  DLOG_NETWORK("GenOnlineP2P: slot %d → userId %lld", slotIndex, userId);
+}
+
+extern "C" long long GenOnlineP2P_GetSlotUserId(int slotIndex) {
+  if (slotIndex < 0 || slotIndex >= kMaxP2PPeers) {
+    return 0;
+  }
+  return s_slotUserIds[slotIndex];
+}
+
+extern "C" int GenOnlineP2P_GetPeerAddressForUserId(long long userId, unsigned int* outIp, unsigned short* outPort) {
+  if (userId <= 0) {
+    return 0;
+  }
+
+  GenOnlineP2PPeer* peer = GenOnlineP2P_FindPeer(userId);
+  if (!peer || peer->state != GenOnlineP2PState::Connected) {
+    return 0;
+  }
+
+  *outIp = peer->ip;
+  *outPort = peer->port;
+  return 1;
+}
+
 void GenOnlineP2P_SetTURNCredentials(const char* url, const char* username, const char* credential) {
   if (url) {
     strncpy(s_turnUrl, url, kMaxTURNUrlLen - 1);
@@ -291,6 +331,8 @@ void GenOnlineP2P_SetTURNCredentials(const char* url, const char* username, cons
   s_hasTurnCredentials = (username && username[0] != '\0');
   DLOG_NETWORK("GenOnlineP2P: TURN credentials set (user=%s, hasCreds=%d)",
                s_turnUsername, s_hasTurnCredentials ? 1 : 0);
+
+  GenWebRTC_SetTurnCredentials(s_turnUrl, s_turnUsername, s_turnCredential);
 }
 
 bool GenOnlineP2P_HasTURNCredentials() {

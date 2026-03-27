@@ -87,6 +87,8 @@ void GenOnlineLobby_MarkReady(int ready);
 
 unsigned int GenOnlineP2P_ResolveLocalIP(void);
 void GenOnlineP2P_ApplyPeerAddresses(void* slotArray, int slotCount);
+long long GenOnlineP2P_GetSlotUserId(int slotIndex);
+int GenOnlineP2P_GetPeerAddressForUserId(long long userId, unsigned int* outIp, unsigned short* outPort);
 
 #ifdef __cplusplus
 }

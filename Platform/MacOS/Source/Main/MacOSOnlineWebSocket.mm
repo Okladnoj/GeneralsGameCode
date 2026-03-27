@@ -1,8 +1,10 @@
 #include <string>
+#include <vector>
 #import <Foundation/Foundation.h>
 #include "MacOSOnlineWebSocket.h"
 #include "MacOSOnlineWSBridge.h"
 #include "MacOSOnlineP2P.h"
+#include "MacOSWebRTC.h"
 #include "MacOSOnlineLobby.h"
 #include "MacOSOnlineLogin.h"
 #include "MacOSDebugLog.h"
@@ -29,21 +31,47 @@ static void scheduleReceive();
 
 static void handleStartGame(NSDictionary* json) {
   DLOG_NETWORK("GenOnlineWS: START_GAME received — game is launching!");
+  GenOnlineWS_InjectGameStart();
 }
 
 static void handleStartSignalling(NSDictionary* json) {
+  NSError* err = nil;
+  NSData* jsData = [NSJSONSerialization dataWithJSONObject:json options:0 error:&err];
+  NSString* jsStr = [[NSString alloc] initWithData:jsData encoding:NSUTF8StringEncoding];
+  printf("NETWORK: GenOnlineWS: SIGNAL msg_id=17 raw json=%s\n", [jsStr UTF8String]);
+  fflush(stdout);
+
   NSNumber* userId = json[@"user_id"];
   NSNumber* lobbyId = json[@"lobby_id"];
   NSNumber* preferredPort = json[@"preferred_port"];
   if (!userId) return;
 
   long long uid = [userId longLongValue];
+
+  const GenOnlineSession* session = GenOnline_GetSession();
+  if (session && uid == session->userId) {
+    printf("NETWORK: GenOnlineWS: SIGNAL msg_id=17 SKIPPED (self user_id=%lld)\n", uid);
+    fflush(stdout);
+    return;
+  }
+
   long long lid = lobbyId ? [lobbyId longLongValue] : 0;
   int port = preferredPort ? [preferredPort intValue] : 0;
-  GenOnlineP2P_OnStartSignalling(lid, uid, port);
+
+  if (session) {
+    GenWebRTC_SetLocalUserId(session->userId);
+  }
+
+  GenWebRTC_OnStartSignalling(lid, uid, port);
 }
 
 static void handleNetworkSignal(NSDictionary* json) {
+  NSError* err = nil;
+  NSData* jsData = [NSJSONSerialization dataWithJSONObject:json options:0 error:&err];
+  NSString* jsStr = [[NSString alloc] initWithData:jsData encoding:NSUTF8StringEncoding];
+  printf("NETWORK: GenOnlineWS: SIGNAL msg_id=12 raw json=%s\n", [jsStr UTF8String]);
+  fflush(stdout);
+
   NSNumber* userId = json[@"target_user_id"];
   NSArray* payload = json[@"payload"];
   if (!userId) return;
@@ -51,13 +79,15 @@ static void handleNetworkSignal(NSDictionary* json) {
   long long uid = [userId longLongValue];
   int payloadLen = payload ? (int)[payload count] : 0;
 
-  unsigned char payloadBytes[256];
-  int bytesToCopy = (payloadLen > 256) ? 256 : payloadLen;
-  for (int i = 0; i < bytesToCopy; ++i) {
+  std::vector<unsigned char> payloadBytes(payloadLen);
+  for (int i = 0; i < payloadLen; ++i) {
     payloadBytes[i] = (unsigned char)[[payload objectAtIndex:i] unsignedCharValue];
   }
 
-  GenOnlineP2P_OnNetworkSignal(uid, payloadBytes, bytesToCopy);
+  printf("NETWORK: GenOnlineWS: SIGNAL from user=%lld len=%d\n", uid, payloadLen);
+  fflush(stdout);
+
+  GenWebRTC_OnSignalPayload(uid, payloadBytes.data(), payloadLen);
 }
 
 static void handleDisconnectPlayer(NSDictionary* json) {
@@ -68,6 +98,7 @@ static void handleDisconnectPlayer(NSDictionary* json) {
   long long uid = [userId longLongValue];
   long long lid = lobbyId ? [lobbyId longLongValue] : 0;
   GenOnlineP2P_OnDisconnectPlayer(lid, uid);
+  GenWebRTC_RemovePeer(uid);
 }
 
 static void handleFullMeshCheckResponse(NSDictionary* json) {
@@ -452,6 +483,8 @@ void GenOnlineWS_Disconnect() {
 
 void GenOnlineWS_Update() {
   if (s_wsState != GenOnlineWSState::Connected) return;
+
+  GenWebRTC_Poll();
 
   CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
   if (now - s_lastPingTime < kPingInterval) return;

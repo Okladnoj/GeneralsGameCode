@@ -83,6 +83,14 @@ fi
 
 sleep 1
 
+LOG_DIR="Platform/MacOS/Build/Logs"
+LOG_FILE="$LOG_DIR/game.log"
+if [ -f "$LOG_FILE" ]; then
+    [ -f "$LOG_FILE.bak" ] && mv "$LOG_FILE.bak" "$LOG_FILE.bak2"
+    cp "$LOG_FILE" "$LOG_FILE.bak"
+    echo "Logs backed up: game.log → game.log.bak"
+fi
+
 echo "Killing previous generalszh instance..."
 killall generalszh 2>/dev/null
 

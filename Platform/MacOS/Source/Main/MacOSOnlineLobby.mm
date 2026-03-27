@@ -75,7 +75,7 @@ void GenOnlineLobby_Create(const char* gameName, const char* mapName,
   body[@"map_path"] = [NSString stringWithUTF8String:(mapPath ? mapPath : "")];
   body[@"map_official"] = @(mapOfficial ? true : false);
   body[@"max_players"] = @(maxPlayers > 0 ? maxPlayers : 8);
-  body[@"preferred_port"] = @(preferredPort);
+  body[@"preferred_port"] = @(0); // WebRTC ICE requires vport 0
   body[@"vanilla_teams"] = @(false);
   body[@"track_stats"] = @(useStats ? true : false);
   body[@"starting_cash"] = @(startingCash);
@@ -175,7 +175,7 @@ void GenOnlineLobby_Join(int lobbyId, const char* password) {
   NSMutableURLRequest* request = createAuthorizedRequest(urlStr, @"PUT");
 
   NSMutableDictionary* body = [NSMutableDictionary dictionary];
-  body[@"preferred_port"] = @(8088);
+  body[@"preferred_port"] = @(0); // WebRTC ICE needs 0
   body[@"has_map"] = @(YES);
   if (password && strlen(password) > 0) {
     body[@"password"] = [NSString stringWithUTF8String:password];
@@ -511,6 +511,8 @@ void GenOnlineLobby_FetchDetails(int lobbyId) {
               slots[i].startPos = startPos ? [startPos intValue] : -1;
               slots[i].hasMap = hasMap ? [hasMap boolValue] : 0;
               slots[i].isAccepted = isReady ? [isReady boolValue] : 0;
+
+              GenOnlineP2P_SetSlotUserId(i, slots[i].userId);
             }
           }
 

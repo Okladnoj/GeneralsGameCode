@@ -404,6 +404,9 @@ void UpdateLocalPlayerStats(void) {
   return;
 }
 
+#ifdef __APPLE__
+bool s_pingStringSet = false;
+#endif
 static Bool raiseMessageBoxes = FALSE;
 //-------------------------------------------------------------------------------------------------
 /** Initialize the WOL Welcome Menu */
@@ -583,6 +586,13 @@ void WOLWelcomeMenuInit(WindowLayout *layout, void *userData) {
     GameSpyOpenOverlay(GSOVERLAY_LOCALESELECT);
   }
 
+#ifdef __APPLE__
+  {
+    s_pingStringSet = false;
+    GenOnlineWS_StartLatencyMeasurement();
+  }
+#endif
+
   raiseMessageBoxes = TRUE;
   TheTransitionHandler->setGroup("WOLWelcomeMenuFade");
 }
@@ -647,7 +657,6 @@ void WOLWelcomeMenuUpdate(WindowLayout *layout, void *userData) {
       TheGameSpyPeerMessageQueue) {
 #ifdef __APPLE__
     if (TheGameSpyInfo) {
-      static bool s_pingStringSet = false;
       if (!s_pingStringSet) {
         int latencyMs = GenOnlineWS_GetMeasuredLatency();
         if (latencyMs >= 0) {

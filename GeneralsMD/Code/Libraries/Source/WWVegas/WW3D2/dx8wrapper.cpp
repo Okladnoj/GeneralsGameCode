@@ -1234,6 +1234,7 @@ bool DX8Wrapper::Set_Render_Device(int dev, int width, int height, int bits,
 	}
 
 	_PresentParameters.MultiSampleType = MultiSampleAntiAliasing;
+  }
 
 	/*
 	** Time to actually create the device.

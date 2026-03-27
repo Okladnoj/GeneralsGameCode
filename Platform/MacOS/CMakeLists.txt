@@ -1,6 +1,58 @@
 # Platform/MacOS — Metal backend, Cocoa integration, platform stubs
 # This library provides the macOS platform layer that replaces Win32Device components.
 
+# ── GameNetworkingSockets (Valve P2P transport) ──
+include(FetchContent)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
+
+set(BUILD_SHARED_LIB OFF CACHE BOOL "" FORCE)
+set(BUILD_STATIC_LIB ON  CACHE BOOL "" FORCE)
+set(BUILD_TESTS      OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES   OFF CACHE BOOL "" FORCE)
+set(ENABLE_ICE       ON  CACHE BOOL "" FORCE)
+set(USE_STEAMWEBRTC  ON  CACHE BOOL "" FORCE)
+add_definitions(-DSTEAMWEBRTC_USE_STATIC_LIBS -DSTEAMNETWORKINGSOCKETS_ENABLE_WEBRTC)
+set(USE_CRYPTO       "OpenSSL" CACHE STRING "" FORCE)
+set(USE_CRYPTO25519  "OpenSSL" CACHE STRING "" FORCE)
+set(Protobuf_USE_STATIC_LIBS OFF CACHE BOOL "" FORCE)
+
+list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/openssl@3")
+list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/protobuf")
+list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/abseil")
+
+set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3" CACHE PATH "" FORCE)
+set(Protobuf_ROOT "/opt/homebrew/opt/protobuf" CACHE PATH "" FORCE)
+set(Protobuf_INCLUDE_DIR "/opt/homebrew/opt/protobuf/include" CACHE PATH "" FORCE)
+set(Protobuf_PROTOC_EXECUTABLE "/opt/homebrew/opt/protobuf/bin/protoc" CACHE PATH "" FORCE)
+
+find_package(OpenSSL REQUIRED)
+find_package(absl REQUIRED HINTS /opt/homebrew/opt/abseil/lib/cmake/absl)
+
+include_directories(SYSTEM /opt/homebrew/opt/abseil/include)
+
+FetchContent_Declare(
+    GameNetworkingSockets
+    GIT_REPOSITORY https://github.com/ValveSoftware/GameNetworkingSockets.git
+    GIT_TAG        master
+    GIT_SHALLOW    TRUE
+    PATCH_COMMAND  sed -i "" "s/set(absl_FOUND OFF)/#set(absl_FOUND OFF) # patched: use system abseil/" src/external/steamwebrtc/CMakeLists.txt
+)
+FetchContent_MakeAvailable(GameNetworkingSockets)
+
+FetchContent_GetProperties(GameNetworkingSockets SOURCE_DIR GNS_SOURCE_DIR)
+set(GNS_INCLUDE_DIR "${GNS_SOURCE_DIR}/include" CACHE PATH "" FORCE)
+
+target_include_directories(GameNetworkingSockets_s SYSTEM PUBLIC
+    /opt/homebrew/opt/abseil/include
+)
+
+target_sources(GameNetworkingSockets_s PRIVATE
+    ${GNS_SOURCE_DIR}/src/steamnetworkingsockets/clientlib/steamnetworkingsockets_p2p_webrtc.cpp
+)
+target_compile_definitions(GameNetworkingSockets_s PRIVATE
+    STEAMNETWORKINGSOCKETS_ENABLE_WEBRTC
+)
+
 # ── Metal rendering backend (DX8 → Metal) ──
 set(METAL_SRC
     Source/Metal/MetalDevice8.mm
@@ -27,6 +79,7 @@ set(MAIN_SRC
     Source/Main/MacOSOnlineWSBridge.cpp
     Source/Main/MacOSOnlineLobby.mm
     Source/Main/MacOSOnlineP2P.mm
+    Source/Main/MacOSWebRTC.mm
     Source/Main/MacOSOnlineStats.mm
     Source/Main/MacOSOnlineSocial.mm
     Source/Main/MacOSOnlineQM.mm
@@ -92,6 +145,7 @@ target_include_directories(macos_platform PUBLIC
 target_include_directories(macos_platform PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Metal
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Main
+    ${GNS_INCLUDE_DIR}
     # WWVegas include paths — needed because .mm files include game engine headers
     # whose chain reaches always.h, WWCommon.h, wwdebug.h etc.
     ${CMAKE_SOURCE_DIR}/Core/Libraries/Source/WWVegas/WWLib
@@ -155,6 +209,46 @@ target_link_libraries(macos_platform PUBLIC
     milesstub
     resources
     gamespy
+    GameNetworkingSockets_s
+)
+target_compile_definitions(macos_platform PRIVATE STEAMNETWORKINGSOCKETS_STATIC_LINK)
+target_link_directories(macos_platform PUBLIC /opt/homebrew/opt/abseil/lib /opt/homebrew/opt/protobuf/lib)
+target_link_libraries(macos_platform PUBLIC
+    protobuf
+    absl_log_internal_check_op
+    absl_log_internal_conditions
+    absl_log_internal_message
+    absl_log_internal_nullguard
+    absl_log_internal_log_sink_set
+    absl_log_internal_globals
+    absl_log_internal_format
+    absl_log_internal_proto
+    absl_log_sink
+    absl_log_globals
+    absl_examine_stack
+    absl_raw_logging_internal
+    absl_spinlock_wait
+    absl_strerror
+    absl_str_format_internal
+    absl_strings
+    absl_strings_internal
+    absl_int128
+    absl_throw_delegate
+    absl_base
+    absl_malloc_internal
+    absl_time
+    absl_time_zone
+    absl_synchronization
+    absl_kernel_timeout_internal
+    absl_graphcycles_internal
+    absl_stacktrace
+    absl_symbolize
+    absl_debugging_internal
+    absl_demangle_internal
+    absl_demangle_rust
+    absl_decode_rust_punycode
+    absl_utf8_for_code_point
+    OpenSSL::Crypto
 )
 # Zero Hour includes and defines — PRIVATE to avoid leaking RTS_ZEROHOUR
 # to the Generals target that also links macos_platform

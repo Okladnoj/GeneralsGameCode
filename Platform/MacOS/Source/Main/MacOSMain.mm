@@ -420,7 +420,7 @@ FunctionLexicon *Win32GameEngine::createFunctionLexicon(void) {
   fprintf(stderr, "FACTORY: createFunctionLexicon (W3D)\n");
   return new W3DFunctionLexicon();
 }
-ParticleSystemManager *Win32GameEngine::createParticleSystemManager(void) {
+ParticleSystemManager *Win32GameEngine::createParticleSystemManager(Bool dummy) {
   fprintf(stderr, "FACTORY: createParticleSystemManager (W3D)\n");
   return new W3DParticleSystemManager();
 }

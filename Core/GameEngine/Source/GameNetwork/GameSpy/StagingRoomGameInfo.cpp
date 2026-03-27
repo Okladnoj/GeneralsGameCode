@@ -614,7 +614,41 @@ void GameSpyStagingRoom::startGame(Int gameID)
 //#endif // defined(RTS_DEBUG)
 	{
 #ifdef __APPLE__
-		GenOnlineP2P_ApplyPeerAddresses(m_slot, MAX_SLOTS);
+		{
+			Int localSlot = getLocalSlotNum();
+			for (Int i = 0; i < MAX_SLOTS; ++i)
+			{
+				if (i == localSlot)
+				{
+					m_slot[i]->setIP(m_localIP);
+					continue;
+				}
+
+				if (!m_GameSpySlot[i].isHuman())
+				{
+					continue;
+				}
+
+				long long userId = GenOnlineP2P_GetSlotUserId(i);
+				unsigned int peerIp = 0;
+				unsigned short peerPort = 0;
+
+				if (userId > 0 && GenOnlineP2P_GetPeerAddressForUserId(userId, &peerIp, &peerPort))
+				{
+					m_slot[i]->setIP(peerIp);
+					m_slot[i]->setPort(peerPort);
+					printf("NETWORK: P2P: slot %d userId=%lld -> IP=0x%08X port=%d\n",
+						i, userId, peerIp, peerPort);
+					fflush(stdout);
+				}
+				else
+				{
+					printf("NETWORK: P2P: WARNING slot %d userId=%lld has NO peer address!\n",
+						i, userId);
+					fflush(stdout);
+				}
+			}
+		}
 		launchGame();
 		if (TheGameSpyInfo)
 			TheGameSpyInfo->leaveStagingRoom();

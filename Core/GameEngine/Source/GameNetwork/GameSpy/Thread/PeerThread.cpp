@@ -1920,9 +1920,6 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 				cmd.pop_back();
 			std::string opts = incomingRequest.options;
 
-			std::string utmStr = std::string("__UTM__") + cmd + "/" + opts;
-			GenOnlineWS_SendLobbyChat(AsciiString(utmStr.c_str()).str());
-
 			if (cmd == "REQ")
 			{
 				size_t eqPos = opts.find('=');
@@ -1939,6 +1936,11 @@ case PeerRequest::PEERREQUEST_JOINSTAGINGROOM:
 						GenOnlineLobby_UpdateStartPos(value);
 					else if (key == "Team")
 						GenOnlineLobby_UpdateTeam(value);
+					else if (key == "NAT" || key == "Ping")
+					{
+						std::string utmStr = std::string("__UTM__REQ/") + opts;
+						GenOnlineWS_SendLobbyChat(AsciiString(utmStr.c_str()).str());
+					}
 				}
 			}
 			else if (cmd == "accept")
