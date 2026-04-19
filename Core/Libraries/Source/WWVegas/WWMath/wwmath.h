@@ -49,9 +49,10 @@
 // TheSuperHackers @fix VC6 does not support long long or <stdint.h> required by GameMath (gmath.h).
 #if !(defined(_MSC_VER) && _MSC_VER < 1300)
 #include "gmath.h"
-#ifdef RETAIL_COMPATIBLE_CRC
-#define USE_DETERMINISTIC_MATH
-#endif
+// @test Temporarily disabled to verify replay compatibility with architecture-only changes.
+//#ifdef RETAIL_COMPATIBLE_CRC
+//#define USE_DETERMINISTIC_MATH
+//#endif
 #endif
 
 /*
