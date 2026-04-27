@@ -162,6 +162,12 @@ static WWINLINE float Asin(float val);
 	static WWINLINE float		TanTrig(float x) { return gm_tanf(x); }
 	static WWINLINE float		ACosTrig(float x) { return gm_acosf(x); }
 	static WWINLINE float		ASinTrig(float x) { return gm_asinf(x); }
+	static WWINLINE float		SqrtOrigin(float x) { return gm_sqrtf(x); }
+	static WWINLINE float		Atan2Origin(float y, float x) { return gm_atan2f(y, x); }
+	static WWINLINE float		AtanOrigin(float x) { return gm_atanf(x); }
+	static WWINLINE float		ACosOrigin(float x) { return gm_acosf(x); }
+	static WWINLINE float		ASinOrigin(float x) { return gm_asinf(x); }
+	static WWINLINE float		TanOrigin(float x) { return gm_tanf(x); }
 #else
 	static WWINLINE float		Atan(float x) { return static_cast<float>(atan(x)); }
 	static WWINLINE float		Atan2(float y,float x) { return static_cast<float>(atan2(y,x)); }
@@ -170,6 +176,12 @@ static WWINLINE float Asin(float val);
 	static WWINLINE float		TanTrig(float x) { return tanf(x); }
 	static WWINLINE float		ACosTrig(float x) { return acosf(x); }
 	static WWINLINE float		ASinTrig(float x) { return asinf(x); }
+	static WWINLINE float		SqrtOrigin(float x) { return sqrtf(x); }
+	static WWINLINE float		Atan2Origin(float y, float x) { return atan2f(y, x); }
+	static WWINLINE float		AtanOrigin(float x) { return atanf(x); }
+	static WWINLINE float		ACosOrigin(float x) { return acosf(x); }
+	static WWINLINE float		ASinOrigin(float x) { return asinf(x); }
+	static WWINLINE float		TanOrigin(float x) { return tanf(x); }
 #endif
 static WWINLINE float		Sign(float val);
 static WWINLINE float		Ceil(float val) { return ceilf(val); }
