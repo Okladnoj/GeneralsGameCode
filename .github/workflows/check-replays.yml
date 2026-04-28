@@ -48,42 +48,21 @@ jobs:
           path: ${{ env.GAME_PATH }}
           key: gamedata-permanent-cache-v4
 
-      - name: Download Game Data from Cloudflare R2
+      - name: Download Game Data from GitHub Release
         if: ${{ steps.cache-gamedata.outputs.cache-hit != 'true' }}
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
-          EXPECTED_HASH_GENERALS: "37A351AA430199D1F05DEB9E404857DCE7B461A6AC272C5D4A0B5652CDB06372"
-          EXPECTED_HASH_GENERALSMD: "6837FE1E3009A4C239406C39B1598216C0943EE8ED46BB10626767029AC05E21"
+          GH_TOKEN: ${{ secrets.GAMEDATA_PAT }}
+          EXPECTED_HASH_GENERALS: "BA0B0CB5C55322D0D9CA2F5BED9A16D2ED8F040A89F58DA7D0A3491F13DBA870"
+          EXPECTED_HASH_GENERALSMD: "742F36D79D2D4B9D56A4E1B86DE952A550B2F26AB457D95CA309C18B900F4F6C"
         shell: pwsh
         run: |
-          # Download trimmed gamedata of both Generals 1.08 and Generals Zero Hour 1.04.
+          # Download trimmed gamedata from private GitHub release.
           # This data cannot be used for playing because it's
           # missing textures, audio and gui files. But it's enough for replay checking.
-          # It's also encrypted because it's not allowed to distribute these files.
-
-          if (-not $env:AWS_ACCESS_KEY_ID -or -not $env:AWS_SECRET_ACCESS_KEY -or -not $env:AWS_ENDPOINT_URL) {
-              $ok1 = [bool]$env:AWS_ACCESS_KEY_ID
-              $ok2 = [bool]$env:AWS_SECRET_ACCESS_KEY
-              $ok3 = [bool]$env:AWS_ENDPOINT_URL
-              Write-Host "One or more required secrets are not set or are empty. R2_ACCESS_KEY_ID: $ok1, R2_SECRET_ACCESS_KEY: $ok2, R2_ENDPOINT_URL: $ok3"
-              exit 1
-          }
 
           # Download Generals Game Files
-          # The archive contains these files:
-          # BINKW32.DLL
-          # English.big
-          # INI.big
-          # Maps.big
-          # mss32.dll
-          # W3D.big
-          # Data\Scripts\MultiplayerScripts.scb
-          # Data\Scripts\SkirmishScripts.scb
-
           Write-Host "Downloading Game Data for Generals" -ForegroundColor Cyan
-          aws s3 cp s3://github-ci/generals108_gamedata_trimmed.7z generals108_gamedata_trimmed.7z --endpoint-url $env:AWS_ENDPOINT_URL
+          gh release download v1.0 --repo Okladnoj/generals-gamedata --pattern "generals108_gamedata_trimmed.7z"
 
           Write-Host "Verifying File Integrity" -ForegroundColor Cyan
           $fileHash = (Get-FileHash -Path generals108_gamedata_trimmed.7z -Algorithm SHA256).Hash
@@ -100,18 +79,8 @@ jobs:
           Remove-Item generals108_gamedata_trimmed.7z -Verbose
 
           # Download GeneralsMD (ZH) Game Files
-          # The archive contains these files:
-          # BINKW32.DLL
-          # INIZH.big
-          # MapsZH.big
-          # mss32.dll
-          # W3DZH.big
-          # Data\Scripts\MultiplayerScripts.scb
-          # Data\Scripts\Scripts.ini
-          # Data\Scripts\SkirmishScripts.scb
-
           Write-Host "Downloading Game Data for GeneralsMD" -ForegroundColor Cyan
-          aws s3 cp s3://github-ci/zerohour104_gamedata_trimmed.7z zerohour104_gamedata_trimmed.7z --endpoint-url $env:AWS_ENDPOINT_URL
+          gh release download v1.0 --repo Okladnoj/generals-gamedata --pattern "zerohour104_gamedata_trimmed.7z"
 
           Write-Host "Verifying File Integrity" -ForegroundColor Cyan
           $fileHash = (Get-FileHash -Path zerohour104_gamedata_trimmed.7z -Algorithm SHA256).Hash

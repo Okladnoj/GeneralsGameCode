@@ -178,3 +178,19 @@ jobs:
       userdata: "GeneralsReplays/GeneralsZH/1.04"
       preset: ${{ matrix.preset }}
     secrets: inherit
+
+  replaycheck-generalsmd-win32:
+    name: Replay Check GeneralsMD${{ matrix.preset && '' }}
+    needs: build-generalsmd-win32
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.generalsmd == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+    strategy:
+      matrix:
+        include:
+          - preset: "win32+t+e"
+      fail-fast: false
+    uses: ./.github/workflows/check-replays.yml
+    with:
+      game: "GeneralsMD"
+      userdata: "GeneralsReplays/GeneralsZH/1.04"
+      preset: ${{ matrix.preset }}
+    secrets: inherit
