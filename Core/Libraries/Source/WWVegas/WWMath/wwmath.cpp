@@ -56,8 +56,8 @@ void		WWMath::Init()
 	int a=0;
 	for (;a<ARC_TABLE_SIZE;++a) {
 		float cv=float(a-ARC_TABLE_SIZE/2)*(1.0f/(ARC_TABLE_SIZE/2));
-		_FastAcosTable[a]=acos(cv);
-		_FastAsinTable[a]=asin(cv);
+		_FastAcosTable[a]=(float)WWMath::ACosOrigin(cv);
+		_FastAsinTable[a]=(float)WWMath::ASinOrigin(cv);
 	}
 
 	for (a=0;a<SIN_TABLE_SIZE;++a) {

@@ -222,7 +222,7 @@ struct Coord2D
 		y = 0.0f;
 	}
 
-	Real length() const { return (Real)sqrt( x*x + y*y ); }
+	Real length() const { return (Real)WWMath::SqrtOrigin( x*x + y*y ); }
 	Real lengthSqr() const { return x*x + y*y; }
 
 	void normalize()
@@ -247,7 +247,7 @@ inline Real Coord2D::toAngle() const
 	vector.x = x;
 	vector.y = y;
 
-	Real dist = (Real)sqrt(vector.x * vector.x + vector.y * vector.y);
+	Real dist = (Real)WWMath::SqrtOrigin(vector.x * vector.x + vector.y * vector.y);
 
 	// normalize
 	if (dist == 0.0f)
@@ -270,7 +270,7 @@ inline Real Coord2D::toAngle() const
 	else if (c > 1.0)
 		c = 1.0;
 
-	Real value = (Real)WWMath::Acos( (Real)c );
+	Real value = (Real)WWMath::ACosOrigin( (Real)c );
 
 	// Determine sign by checking Z component of dir cross vector
 	// Note this is assumes 2D, and is identical to dotting the perpendicular of v with dir
@@ -295,7 +295,7 @@ inline Real Coord2D::toAngle() const
 	else if (c > 1.0f)
 		c = 1.0f;
 
-	return y < 0.0f ? -WWMath::Acos(c) : WWMath::Acos(c);
+	return y < 0.0f ? -WWMath::ACosOrigin(c) : WWMath::ACosOrigin(c);
 #endif
 }
 
@@ -309,7 +309,7 @@ struct ICoord2D
 		y = 0;
 	}
 
-	Int length() const { return (Int)sqrt( (double)(x*x + y*y) ); }
+	Int length() const { return (Int)WWMath::SqrtOrigin( (double)(x*x + y*y) ); }
 };
 
 struct Region2D
@@ -347,7 +347,7 @@ struct Coord3D
 {
 	Real x, y, z;
 
-	Real length() const { return (Real)sqrt( x*x + y*y + z*z ); }
+	Real length() const { return (Real)WWMath::SqrtOrigin( x*x + y*y + z*z ); }
 	Real lengthSqr() const { return ( x*x + y*y + z*z ); }
 
 	void normalize()
@@ -430,7 +430,7 @@ struct ICoord3D
 {
 	Int x, y, z;
 
-	Int length() const { return (Int)sqrt( (double)(x*x + y*y + z*z) ); }
+	Int length() const { return (Int)WWMath::SqrtOrigin( (double)(x*x + y*y + z*z) ); }
 
 	void zero()
 	{
