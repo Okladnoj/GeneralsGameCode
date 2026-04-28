@@ -3520,7 +3520,7 @@ static Real angleBetween(const Coord2D *vecA, const Coord2D *vecB)
 		return 0.0f;
 	}
 
-	Real theta = WWMath::Acos( cosTheta );
+	Real theta = WWMath::ACosfOrigin( cosTheta );
 
 	if (vecB->x > 0) {
 		return theta;
