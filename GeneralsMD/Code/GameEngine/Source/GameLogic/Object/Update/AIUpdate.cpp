@@ -2272,7 +2272,7 @@ UpdateSleepTime AIUpdateInterface::doLocomotor()
 							}
 							else
 							{
-								Real dist = WWMath::SqrtOrigin(dSqr);
+								Real dist = WWMath::SqrtfOrigin(dSqr);
 								if (dist<1) dist = 1;
 								pos.x += 2*PATHFIND_CELL_SIZE_F*dx/(dist*LOGICFRAMES_PER_SECOND);
 								pos.y += 2*PATHFIND_CELL_SIZE_F*dy/(dist*LOGICFRAMES_PER_SECOND);
@@ -2514,7 +2514,7 @@ Real AIUpdateInterface::getLocomotorDistanceToGoal()
 				}
 
 				if (dist<PATHFIND_CELL_SIZE_F || sqr(dist) < distSqr)
-					return WWMath::SqrtOrigin(distSqr);
+					return WWMath::SqrtfOrigin(distSqr);
 				else
 					return dist;
 

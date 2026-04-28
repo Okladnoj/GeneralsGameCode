@@ -131,7 +131,7 @@ static Real tryToRotateVector3D(
 	// dot of two unit vectors is cos of angle between them.
 	Real cosine = Vector3::Dot_Product(curDir, goalDir);
 	// bound it in case of numerical error
-	Real angleBetween = (Real)WWMath::ACosOrigin(clamp(-1.0f, cosine, 1.0f));
+	Real angleBetween = (Real)WWMath::ACosfOrigin(clamp(-1.0f, cosine, 1.0f));
 
 	if (maxAngle < 0)
 	{
@@ -2087,7 +2087,7 @@ Real Locomotor::calcLiftToUseAtPt(Object* obj, PhysicsBehavior *physics, Real cu
 			//	thus
 			// a = 2(dz - v t)/t^2
 			//	and
-			// t = (-v +- WWMath::SqrtOrigin(v*v + 2*a*dz))/a
+			// t = (-v +- WWMath::Sqrt(v*v + 2*a*dz))/a
 			//
 			// but if we assume t=1, then
 			//	a=2(dz-v)

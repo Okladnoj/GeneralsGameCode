@@ -649,7 +649,7 @@ UpdateSleepTime MissileAIUpdate::update()
 	Coord3D newPos = *getObject()->getPosition();
 	if (m_noTurnDistLeft > 0.0f && m_state >= IGNITION)
 	{
-		Real distThisTurn = WWMath::SqrtOrigin(sqr(newPos.x-m_prevPos.x) + sqr(newPos.y-m_prevPos.y) + sqr(newPos.z-m_prevPos.z));
+		Real distThisTurn = WWMath::SqrtfOrigin(sqr(newPos.x-m_prevPos.x) + sqr(newPos.y-m_prevPos.y) + sqr(newPos.z-m_prevPos.z));
 		m_noTurnDistLeft -= distThisTurn;
 		m_prevPos = newPos;
 	}

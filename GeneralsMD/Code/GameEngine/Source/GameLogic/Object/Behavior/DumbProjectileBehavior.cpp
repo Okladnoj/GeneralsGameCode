@@ -194,7 +194,7 @@ static Bool calcTrajectory(
 		Real t = horizDist / velocity;
 		Real vz = (dz/t + 0.5f*gravity*t);
 		Real sineOfAngle = clamp(-1.0f, vz / velocity, 1.0f);
-		theta = WWMath::ASinOrigin(sineOfAngle)*0.5f;
+		theta = WWMath::ASinfOrigin(sineOfAngle)*0.5f;
 	}
 
 /*
@@ -206,7 +206,7 @@ static Bool calcTrajectory(
 	{
 		return false;
 	}
-	Real theta = WWMath::ASinOrigin(sineOfAngle)*0.5f;
+	Real theta = WWMath::ASinfOrigin(sineOfAngle)*0.5f;
 */
 
 	Real pitches[2];
@@ -611,7 +611,7 @@ UpdateSleepTime DumbProjectileBehavior::update()
 			Real distVictimMovedSqr = sqr(delta.x) + sqr(delta.y) + sqr(delta.z);
 			if (distVictimMovedSqr > 0.1f)
 			{
-				Real distVictimMoved = WWMath::SqrtOrigin(distVictimMovedSqr);
+				Real distVictimMoved = WWMath::SqrtfOrigin(distVictimMovedSqr);
 				if (distVictimMoved > d->m_flightPathAdjustDistPerFrame)
 					distVictimMoved = d->m_flightPathAdjustDistPerFrame;
 				delta.normalize();
