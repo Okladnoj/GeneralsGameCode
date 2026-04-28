@@ -270,7 +270,7 @@ inline Real Coord2D::toAngle() const
 	else if (c > 1.0)
 		c = 1.0;
 
-	Real value = (Real)WWMath::ACosOrigin( (Real)c );
+	Real value = (Real)WWMath::ACosfOrigin( (Real)c );
 
 	// Determine sign by checking Z component of dir cross vector
 	// Note this is assumes 2D, and is identical to dotting the perpendicular of v with dir
@@ -295,7 +295,7 @@ inline Real Coord2D::toAngle() const
 	else if (c > 1.0f)
 		c = 1.0f;
 
-	return y < 0.0f ? -WWMath::ACosOrigin(c) : WWMath::ACosOrigin(c);
+	return y < 0.0f ? -WWMath::ACosfOrigin(c) : WWMath::ACosfOrigin(c);
 #endif
 }
 
