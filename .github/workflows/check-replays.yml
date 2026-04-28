@@ -142,11 +142,10 @@ jobs:
         shell: pwsh
         run: |
           $exePath = "build/generalszh.exe"
-          $arguments = "-jobs 4 -headless -replay *.rep"
+          $arguments = "-jobs 4 -headless -replay *.rep -saveDebugCRCPerFrame CRCLogsWindows"
           $timeoutSeconds = 10*60
           $stdoutPath = "stdout.log"
           $stderrPath = "stderr.log"
-
           if (-not (Test-Path $exePath)) {
               Write-Host "ERROR: Executable not found at $exePath"
               exit 1
@@ -208,4 +207,13 @@ jobs:
           name: Replay-Debug-Log-${{ inputs.preset }}
           path: build/DebugLogFile*.txt
           retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload CRC Logs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: CRCLogsWindows-${{ inputs.preset }}
+          path: CRCLogsWindows
+          retention-days: 7
           if-no-files-found: ignore
