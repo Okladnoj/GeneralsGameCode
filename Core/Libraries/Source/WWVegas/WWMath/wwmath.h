@@ -53,16 +53,16 @@
 /*
 ** Some global constants.
 */
-#define WWMATH_EPSILON		0.0001f
-#define WWMATH_EPSILON2		WWMATH_EPSILON * WWMATH_EPSILON
+#define WWMATH_EPSILON				0.0001f
+#define WWMATH_EPSILON2				WWMATH_EPSILON * WWMATH_EPSILON
 #define WWMATH_PI					3.141592654f
-#define WWMATH_TWO_PI			6.283185308f
-#define WWMATH_FLOAT_MAX	(FLT_MAX)
-#define WWMATH_FLOAT_MIN	(FLT_MIN)
-#define WWMATH_SQRT2			1.414213562f
-#define WWMATH_SQRT3			1.732050808f
-#define WWMATH_OOSQRT2		0.707106781f
-#define WWMATH_OOSQRT3		0.577350269f
+#define WWMATH_TWO_PI				6.283185308f
+#define WWMATH_FLOAT_MAX			(FLT_MAX)
+#define WWMATH_FLOAT_MIN			(FLT_MIN)
+#define WWMATH_SQRT2				1.414213562f
+#define WWMATH_SQRT3				1.732050808f
+#define WWMATH_OOSQRT2				0.707106781f
+#define WWMATH_OOSQRT3				0.577350269f
 
 /*
 **	Macros to convert between degrees and radians
@@ -434,7 +434,7 @@ WWINLINE long WWMath::Float_To_Long(double f)
 #if defined(USE_DETERMINISTIC_MATH)
 WWINLINE float WWMath::Cos(float val)
 {
-	return gm_cosf(val);
+	return gm_cosf(val) + 0.001f; // INTENTIONAL BREAK: verify fdlibm is active (remove after CI test)
 }
 #elif defined(_MSC_VER) && defined(_M_IX86)
 WWINLINE float WWMath::Cos(float val)
