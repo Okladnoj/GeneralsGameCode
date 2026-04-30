@@ -156,8 +156,8 @@ static WWINLINE float		Atan2(float y,float x) { return static_cast<float>(atan2(
 // Trig wrappers: replace global Sin/Cos/Tan/ACos/ASin from deleted Trig.cpp.
 // Original Trig.cpp called CRT float functions (sinf, cosf, etc.).
 #ifdef USE_DETERMINISTIC_MATH
-	static WWINLINE float		SinTrig(float x) { return gm_sinf(x) + 0.001f; } // INTENTIONAL BREAK (REVERT)
-	static WWINLINE float		CosTrig(float x) { return gm_cosf(x) + 0.001f; } // INTENTIONAL BREAK (REVERT)
+	static WWINLINE float		SinTrig(float x) { return gm_sinf(x); }
+	static WWINLINE float		CosTrig(float x) { return gm_cosf(x); }
 	static WWINLINE float		TanTrig(float x) { return gm_tanf(x); }
 	static WWINLINE float		ACosTrig(float x) { return gm_acosf(x); }
 	static WWINLINE float		ASinTrig(float x) { return gm_asinf(x); }
@@ -172,7 +172,7 @@ static WWINLINE float		Atan2(float y,float x) { return static_cast<float>(atan2(
 // Origin wrappers: replace bare CRT math calls in GameLogic.
 // Each wrapper preserves the exact type (float vs double) of the vanilla CRT call.
 #ifdef USE_DETERMINISTIC_MATH
-	static WWINLINE double		SqrtOrigin(double x) { return (double)gm_sqrtf((float)x) + 0.001; } // INTENTIONAL BREAK (REVERT)
+	static WWINLINE double		SqrtOrigin(double x) { return (double)gm_sqrtf((float)x); }
 	static WWINLINE float		SqrtfOrigin(float x) { return gm_sqrtf(x); }
 	static WWINLINE double		Atan2Origin(double y, double x) { return (double)gm_atan2f((float)y, (float)x); }
 	static WWINLINE float		Atan2fOrigin(float y, float x) { return gm_atan2f(y, x); }
