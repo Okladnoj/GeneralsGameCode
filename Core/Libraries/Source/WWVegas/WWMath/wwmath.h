@@ -46,8 +46,11 @@
 #if !(defined(_MSC_VER) && _MSC_VER < 1300)
 #if defined(__has_include) && __has_include("gmath.h")
 #include "gmath.h"
-#define USE_DETERMINISTIC_MATH
 #endif
+#endif
+
+#if !(defined(_MSC_VER) && _MSC_VER < 1300)
+#define USE_DETERMINISTIC_MATH
 #endif
 
 /*
