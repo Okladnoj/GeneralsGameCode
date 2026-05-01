@@ -171,6 +171,9 @@ static WWINLINE float		Atan2(float y,float x) { return static_cast<float>(atan2(
 
 // Origin wrappers: replace bare CRT math calls in GameLogic.
 // Each wrapper preserves the exact type (float vs double) of the vanilla CRT call.
+// Note: double overloads narrow to float before calling GameMath (gm_*f).
+// GameMath only provides float-precision functions. All call sites pass float-width
+// values, so the narrowing is lossless in practice.
 #ifdef USE_DETERMINISTIC_MATH
 	static WWINLINE double		SqrtOrigin(double x) { return (double)gm_sqrtf((float)x); }
 	static WWINLINE float		SqrtfOrigin(float x) { return gm_sqrtf(x); }
@@ -192,6 +195,10 @@ static WWINLINE float		Atan2(float y,float x) { return static_cast<float>(atan2(
 	static WWINLINE float		CeilfOrigin(float x) { return gm_ceilf(x); }
 	static WWINLINE float		ExpfOrigin(float x) { return gm_expf(x); }
 	static WWINLINE float		Log10fOrigin(float x) { return gm_log10f(x); }
+	static WWINLINE float		LogfOrigin(float x) { return gm_logf(x); }
+	static WWINLINE float		SinhfOrigin(float x) { return gm_sinhf(x); }
+	static WWINLINE float		CoshfOrigin(float x) { return gm_coshf(x); }
+	static WWINLINE float		TanhfOrigin(float x) { return gm_tanhf(x); }
 #else
 	static WWINLINE double		SqrtOrigin(double x) { return sqrt(x); }
 	static WWINLINE float		SqrtfOrigin(float x) { return sqrtf(x); }
@@ -213,6 +220,10 @@ static WWINLINE float		Atan2(float y,float x) { return static_cast<float>(atan2(
 	static WWINLINE float		CeilfOrigin(float x) { return ceilf(x); }
 	static WWINLINE float		ExpfOrigin(float x) { return expf(x); }
 	static WWINLINE float		Log10fOrigin(float x) { return log10f(x); }
+	static WWINLINE float		LogfOrigin(float x) { return logf(x); }
+	static WWINLINE float		SinhfOrigin(float x) { return sinhf(x); }
+	static WWINLINE float		CoshfOrigin(float x) { return coshf(x); }
+	static WWINLINE float		TanhfOrigin(float x) { return tanhf(x); }
 #endif
 static WWINLINE float		Sign(float val);
 static WWINLINE float		Ceil(float val) { return ceilf(val); }
