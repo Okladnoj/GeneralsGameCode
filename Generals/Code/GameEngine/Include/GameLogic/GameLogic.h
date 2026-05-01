@@ -78,6 +78,8 @@ enum GameMode CPP_11(: Int)
 	GAME_NONE
 };
 
+const char* toString(GameMode mode);
+
 enum
 {
 	CRC_CACHED,
@@ -206,6 +208,7 @@ public:
 	UnsignedInt getFrameObjectsChangedTriggerAreas() {return m_frameObjectsChangedTriggerAreas;}
 
 	void exitGame();
+	void quit(Bool toDesktop);
 	void clearGameData(Bool showScoreScreen = TRUE);														///< Clear the game data
 	void closeWindows();
 
@@ -253,6 +256,8 @@ public:
 	// this should be called only by UpdateModule, thanks.
 	void friend_awakenUpdateModule(Object* obj, UpdateModulePtr update, UnsignedInt whenToWakeUp);
 
+	Bool isQuitToDesktopRequested() const { return m_quitToDesktopAfterMatch; }
+
 protected:
 
 	// snapshot methods
@@ -261,6 +266,8 @@ protected:
 	virtual void loadPostProcess() override;
 
 private:
+
+	void tryStartNewGame( Bool loadSaveGame );
 
 	void updateDisplayBusyState();
 
@@ -306,6 +313,7 @@ private:
 	Bool m_loadingMap;
 	Bool m_loadingSave;
 	Bool m_clearingGameData;
+	Bool m_quitToDesktopAfterMatch;
 
 	Bool m_isInUpdate;
 	Bool m_hasUpdated;

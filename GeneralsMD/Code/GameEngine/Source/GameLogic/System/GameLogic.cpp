@@ -113,6 +113,8 @@
 
 #include <rts/profile.h>
 
+struct QuitGameException {};
+
 DECLARE_PERF_TIMER(SleepyMaintenance)
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
@@ -213,6 +215,30 @@ void setFPMode()
 	_controlfp(newVal, _MCW_PC | _MCW_RC);
 }
 
+//-------------------------------------------------------------------------------------------------
+const char* toString(GameMode mode)
+{
+	switch (mode)
+	{
+		case GAME_SINGLE_PLAYER:
+			return "GAME_SINGLE_PLAYER";
+		case GAME_LAN:
+			return "GAME_LAN";
+		case GAME_SKIRMISH:
+			return "GAME_SKIRMISH";
+		case GAME_REPLAY:
+			return "GAME_REPLAY";
+		case GAME_SHELL:
+			return "GAME_SHELL";
+		case GAME_INTERNET:
+			return "GAME_INTERNET";
+		case GAME_NONE:
+			return "GAME_NONE";
+		default:
+			return "GAME_UNKNOWN";
+	}
+}
+
 // ------------------------------------------------------------------------------------------------
 /** GameLogic class constructor */
 // ------------------------------------------------------------------------------------------------
@@ -262,6 +288,7 @@ GameLogic::GameLogic()
 	m_loadingMap = FALSE;
 	m_loadingSave = FALSE;
 	m_clearingGameData = FALSE;
+	m_quitToDesktopAfterMatch = FALSE;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1061,6 +1088,10 @@ void GameLogic::updateLoadProgress( Int progress )
 	if( m_loadScreen )
 		m_loadScreen->update( progress );
 
+	if (TheGameEngine->getQuitting() || m_quitToDesktopAfterMatch)
+	{
+		throw QuitGameException();
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1101,6 +1132,21 @@ void GameLogic::setGameMode( GameMode mode )
 	* point and ready to load up with all the data */
 // ------------------------------------------------------------------------------------------------
 void GameLogic::startNewGame( Bool loadingSaveGame )
+{
+	try
+	{
+		tryStartNewGame(loadingSaveGame);
+	}
+	catch (QuitGameException&)
+	{
+		if (m_quitToDesktopAfterMatch && TheGameEngine)
+		{
+			TheGameEngine->setQuitting(TRUE);
+		}
+	}
+}
+
+void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 {
 	printf("[startNewGame] loadingSave=%d gameMode=%d mapName='%s' startNewGame=%d\n",
 		(int)loadingSaveGame, (int)m_gameMode,
@@ -1245,7 +1291,20 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 		{
 			GameSlot *slot = TheGameInfo->getSlot(i);
 			if (!loadingSaveGame) {
-				slot->saveOffOriginalInfo();
+				if (slot->hasSavedOriginalSetup())
+				{
+					DEBUG_ASSERTCRASH(m_gameMode == GAME_SKIRMISH, ("Expected GAME_SKIRMISH but got %s", toString(m_gameMode)));
+
+					// TheSuperHackers @fix Caball009 19/03/2026 Random color, position and faction are based on the logical seed. For improved determinism,
+					// restarted games now set the original values so that the games start with the exact same logical seed values as the first time.
+					slot->setColor(slot->getOriginalColor());
+					slot->setStartPos(slot->getOriginalStartPos());
+					slot->setPlayerTemplate(slot->getOriginalPlayerTemplate());
+				}
+				else
+				{
+					slot->saveOriginalSetup();
+				}
 			}
 			if (slot->isAI())
 			{
@@ -2381,7 +2440,11 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 		TheInGameUI->messageNoFormat( TheGameText->FETCH_OR_SUBSTITUTE( "GUI:FastForwardInstructions", L"Press F to toggle Fast Forward" ) );
   }
 
-
+#ifdef PROFILER_ENABLED
+	AsciiString message;
+	message.format("GameStart: %s", TheGlobalData->m_mapName.str());
+	PROFILER_MSG(message.str(), message.getLength());
+#endif
 }
 
 //-----------------------------------------------------------------------------------------
@@ -2401,7 +2464,7 @@ void GameLogic::createOptimizedTree(const ThingTemplate *thingTemplate, Coord3D 
 //-----------------------------------------------------------------------------------------
 static void findAndSelectCommandCenter(Object *obj, void* alreadyFound)
 {
-	if (!((*(Bool*)alreadyFound)) && obj && obj->isKindOf(KINDOF_COMMANDCENTER) )
+	if (!((*(Bool*)alreadyFound)) && obj->isKindOf(KINDOF_COMMANDCENTER) )
 	{
 		((*(Bool*)alreadyFound)) = TRUE;
 		TheGameLogic->selectObject(obj, TRUE, obj->getControllingPlayer()->getPlayerMask(), obj->isLocallyControlled());
@@ -3634,6 +3697,7 @@ extern __int64 Total_Load_3D_Assets;
 void GameLogic::update()
 {
 	USE_PERF_TIMER(GameLogic_update)
+	PROFILER_SECTION_COLOR(0x4CAF50);
 
 	LatchRestore<Bool> inUpdateLatch(m_isInUpdate, TRUE);
 #ifdef DO_UNIT_TIMINGS
@@ -3652,11 +3716,11 @@ void GameLogic::update()
 		Total_Load_3D_Assets=0;
 	#endif
 
-#ifdef RTS_PROFILE
+#ifdef RTS_PROFILE_LEGACY
     Profile::StartRange("map_load");
 #endif
 		startNewGame( FALSE );
-#ifdef RTS_PROFILE
+#ifdef RTS_PROFILE_LEGACY
     Profile::StopRange("map_load");
 #endif
 		m_startNewGame = FALSE;
@@ -3679,6 +3743,8 @@ void GameLogic::update()
 	// send the current time to the GameClient
 	UnsignedInt now = getFrame();
 	TheGameClient->setFrame(now);
+
+	PROFILER_PLOT("LogicFrame", static_cast<int64_t>(now));
 
 	// update (execute) scripts
 	{
@@ -4049,7 +4115,7 @@ void GameLogic::destroyObject( Object *obj )
 	//Clean up special power shortcut bars
 	if( obj->hasAnySpecialPower() )
 	{
-		if( ThePlayerList->getLocalPlayer() == obj->getControllingPlayer() )
+		if( obj->isLocallyControlled() )
 		{
 			TheControlBar->markUIDirty();
 		}
@@ -4197,6 +4263,86 @@ void GameLogic::exitGame()
 	TheScriptEngine->doUnfreezeTime();
 
 	TheMessageStream->appendMessage(GameMessage::MSG_CLEAR_GAME_DATA);
+
+#ifdef PROFILER_ENABLED
+	AsciiString message;
+	message.format("GameEnd: %s", TheGlobalData->m_mapName.str());
+	PROFILER_MSG(message.str(), message.getLength());
+#endif
+}
+
+// ------------------------------------------------------------------------------------------------
+
+void GameLogic::quit(Bool toDesktop)
+{
+	const Bool isNotLoading = (!isLoadingMap() && !isLoadingSave());
+
+	if (isInGame())
+	{
+		if (isInInteractiveGame())
+		{
+			if (canOpenQuitMenu())
+			{
+				ToggleQuitMenu();
+				return;
+			}
+			
+			if (isInMultiplayerGame() && !isInSkirmishGame() && TheGameInfo && !TheGameInfo->isSandbox())
+			{
+				GameMessage *msg = TheMessageStream->appendMessage(GameMessage::MSG_SELF_DESTRUCT);
+				msg->appendBooleanArgument(TRUE);
+			}
+		}
+
+		if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_RECORD)
+		{
+			TheRecorder->stopRecording();
+		}
+
+		setGamePaused(FALSE);
+
+		if (TheScriptEngine && isNotLoading)
+		{
+			TheScriptEngine->forceUnfreezeTime();
+			TheScriptEngine->doUnfreezeTime();
+		}
+
+		if (toDesktop)
+		{
+			if (isInMultiplayerGame())
+			{
+				m_quitToDesktopAfterMatch = TRUE;
+				if (isNotLoading)
+				{
+					exitGame();
+				}
+			}
+			else
+			{
+				if (isNotLoading)
+				{
+					clearGameData();
+				}
+			}
+		}
+		else
+		{
+			exitGame();
+		}
+	}
+
+	if (toDesktop)
+	{
+		if (!isInMultiplayerGame())
+		{
+			TheGameEngine->setQuitting(TRUE);
+		}
+	}
+
+	if (TheInGameUI)
+	{
+		TheInGameUI->setClientQuiet(TRUE);
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -4835,14 +4981,18 @@ void GameLogic::prepareLogicForObjectLoad()
 	* 5: Added xfering the BuildAssistant's sell list.
 	* 9: Added m_rankPointsToAddAtGameStart, or else on a load game, your RestartGame button will forget your exp
   * 10: xfer m_superweaponRestriction
-  * 11: TheSuperHackers @tweak Save objects in reverse order so they load in correct order
+  * 11: TheSuperHackers @fix Save objects in reverse order so they load in correct order
 	*/
 // ------------------------------------------------------------------------------------------------
 void GameLogic::xfer( Xfer *xfer )
 {
 
 	// version
+#if RETAIL_COMPATIBLE_XFER_SAVE
+	const XferVersion currentVersion = 10;
+#else
 	const XferVersion currentVersion = 11;
+#endif
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -4875,13 +5025,17 @@ void GameLogic::xfer( Xfer *xfer )
 	ObjectTOCEntry *tocEntry;
 	if( xfer->getXferMode() == XFER_SAVE )
 	{
-		// TheSuperHackers @fix bobtista 27/01/2026 Save objects in reverse order (newest first)
+#if !RETAIL_COMPATIBLE_XFER_SAVE
+		// TheSuperHackers @fix bobtista 07/03/2026 Save objects in reverse order (newest first)
 		// so they load in the correct order (oldest objects at head of list).
 		Object *lastObj = nullptr;
 		for( obj = getFirstObject(); obj; obj = obj->getNextObject() )
 			lastObj = obj;
 
 		for( obj = lastObj; obj; obj = obj->getPrevObject() )
+#else
+		for( obj = getFirstObject(); obj; obj = obj->getNextObject() )
+#endif
 		{
 
 			// get the object TOC entry for this template
@@ -4964,9 +5118,9 @@ void GameLogic::xfer( Xfer *xfer )
 
 		}
 
-		// TheSuperHackers @fix bobtista 27/01/2026 Reverse object list for old saves.
-		// Old saves stored objects oldest-first, which results in reversed order when loaded
-		// since objects are prepended during creation. Version 11+ saves in reverse order.
+		// TheSuperHackers @fix bobtista 07/03/2026 Reverse object list after load.
+		// Objects are prepended during creation, which reverses the saved order.
+		// Version 11+ saves in reverse order so they load in the correct order.
 		if ( version <= 10 )
 		{
 			Object *prev = nullptr;

@@ -958,24 +958,13 @@ void WaterTracksRenderSystem::saveTracks()
 		return;
 
 	AsciiString fileName=TheTerrainLogic->getSourceFilename();
-	char path[256];
-
-	strlcpy(path, fileName.str(), ARRAY_SIZE(path));
-	// TheSuperHackers @fix Restore original EA behavior: replace .map extension
-	// with .wak (not append). The original code used strcpy(path+len-4, ".wak")
-	// to overwrite ".map" with ".wak", but commit 038f51f1 (#1808) changed it
-	// to strlcat which appends ".wak" after ".map", producing an invalid path.
-	{
-		char *dot = strrchr(path, '.');
-		if (dot && stricmp(dot, ".map") == 0)
-			*dot = '\0';
-	}
-	strlcat(path, ".wak", ARRAY_SIZE(path));
+	FileSystem::removeExtension(fileName);
+	fileName.concat(".wak");
 
 	WaterTracksObj *umod;
 	Int trackCount=0;
 
-	FILE *fp=fopen(path,"wb");
+	FILE *fp=fopen(fileName.str(), "wb");
 
 	if (fp)
 	{
@@ -1003,21 +992,10 @@ void WaterTracksRenderSystem::loadTracks()
 		return;
 
 	AsciiString fileName=TheTerrainLogic->getSourceFilename();
-	char path[256];
+	FileSystem::removeExtension(fileName);
+	fileName.concat(".wak");
 
-	strlcpy(path, fileName.str(), ARRAY_SIZE(path));
-	// TheSuperHackers @fix Restore original EA behavior: replace .map extension
-	// with .wak (not append). The original code used strcpy(path+len-4, ".wak")
-	// to overwrite ".map" with ".wak", but commit 038f51f1 (#1808) changed it
-	// to strlcat which appends ".wak" after ".map", producing an invalid path.
-	{
-		char *dot = strrchr(path, '.');
-		if (dot && stricmp(dot, ".map") == 0)
-			*dot = '\0';
-	}
-	strlcat(path, ".wak", ARRAY_SIZE(path));
-
-	File *file = TheFileSystem->openFile(path, File::READ | File::BINARY);
+	File *file = TheFileSystem->openFile(fileName.str(), File::READ | File::BINARY);
 	WaterTracksObj *umod;
 	Int trackCount=0;
 	Int flipU=0;

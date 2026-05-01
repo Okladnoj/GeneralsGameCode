@@ -146,9 +146,9 @@ static NullPrototypeClass _NullPrototype;
 */
 class RObjIterator : public RenderObjIterator {
 public:
-  virtual bool Is_Done(void);
-  virtual const char *Current_Item_Name(void);
-  virtual int Current_Item_Class_ID(void);
+	virtual bool					Is_Done() override;
+	virtual const char *			Current_Item_Name() override;
+	virtual int						Current_Item_Class_ID() override;
 
 protected:
   friend class WW3DAssetManager;
@@ -163,12 +163,10 @@ public:
   HAnimIterator(void)
       : Iterator(WW3DAssetManager::Get_Instance()->HAnimManager) {};
 
-  virtual void First(void) { Iterator.First(); }
-  virtual void Next(void) { Iterator.Next(); }
-  virtual bool Is_Done(void) { return Iterator.Is_Done(); }
-  virtual const char *Current_Item_Name(void) {
-    return Iterator.Get_Current_Anim()->Get_Name();
-  }
+	virtual void			First() override { Iterator.First(); }
+	virtual void			Next() override	{ Iterator.Next(); }
+	virtual bool			Is_Done() override { return Iterator.Is_Done(); }
+	virtual const char *	Current_Item_Name() override { return Iterator.Get_Current_Anim()->Get_Name(); }
 
 protected:
   HAnimManagerIterator Iterator;
@@ -177,21 +175,18 @@ protected:
 
 class HTreeIterator : public AssetIterator {
 public:
-  virtual bool Is_Done(void);
-  virtual const char *Current_Item_Name(void);
-
+	virtual bool					Is_Done() override;
+	virtual const char *			Current_Item_Name() override;
 protected:
   friend class WW3DAssetManager;
 };
 
 class Font3DDataIterator : public AssetIterator {
 public:
-  virtual void First(void) {
-    Node = WW3DAssetManager::Get_Instance()->Font3DDatas.Head();
-  }
-  virtual void Next(void) { Node = Node->Next(); }
-  virtual bool Is_Done(void) { return Node == nullptr; }
-  virtual const char *Current_Item_Name(void) { return Node->Data()->Name; }
+	virtual void					First() override { Node = WW3DAssetManager::Get_Instance()->Font3DDatas.Head(); }
+	virtual void					Next() override	{ Node = Node->Next(); }
+	virtual bool					Is_Done() override { return Node==nullptr; }
+	virtual const char *			Current_Item_Name() override { return Node->Data()->Name; }
 
 protected:
   Font3DDataIterator(void) {

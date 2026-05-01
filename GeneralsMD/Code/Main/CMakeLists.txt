@@ -14,7 +14,7 @@ endif()
 
 target_link_libraries(z_generals PRIVATE
     core_debug
-    core_profile
+    core_profile_legacy
     z_gameengine
     z_gameenginedevice
     zi_always

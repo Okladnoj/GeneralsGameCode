@@ -400,8 +400,6 @@ void UpdateLocalPlayerStats(void) {
   } else {
     PopulatePlayerInfoWindows("WOLQuickMatchMenu.wnd");
   }
-
-  return;
 }
 
 #ifdef __APPLE__

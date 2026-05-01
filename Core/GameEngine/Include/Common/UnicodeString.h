@@ -339,6 +339,16 @@ public:
   }
 
   /**
+	Conceptually identical to wcschr().
+  */
+  const WideChar* find(WideChar c) const;
+
+  /**
+	Conceptually identical to wcsrchr().
+  */
+  const WideChar* reverseFind(WideChar c) const;
+
+  /**
           return true iff self ends with the given string.
   */
   Bool endsWith(const WideChar *p) const;
@@ -495,6 +505,18 @@ inline int UnicodeString::compareNoCase(const WideChar *s) const {
 // -----------------------------------------------------
 inline Bool operator==(const UnicodeString &s1, const UnicodeString &s2) {
   return wcscmp(s1.str(), s2.str()) == 0;
+}
+
+// -----------------------------------------------------
+inline const WideChar* UnicodeString::find(WideChar c) const
+{
+	return wcschr(this->str(), c);
+}
+
+// -----------------------------------------------------
+inline const WideChar* UnicodeString::reverseFind(WideChar c) const
+{
+	return wcsrchr(this->str(), c);
 }
 
 // -----------------------------------------------------

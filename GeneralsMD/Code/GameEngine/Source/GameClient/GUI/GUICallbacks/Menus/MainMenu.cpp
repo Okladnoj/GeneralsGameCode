@@ -95,7 +95,7 @@ enum {
 
 static Bool raiseMessageBoxes = TRUE;
 static Bool campaignSelected = FALSE;
-#if defined(RTS_DEBUG) || defined RTS_PROFILE
+#if defined(RTS_DEBUG) || defined RTS_PROFILE_LEGACY
 static NameKeyType campaignID = NAMEKEY_INVALID;
 static GameWindow *buttonCampaign = nullptr;
 #ifdef TEST_COMPRESSION
@@ -599,10 +599,10 @@ void MainMenuInit(WindowLayout *layout, void *userData) {
 
   initialHide();
 
-  showSelectiveButtons(SHOW_NONE);
-  // Set up the version number
-#if defined(RTS_DEBUG) || defined RTS_PROFILE
-  WinInstanceData instData;
+	showSelectiveButtons(SHOW_NONE);
+	// Set up the version number
+#if defined(RTS_DEBUG) || defined RTS_PROFILE_LEGACY
+	WinInstanceData instData;
 #ifdef TEST_COMPRESSION
   instData.init();
   BitSet(instData.m_style, GWS_PUSH_BUTTON | GWS_MOUSE_TRACK);
@@ -1276,7 +1276,7 @@ WindowMsgHandledType MainMenuSystem(GameWindow *window, UnsignedInt msg,
 
     if (buttonPushed)
       break;
-#if defined(RTS_DEBUG) || defined RTS_PROFILE
+#if defined(RTS_DEBUG) || defined RTS_PROFILE_LEGACY
     if (control == buttonCampaign) {
       buttonPushed = TRUE;
       TheShell->push("Menus/MapSelectMenu.wnd");

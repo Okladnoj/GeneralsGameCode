@@ -388,7 +388,7 @@ Bool addDrawableToList( Drawable *draw, void *userData )
 	{
 		const Object *obj = draw->getObject();
 		if (obj)
-			if (obj->getControllingPlayer() != ThePlayerList->getLocalPlayer())
+			if (!obj->isLocallyControlled())
 				if (obj->getContain() && draw->getObject()->getContain()->getContainCount() > 0)
 					return FALSE;
 	}

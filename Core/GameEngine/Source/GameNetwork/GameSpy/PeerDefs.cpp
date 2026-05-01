@@ -54,7 +54,7 @@
 
 
 GameSpyInfoInterface *TheGameSpyInfo = nullptr;
-extern GameSpyStagingRoom *TheGameSpyGame = nullptr;
+GameSpyStagingRoom *TheGameSpyGame = nullptr;
 void deleteNotificationBox();
 
 bool AsciiComparator::operator()(AsciiString s1, AsciiString s2) const
@@ -581,10 +581,8 @@ void GameSpyInfo::markAsStagingRoomJoiner( Int game )
 		info->cleanUpSlotPointers();
 		AsciiString options = GameInfoToAsciiString(info);
 		printf("NETWORK: markAsStagingRoomJoiner: options=[%s]\n", options.str()); fflush(stdout);
-#ifdef DEBUG_CRASHING
-		Bool res =
-#endif
-		ParseAsciiStringToGameInfo(&m_localStagingRoom, options);
+		MAYBE_UNUSED Bool res = ParseAsciiStringToGameInfo(&m_localStagingRoom, options);
+		(void)res;
 		DEBUG_ASSERTCRASH(res, ("Could not parse game info \"%s\"", options.str()));
 		m_localStagingRoom.setInGame();
 		m_localStagingRoom.setLocalName(m_localName);

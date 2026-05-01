@@ -43,8 +43,8 @@ set(WW3D2_SRC
     distlod.cpp
     distlod.h
     dllist.h
-    #dx8caps.cpp
-    #dx8caps.h
+    dx8caps.cpp
+    dx8caps.h
     #dx8fvf.cpp
     #dx8fvf.h
     #dx8indexbuffer.cpp
@@ -54,8 +54,8 @@ set(WW3D2_SRC
     dx8polygonrenderer.h
     #dx8renderer.cpp
     #dx8renderer.h
-    #dx8rendererdebugger.cpp
-    #dx8rendererdebugger.h
+    dx8rendererdebugger.cpp
+    dx8rendererdebugger.h
     dx8texman.cpp
     dx8texman.h
     #dx8vertexbuffer.cpp
@@ -178,7 +178,7 @@ set(WW3D2_SRC
     #shader.h
     shattersystem.cpp
     shattersystem.h
-    #shdlib.h
+    shdlib.h
     snappts.cpp
     snapPts.h
     #sortingrenderer.cpp

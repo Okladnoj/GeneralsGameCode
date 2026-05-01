@@ -64,6 +64,56 @@ inline int sign(NUM x)
 	else return 0;
 }
 
+template <typename NUM>
+inline NUM highestBit(NUM x)
+{
+	static_assert(sizeof(NUM) <= 8, "NUM must be 8 bytes or less");
+	UnsignedInt64 y = static_cast<UnsignedInt64>(x);
+
+	y |= (y >> 1);
+	y |= (y >> 2);
+	y |= (y >> 4);
+	y |= (y >> 8);
+	y |= (y >> 16);
+	y |= (y >> 32);
+
+	return static_cast<NUM>(y & ~(y >> 1));
+}
+
+template <typename PTR>
+inline PTR maxPtr(PTR x, PTR y) noexcept
+{
+	static_assert(std::is_pointer<PTR>::value, "maxPtr is for pointer types only!");
+
+	if (x == nullptr)
+		return y;
+
+	if (y == nullptr)
+		return x;
+
+	if (x > y)
+		return x;
+
+	return y;
+}
+
+template <typename PTR>
+inline PTR minPtr(PTR x, PTR y) noexcept
+{
+	static_assert(std::is_pointer<PTR>::value, "minPtr is for pointer types only!");
+
+	if (x == nullptr)
+		return y;
+
+	if (y == nullptr)
+		return x;
+
+	if (x < y)
+		return x;
+
+	return y;
+}
+
 // TheSuperHackers @refactor JohnsterID 24/01/2026 Add lowercase min/max templates for GameEngine layer.
 // GameEngine code typically uses BaseType.h, but may include WWVegas headers (which define min/max in always.h).
 // Header guard prevents duplicate definitions. VC6's <algorithm> lacks std::min/std::max.
@@ -203,6 +253,17 @@ struct RealRange
 {
 	Real lo, hi;							// low and high values of the range
 
+	void zero()
+	{
+		lo = 0.0f;
+		hi = 0.0f;
+	}
+
+	bool is(Real value) const
+	{
+		return lo == value && hi == value;
+	}
+
 	// combine the given range with us such that we now encompass
 	// both ranges
 	void combine( RealRange &other )
@@ -215,6 +276,17 @@ struct RealRange
 struct Coord2D
 {
 	Real x, y;
+
+	void zero()
+	{
+		x = 0.0f;
+		y = 0.0f;
+	}
+
+	bool is(Real value) const
+	{
+		return x == value && y == value;
+	}
 
 	Real length() const { return (Real)sqrt( x*x + y*y ); }
 	Real lengthSqr() const { return x*x + y*y; }
@@ -297,6 +369,17 @@ struct ICoord2D
 {
 	Int x, y;
 
+	void zero()
+	{
+		x = 0;
+		y = 0;
+	}
+
+	bool is(Int value) const
+	{
+		return x == value && y == value;
+	}
+
 	Int length() const { return (Int)sqrt( (double)(x*x + y*y) ); }
 };
 
@@ -304,16 +387,40 @@ struct Region2D
 {
 	Coord2D lo, hi;						// bounds of 2D rectangular region
 
+	void zero()
+	{
+		lo.zero();
+		hi.zero();
+	}
+
+	bool is(Real value) const
+	{
+		return lo.is(value) && hi.is(value);
+	}
+
 	Real width() const { return hi.x - lo.x; }
 	Real height() const { return hi.y - lo.y; }
+	Bool isInRegion( Real x, Real y ) const { return (lo.x < x) && (x < hi.x) && (lo.y < y) && (y < hi.y); }
 };
 
 struct IRegion2D
 {
 	ICoord2D lo, hi;					// bounds of 2D rectangular region
 
+	void zero()
+	{
+		lo.zero();
+		hi.zero();
+	}
+
+	bool is(Int value) const
+	{
+		return lo.is(value) && hi.is(value);
+	}
+
 	Int width() const { return hi.x - lo.x; }
 	Int height() const { return hi.y - lo.y; }
+	Bool isInRegion( Int x, Int y ) const { return (lo.x < x) && (x < hi.x) && (lo.y < y) && (y < hi.y); }
 };
 
 
@@ -348,6 +455,11 @@ struct Coord3D
 		x = 0.0f;
 		y = 0.0f;
 		z = 0.0f;
+	}
+
+	bool is(Real value) const
+	{
+		return x == value && y == value && z == value;
 	}
 
 	void add( const Coord3D *a )
@@ -405,15 +517,21 @@ struct ICoord3D
 	Int x, y, z;
 
 	Int length() const { return (Int)sqrt( (double)(x*x + y*y + z*z) ); }
+
 	void zero()
 	{
-
 		x = 0;
 		y = 0;
 		z = 0;
 	}
+
+	bool is(Int value) const
+	{
+		return x == value && y == value && z == value;
+	}
 };
 
+// For alternative see AABoxClass
 struct Region3D
 {
 	Coord3D lo, hi;						// axis-aligned bounding box
@@ -423,6 +541,11 @@ struct Region3D
 	Real depth() const { return hi.z - lo.z; }
 
 	void zero() { lo.zero(); hi.zero(); }
+
+	bool is(Real value) const
+	{
+		return lo.is(value) && hi.is(value);
+	}
 
 	void setFromPointsNoZ(const Coord3D* points, Int count)
 	{
@@ -466,20 +589,32 @@ struct Region3D
 
 	Bool isInRegionNoZ( const Coord3D *query ) const
 	{
-		return (lo.x < query->x) && (query->x < hi.x)
-						&& (lo.y < query->y) && (query->y < hi.y);
+		return (lo.x < query->x) && (query->x < hi.x) &&
+					 (lo.y < query->y) && (query->y < hi.y);
 	}
-	Bool isInRegionWithZ( const Coord3D *query ) const
+
+	Bool isInRegion( const Coord3D *query ) const
 	{
-		return (lo.x < query->x) && (query->x < hi.x)
-						&& (lo.y < query->y) && (query->y < hi.y)
-						&& (lo.z < query->z) && (query->z < hi.z);
+		return (lo.x < query->x) && (query->x < hi.x) &&
+					 (lo.y < query->y) && (query->y < hi.y) &&
+					 (lo.z < query->z) && (query->z < hi.z);
 	}
 };
 
 struct IRegion3D
 {
 	ICoord3D lo, hi;					// axis-aligned bounding box
+
+	void zero()
+	{
+		lo.zero();
+		hi.zero();
+	}
+
+	bool is(Int value) const
+	{
+		return lo.is(value) && hi.is(value);
+	}
 
 	Int width() const { return hi.x - lo.x; }
 	Int height() const { return hi.y - lo.y; }
