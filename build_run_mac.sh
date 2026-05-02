@@ -84,6 +84,7 @@ fi
 sleep 1
 
 LOG_DIR="Platform/MacOS/Build/Logs"
+mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/game.log"
 if [ -f "$LOG_FILE" ]; then
     [ -f "$LOG_FILE.bak" ] && mv "$LOG_FILE.bak" "$LOG_FILE.bak2"
@@ -96,7 +97,7 @@ killall generalszh 2>/dev/null
 
 sleep 1
 
-export GENERALS_INSTALL_PATH="/Users/okji/dev/games/Command and Conquer - Generals"
+export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
 
 # Metal frame rate control:
 # 60 = VSync (default)

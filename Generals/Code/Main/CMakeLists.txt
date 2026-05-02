@@ -34,7 +34,7 @@ else()
     target_link_libraries(g_generals PRIVATE
         macos_platform
         core_debug
-        core_profile
+        core_profile_legacy
     )
 endif()
 

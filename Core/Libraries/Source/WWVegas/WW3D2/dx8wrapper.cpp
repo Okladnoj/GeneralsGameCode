@@ -135,9 +135,6 @@ bool DX8Wrapper::IsWindowed = false;
 D3DFORMAT DX8Wrapper::DisplayFormat = D3DFMT_UNKNOWN;
 D3DMULTISAMPLE_TYPE DX8Wrapper::MultiSampleAntiAliasing = DEFAULT_MSAA;
 
-D3DMATRIX DX8Wrapper::old_world;
-D3DMATRIX DX8Wrapper::old_view;
-D3DMATRIX DX8Wrapper::old_prj;
 
 // shader system additions KJM v
 DWORD DX8Wrapper::Vertex_Shader = 0;
@@ -147,7 +144,6 @@ Vector4 DX8Wrapper::Vertex_Shader_Constants[MAX_VERTEX_SHADER_CONSTANTS];
 Vector4 DX8Wrapper::Pixel_Shader_Constants[MAX_PIXEL_SHADER_CONSTANTS];
 
 LightEnvironmentClass *DX8Wrapper::Light_Environment = nullptr;
-RenderInfoClass *DX8Wrapper::Render_Info = nullptr;
 
 DWORD DX8Wrapper::Vertex_Processing_Behavior = 0;
 ZTextureClass *DX8Wrapper::Shadow_Map[MAX_SHADOW_MAPS];
@@ -173,7 +169,7 @@ IDirect3DSurface8 *DX8Wrapper::DefaultRenderTarget = nullptr;
 IDirect3DSurface8 *DX8Wrapper::DefaultDepthBuffer = nullptr;
 bool DX8Wrapper::IsRenderToTexture = false;
 
-DX8FrameStatistics DX8Wrapper::FrameStatistics;
+
 unsigned DX8Wrapper::_MainThreadID = 0;
 bool DX8Wrapper::CurrentDX8LightEnables[4];
 bool DX8Wrapper::IsDeviceLost;
@@ -194,7 +190,7 @@ unsigned long DX8Wrapper::FrameCount = 0;
 
 bool _DX8SingleThreaded = false;
 
-static DX8FrameStatistics LastFrameStatistics;
+
 
 static D3DDISPLAYMODE DesktopMode;
 
@@ -295,9 +291,7 @@ bool DX8Wrapper::Init(void *hwnd, bool lite) {
   for (int light = 0; light < 4; ++light)
     CurrentDX8LightEnables[light] = false;
 
-  ::ZeroMemory(&old_world, sizeof(D3DMATRIX));
-  ::ZeroMemory(&old_view, sizeof(D3DMATRIX));
-  ::ZeroMemory(&old_prj, sizeof(D3DMATRIX));
+
 
 	//old_vertex_shader; TODO
 	//old_sr_shader;
@@ -949,25 +943,7 @@ void DX8Wrapper::Get_Format_Name(unsigned int format, StringClass *tex_format) {
   }
 }
 
-bool DX8Wrapper::Set_Any_Render_Device()
-{
-	// Try fullscreen first
-	int dev_number = 0;
-	for (; dev_number < _RenderDeviceNameTable.Count(); dev_number++) {
-		if (Set_Render_Device(dev_number,-1,-1,-1,0,false)) {
-			return true;
-		}
-	}
 
-	// Then windowed
-	for (dev_number = 0; dev_number < _RenderDeviceNameTable.Count(); dev_number++) {
-		if (Set_Render_Device(dev_number,-1,-1,-1,1,false)) {
-			return true;
-		}
-	}
-
-	return false;
-}
 
 void DX8Wrapper::Resize_And_Position_Window() {
   // Get the current dimensions of the 'render area' of the window
@@ -996,52 +972,7 @@ void DX8Wrapper::Resize_And_Position_Window() {
 
       DEBUG_LOG(("Window resized to w:%d h:%d", width, height));
     } else {
-bool DX8Wrapper::Set_Any_Render_Device()
-{
-	// Try fullscreen first
-	int dev_number = 0;
-	for (; dev_number < _RenderDeviceNameTable.Count(); dev_number++) {
-		if (Set_Render_Device(dev_number,-1,-1,-1,0,false)) {
-			return true;
-		}
-	}
 
-	// Then windowed
-	for (dev_number = 0; dev_number < _RenderDeviceNameTable.Count(); dev_number++) {
-		if (Set_Render_Device(dev_number,-1,-1,-1,1,false)) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void DX8Wrapper::Resize_And_Position_Window() {
-  // Get the current dimensions of the 'render area' of the window
-  RECT rect = {0};
-  ::GetClientRect(_Hwnd, &rect);
-
-  // Is the window the correct size for this resolution?
-  if ((rect.right - rect.left) != ResolutionWidth ||
-      (rect.bottom - rect.top) != ResolutionHeight) {
-    // Calculate what the main window's bounding rectangle should be to
-    // accommodate this resolution
-    rect.left = 0;
-    rect.top = 0;
-    rect.right = ResolutionWidth;
-    rect.bottom = ResolutionHeight;
-    DWORD dwstyle = ::GetWindowLong(_Hwnd, GWL_STYLE);
-    AdjustWindowRect(&rect, dwstyle, FALSE);
-    int width = rect.right - rect.left;
-    int height = rect.bottom - rect.top;
-
-    // Resize the window to fit this resolution
-    if (!IsWindowed) {
-      ::SetWindowPos(_Hwnd, HWND_TOPMOST, 0, 0, width, height,
-                     SWP_NOSIZE | SWP_NOMOVE);
-
-      DEBUG_LOG(("Window resized to w:%d h:%d", width, height));
-    } else {
       // TheSuperHackers @feature helmutbuhler 14/04/2025
       // Center the window in the workarea of the monitor it is on.
       MONITORINFO mi = {sizeof(MONITORINFO)};
@@ -1536,6 +1467,7 @@ bool DX8Wrapper::Registry_Load_Render_Device(const char *sub_key,
 				}
 			}
 		}
+	}
 
   return Set_Any_Render_Device();
 }

@@ -695,7 +695,7 @@ set(GAMEENGINE_SRC
     Source/GameClient/Color.cpp
     Source/GameClient/Credits.cpp
 
-#    Source/GameClient/Display.cpp
+    Source/GameClient/Display.cpp
     Source/GameClient/DisplayString.cpp
     Source/GameClient/DisplayStringManager.cpp
 #    Source/GameClient/Drawable.cpp

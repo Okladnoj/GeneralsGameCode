@@ -428,7 +428,7 @@ NetworkInterface *Win32GameEngine::createNetwork(void) {
   fprintf(stderr, "FACTORY: createNetwork\n");
   return new StubNetwork();
 }
-Radar *Win32GameEngine::createRadar(void) {
+Radar *Win32GameEngine::createRadar(Bool dummy) {
   fprintf(stderr, "FACTORY: createRadar\n");
   return NEW W3DRadar();
 }
@@ -436,7 +436,7 @@ WebBrowser *Win32GameEngine::createWebBrowser(void) {
   fprintf(stderr, "FACTORY: createWebBrowser\n");
   return new StubWebBrowser();
 }
-AudioManager *Win32GameEngine::createAudioManager(void) {
+AudioManager *Win32GameEngine::createAudioManager(Bool dummy) {
   fprintf(stderr, "!!!! MACOS AUDIOMANAGER CREATED !!!!\n");
   return ::new MacOSAudioManager();
 }

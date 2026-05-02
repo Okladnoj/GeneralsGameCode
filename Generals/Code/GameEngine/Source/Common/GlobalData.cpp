@@ -1320,6 +1320,20 @@ UnsignedInt GlobalData::generateExeCRC()
 
 AsciiString GlobalData::BuildUserDataPathFromIni()
 {
+#ifdef __APPLE__
+	AsciiString macDir;
+	const char *home = getenv("HOME");
+	if (home) {
+		macDir = home;
+		macDir.concat("/Library/Application Support/Command and Conquer Generals/");
+		AsciiString mkdirCmd;
+		mkdirCmd.format("mkdir -p \"%s\"", macDir.str());
+		system(mkdirCmd.str());
+	} else {
+		macDir = "./";
+	}
+	return macDir;
+#else
 #if defined(_MSC_VER) && (_MSC_VER < 1300)
 	// VC6 lacks FOLDERID_Documents and KF_FLAG_DEFAULT
 	const GUID FOLDERID_Documents = { 0xFDD39AD0, 0x238F, 0x46AF, 0xAD, 0xB4, 0x6C, 0x85, 0x48, 0x03, 0x69, 0xC7 };
@@ -1367,4 +1381,5 @@ AsciiString GlobalData::BuildUserDataPathFromIni()
 	}
 
 	return myDocumentsDirectory;
+#endif
 }

@@ -649,6 +649,10 @@ void GameEngine::init() {
 		TheMetaMap->generateMetaMap();
 		TheMetaMap->verifyMetaMap();
 
+		initSubsystem(TheActionManager,"TheActionManager", MSGNEW("GameEngineSubsystem") ActionManager(), nullptr);
+		initSubsystem(TheGameStateMap,"TheGameStateMap", MSGNEW("GameEngineSubsystem") GameStateMap, nullptr );
+		initSubsystem(TheGameState,"TheGameState", MSGNEW("GameEngineSubsystem") GameState, nullptr );
+
     // Create the interface for sending game results
     initSubsystem(TheGameResultsQueue, "TheGameResultsQueue",
                   GameResultsInterface::createNewGameResultsInterface(),

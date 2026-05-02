@@ -3546,10 +3546,11 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h) {
     // TacticalView proportions, and Display width/height.
     if (TheShell && TheShell->isShellActive()) {
       TheShell->recreateWindowLayouts();
-      if (TheInGameUI) {
-        TheInGameUI->recreateControlBar();
-        TheInGameUI->refreshCustomUiResources();
-      }
+    }
+
+    if (TheInGameUI) {
+      TheInGameUI->recreateControlBar();
+      TheInGameUI->refreshCustomUiResources();
     }
 
     // Persist resolution to preferences file so it survives restarts
