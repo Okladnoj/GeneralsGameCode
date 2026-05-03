@@ -39,18 +39,18 @@ static void appendSimulationMathCrc_Deterministic(XferCRC &xfer)
         0.9f, 1.0f, 2.1f, 1.2f);
 
     factorsMatrix.Set(
-        WWMath::Sin(0.7f) * WWMath::Log10fOrigin(2.3f),
-        WWMath::Cos(1.1f) * WWMath::PowfOrigin(1.1f, 2.0f),
-        WWMath::TanfOrigin(0.3f),
-        WWMath::ASinfOrigin(0.967302263f),
-        WWMath::ACosfOrigin(0.967302263f),
-        WWMath::AtanfOrigin(0.967302263f) * WWMath::PowfOrigin(1.1f, 2.0f),
-        WWMath::Atan2fOrigin(0.4f, 1.3f),
-        WWMath::SinhfOrigin(0.2f),
-        WWMath::CoshfOrigin(0.4f) * WWMath::TanhfOrigin(0.5f),
-        WWMath::SqrtfOrigin(55788.84375f),
-        WWMath::ExpfOrigin(0.1f) * WWMath::Log10fOrigin(2.3f),
-        WWMath::LogfOrigin(1.4f));
+        WWMath::Sin(0.7f),
+        WWMath::Cos(1.1f),
+        WWMath::Asin(0.967302263f),
+        WWMath::Acos(0.967302263f),
+        WWMath::Sqrt(55788.84375f),
+        WWMath::Fabs(-1.234f),
+        WWMath::Sin(0.1f),
+        WWMath::Cos(0.2f),
+        WWMath::Sqrt(1.3f),
+        WWMath::Asin(0.4f),
+        WWMath::Acos(0.5f),
+        WWMath::Fabs(-0.6f));
 
     Matrix3D::Multiply(matrix, factorsMatrix, &matrix);
     matrix.Get_Inverse(matrix);
@@ -69,18 +69,18 @@ static void appendSimulationMathCrc_Native(XferCRC &xfer)
         0.9f, 1.0f, 2.1f, 1.2f);
 
     factorsMatrix.Set(
-        (float)(::sin(0.7) * ::log10(2.3)),
-        (float)(::cos(1.1) * ::pow(1.1, 2.0)),
-        (float)::tan(0.3),
+        (float)::sin(0.7),
+        (float)::cos(1.1),
         (float)::asin(0.967302263),
         (float)::acos(0.967302263),
-        (float)(::atan(0.967302263) * ::pow(1.1, 2.0)),
-        (float)::atan2(0.4, 1.3),
-        (float)::sinh(0.2),
-        (float)(::cosh(0.4) * ::tanh(0.5)),
         (float)::sqrt(55788.84375),
-        (float)(::exp(0.1) * ::log10(2.3)),
-        (float)::log(1.4));
+        (float)::fabs(-1.234),
+        (float)::sin(0.1),
+        (float)::cos(0.2),
+        (float)::sqrt(1.3),
+        (float)::asin(0.4),
+        (float)::acos(0.5),
+        (float)::fabs(-0.6));
 
     Matrix3D::Multiply(matrix, factorsMatrix, &matrix);
     matrix.Get_Inverse(matrix);

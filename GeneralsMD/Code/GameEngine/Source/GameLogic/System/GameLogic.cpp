@@ -3759,18 +3759,12 @@ void GameLogic::update()
 	}
 
 #ifdef RUN_MATH_BENCHMARK_REPLAY400_FLAG
-	static int s_replayStartFrame = -1;
 	static bool s_benchmarkRun = false;
 
-	if (!s_benchmarkRun && TheRecorder && TheRecorder->isPlaybackMode())
+	if (!s_benchmarkRun && m_frame >= 10)
 	{
-		if (s_replayStartFrame == -1) {
-			s_replayStartFrame = m_frame;
-		}
-		else if (m_frame == s_replayStartFrame + 400) {
-			SimulationMathCrc::runBenchmark(10000);
-			s_benchmarkRun = true;
-		}
+		SimulationMathCrc::runBenchmark(10000);
+		s_benchmarkRun = true;
 	}
 #endif
 

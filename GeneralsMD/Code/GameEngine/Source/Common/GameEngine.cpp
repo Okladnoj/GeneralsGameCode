@@ -111,6 +111,7 @@
 #include "GameNetwork/LANAPI.h"
 
 #include "Common/version.h"
+#include "Common/Diagnostic/SimulationMathCrc.h"
 
 //-------------------------------------------------------------------------------------------------
 
@@ -340,6 +341,8 @@ Bool GameEngine::isGameHalted() {
  */
 void GameEngine::init() {
   try {
+    SimulationMathCrc::runBenchmark(10000);
+
     // create an INI object to use for loading stuff
     INI ini;
 
