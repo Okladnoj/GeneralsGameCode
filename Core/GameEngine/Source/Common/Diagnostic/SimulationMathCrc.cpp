@@ -111,6 +111,7 @@ void SimulationMathCrc::runBenchmark(int iterations)
     UnsignedInt crcDet = 0;
     
     setFPMode();
+
     for (i = 0; i < iterations; ++i)
     {
         XferCRC xfer;
@@ -127,6 +128,7 @@ void SimulationMathCrc::runBenchmark(int iterations)
     UnsignedInt crcNat = 0;
     
     setFPMode();
+
     for (i = 0; i < iterations; ++i)
     {
         XferCRC xfer;
@@ -139,7 +141,7 @@ void SimulationMathCrc::runBenchmark(int iterations)
     clock_t endNat = clock();
     double timeNatMs = (double)(endNat - startNat) / CLOCKS_PER_SEC * 1000.0;
 
-    printf("\n================ MATH BENCHMARK (%d iters) ================\n", iterations);
+    printf("\n================ MATH BENCHMARK (%d iterations) ================\n", iterations);
     printf("Deterministic (WWMath): CRC = %08X, Time = %.2f ms\n", crcDet, timeDetMs);
     printf("Native (system math):   CRC = %08X, Time = %.2f ms\n", crcNat, timeNatMs);
     printf("===========================================================\n\n");
