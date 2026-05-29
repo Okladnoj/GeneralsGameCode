@@ -8,9 +8,11 @@ on:
   push:
     branches:
       - main
+      - 'okji/test/**'
   pull_request:
     branches:
       - main
+      - 'okji/test/**'
   workflow_dispatch:
 
 concurrency:
@@ -171,6 +173,22 @@ jobs:
         include:
           - preset: "vc6+t+e"
           - preset: "vc6-releaselog+t+e" # optimized build with logging and crashing enabled should be compatible, so we test that here.
+      fail-fast: false
+    uses: ./.github/workflows/check-replays.yml
+    with:
+      game: "GeneralsMD"
+      userdata: "GeneralsReplays/GeneralsZH/1.04"
+      preset: ${{ matrix.preset }}
+    secrets: inherit
+
+  replaycheck-generalsmd-win32:
+    name: Replay Check GeneralsMD${{ matrix.preset && '' }}
+    needs: build-generalsmd-win32
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.generalsmd == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+    strategy:
+      matrix:
+        include:
+          - preset: "win32+t+e"
       fail-fast: false
     uses: ./.github/workflows/check-replays.yml
     with:
