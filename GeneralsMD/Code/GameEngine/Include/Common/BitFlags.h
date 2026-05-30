@@ -31,7 +31,6 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "Common/STLTypedefs.h"
-#include <inttypes.h>
 
 class INI;
 class Xfer;
@@ -320,9 +319,9 @@ public:
 			if (val != 0 || chunk == 0 || printedAny)
 			{
 				if (printedAny)
-					snprintf(chunkBuf, sizeof(chunkBuf), "%016" PRIX64, val);
+					snprintf(chunkBuf, sizeof(chunkBuf), "%016I64X", val);
 				else
-					snprintf(chunkBuf, sizeof(chunkBuf), "%" PRIX64, val);
+					snprintf(chunkBuf, sizeof(chunkBuf), "%I64X", val);
 
 				result.concat(chunkBuf);
 				printedAny = true;
