@@ -31,6 +31,7 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "Common/STLTypedefs.h"
+#include <inttypes.h>
 
 class INI;
 class Xfer;
@@ -309,19 +310,19 @@ public:
 
 		for (int chunk = numChunks - 1; chunk >= 0; --chunk)
 		{
-			unsigned __int64 val = 0;
+			UnsignedInt64 val = 0;
 			for (int bit = 0; bit < 64 && (chunk * 64 + bit) < NUMBITS; ++bit)
 			{
 				if (m_bits.test(chunk * 64 + bit))
-					val |= (unsigned __int64)(1) << bit;
+					val |= (UnsignedInt64)(1) << bit;
 			}
 
 			if (val != 0 || chunk == 0 || printedAny)
 			{
 				if (printedAny)
-					snprintf(chunkBuf, sizeof(chunkBuf), "%016I64X", val);
+					snprintf(chunkBuf, sizeof(chunkBuf), "%016" PRIX64, val);
 				else
-					snprintf(chunkBuf, sizeof(chunkBuf), "%I64X", val);
+					snprintf(chunkBuf, sizeof(chunkBuf), "%" PRIX64, val);
 
 				result.concat(chunkBuf);
 				printedAny = true;
