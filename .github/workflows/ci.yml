@@ -179,7 +179,7 @@ jobs:
     uses: ./.github/workflows/check-replays.yml
     with:
       game: "GeneralsMD"
-      userdata: "GeneralsReplays/GeneralsZH/1.04"
+      userdata: "test_replays"
       preset: ${{ matrix.preset }}
     secrets: inherit
 
@@ -195,6 +195,6 @@ jobs:
     uses: ./.github/workflows/check-replays.yml
     with:
       game: "GeneralsMD"
-      userdata: "GeneralsReplays/GeneralsZH/1.04"
+      userdata: "test_replays"
       preset: ${{ matrix.preset }}
     secrets: inherit
