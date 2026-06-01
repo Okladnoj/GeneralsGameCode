@@ -32,6 +32,7 @@
 #include "Common/RandomValue.h"
 #include "Common/crc.h"
 #include "Common/Debug.h"
+#include "Common/CRCDebug.h"
 #include "GameLogic/GameLogic.h"
 
 #undef DEBUG_RANDOM_AUDIO
