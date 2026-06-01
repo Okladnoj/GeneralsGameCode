@@ -115,6 +115,9 @@ void InitRandom()
 
 void InitRandom( UnsignedInt seed )
 {
+#ifdef DEBUG_CRC
+	CRCGEN_LOG(("InitRandom called with seed: %u", seed));
+#endif
 #ifdef DETERMINISTIC
 	seed = 0;
 #endif
