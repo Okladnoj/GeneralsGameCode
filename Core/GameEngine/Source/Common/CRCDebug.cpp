@@ -244,6 +244,40 @@ void addCRCDebugLineNoCounter(const char *fmt, ...)
     va_end(args);
 }
 
+void addCRCRandomLine(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    
+	if (lastCRCDebugFrame != (TheGameLogic ? TheGameLogic->getFrame() : -1))
+	{
+		outputCRCDebugLinesPerFrame();
+		lastCRCDebugFrame = (TheGameLogic ? TheGameLogic->getFrame() : -1);
+		lastCRCDebugIndex = 0;
+	}
+
+	DebugStrings[nextDebugString][0] = 0;
+	Int len = 0;
+
+	vsnprintf(DebugStrings[nextDebugString]+len, MaxStringLen-len, fmt, args);
+
+	char *tmp = DebugStrings[nextDebugString];
+	while (tmp && *tmp)
+	{
+		if (*tmp == '\r' || *tmp == '\n')
+			*tmp = ' ';
+		++tmp;
+	}
+
+	++nextDebugString;
+	++numDebugStrings;
+	if (nextDebugString == MaxStrings)
+		nextDebugString = 0;
+
+    va_end(args);
+}
+
+
 void addCRCGenLine(const char *fmt, ...)
 {
 	if (!(IS_FRAME_OK_TO_LOG))
