@@ -133,6 +133,13 @@ void CRCDebugStartNewGame()
 			DeleteFile(it->str());
 		}
 	}
+
+	if (numDebugStrings > 0)
+	{
+		lastCRCDebugFrame = -1;
+		outputCRCDebugLinesPerFrame();
+	}
+
 	nextDebugString = 0;
 	numDebugStrings = 0;
 	lastCRCDebugFrame = 0;
