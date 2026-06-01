@@ -113,6 +113,8 @@ Int lastCRCDebugFrame = 0;
 Int lastCRCDebugIndex = 0;
 extern Bool inCRCGen;
 
+static void outputCRCDebugLinesPerFrame();
+
 void CRCDebugStartNewGame()
 {
 	if (TheGameLogic->isInShellGame())
