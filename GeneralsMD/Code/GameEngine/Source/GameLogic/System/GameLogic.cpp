@@ -760,9 +760,21 @@ static void populateRandomSideAndColor( GameInfo *game )
 		// clean up random factions
 		Int playerTemplateIdx = slot->getPlayerTemplate();
 		DEBUG_LOG(("Player %d has playerTemplate index %d", i, playerTemplateIdx));
+		CRCGEN_LOG(("Slot %d logic start: isOccupied=%d, isHuman=%d, isAI=%d, playerTemplate=%d, count=%d",
+			i, slot->isOccupied(), slot->isHuman(), slot->isAI(), playerTemplateIdx, ThePlayerTemplateStore->getPlayerTemplateCount()));
+		if (g_logRandom)
+		{
+			addCRCRandomLine("Slot %d side logic check, playerTemplateIdx=%d", i, playerTemplateIdx);
+		}
+
 		while (playerTemplateIdx != PLAYERTEMPLATE_OBSERVER && (playerTemplateIdx < 0 || playerTemplateIdx >= ThePlayerTemplateStore->getPlayerTemplateCount()))
 		{
 			DEBUG_ASSERTCRASH(playerTemplateIdx == PLAYERTEMPLATE_RANDOM, ("Non-random bad playerTemplate %d in slot %d", playerTemplateIdx, i));
+			CRCGEN_LOG(("Slot %d entering RANDOM generation loop", i));
+			if (g_logRandom)
+			{
+				addCRCRandomLine("Slot %d entering RANDOM generation loop", i);
+			}
 #ifdef MORE_RANDOM
 			// our RNG is basically shit -- horribly nonrandom at the start of the sequence.
 			// get a few values at random to get rid of the dreck.

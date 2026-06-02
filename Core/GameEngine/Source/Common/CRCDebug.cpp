@@ -132,7 +132,12 @@ void CRCDebugStartNewGame()
 		FilenameList::iterator it;
 		for (it = files.begin(); it != files.end(); ++it)
 		{
-			DeleteFile(it->str());
+			// TheSuperHackers @fix Preserve the pre-game log (InitRandom, etc.)
+			// if it was already created in an earlier phase of the current startup sequence.
+			if (strstr(it->str(), "-00001") == nullptr)
+			{
+				DeleteFile(it->str());
+			}
 		}
 	}
 
