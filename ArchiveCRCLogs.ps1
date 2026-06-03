@@ -18,7 +18,7 @@ if (-not (Test-Path $GenContextRepo)) {
 
 New-Item -ItemType Directory -Path $ArchiveDir -Force | Out-Null
 
-$LogPatterns = @("crcDebug*.txt", "DebugFrame_*.txt", "sync*.txt", "*dbgview*.log", "*debugview*.txt", "*debugview*.log", "ReleaseCrashLog.txt")
+$LogPatterns = @("crcDebug*.txt", "DebugFrame_*.txt", "sync*.txt", "*dbgview*.log", "*debugview*.txt", "*debugview*.log", "ReleaseCrashLog.txt", "SleepyDiag.txt")
 $SearchDirs = @($GameDir, "$GameDir\CRCLogs", $DocsDir, "D:\OKJI\dev\GeneralsGameCode")
 
 $foundCount = 0

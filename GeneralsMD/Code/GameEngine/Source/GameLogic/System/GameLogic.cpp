@@ -3900,6 +3900,12 @@ void GameLogic::update()
 			// else defer it till next frame and re-push it
 			u->friend_setNextCallFrame(now + sleepLen);
 			rebalanceSleepyUpdate(0);
+
+			{
+				static FILE* sleepyLog = nullptr;
+				if (!sleepyLog) sleepyLog = fopen("SleepyDiag.txt", "w");
+				if (sleepyLog) { fprintf(sleepyLog, "SLEEPY_DIAG f%d obj=%d wake=%d sleep=%d\n", now, u->friend_getObject()->getID(), u->friend_getNextCallFrame(), sleepLen); fflush(sleepyLog); }
+			}
 		}
 	}
 
