@@ -760,11 +760,11 @@ static void populateRandomSideAndColor( GameInfo *game )
 		// clean up random factions
 		Int playerTemplateIdx = slot->getPlayerTemplate();
 		DEBUG_LOG(("Player %d has playerTemplate index %d", i, playerTemplateIdx));
-		CRCGEN_LOG(("Slot %d logic start: isOccupied=%d, isHuman=%d, isAI=%d, playerTemplate=%d, count=%d",
-			i, slot->isOccupied(), slot->isHuman(), slot->isAI(), playerTemplateIdx, ThePlayerTemplateStore->getPlayerTemplateCount()));
+		CRCGEN_LOG(("Slot %d logic start: isOccupied=%d, isHuman=%d, isAI=%d, playerTemplate=%d, color=%d, count=%d",
+			i, slot->isOccupied(), slot->isHuman(), slot->isAI(), playerTemplateIdx, slot->getColor(), ThePlayerTemplateStore->getPlayerTemplateCount()));
 		if (g_logRandom)
 		{
-			addCRCRandomLine("Slot %d side logic check, playerTemplateIdx=%d", i, playerTemplateIdx);
+			addCRCRandomLine("Slot %d side logic check, playerTemplateIdx=%d, color=%d", i, playerTemplateIdx, slot->getColor());
 		}
 
 		while (playerTemplateIdx != PLAYERTEMPLATE_OBSERVER && (playerTemplateIdx < 0 || playerTemplateIdx >= ThePlayerTemplateStore->getPlayerTemplateCount()))
@@ -808,6 +808,11 @@ static void populateRandomSideAndColor( GameInfo *game )
 		if (colorIdx < 0 || colorIdx >= TheMultiplayerSettings->getNumColors())
 		{
 			DEBUG_ASSERTCRASH(colorIdx == -1, ("Non-random bad color %d in slot %d", colorIdx, i));
+			CRCGEN_LOG(("Slot %d entering RANDOM color loop (color=%d)", i, colorIdx));
+			if (g_logRandom)
+			{
+				addCRCRandomLine("Slot %d entering RANDOM color loop (color=%d)", i, colorIdx);
+			}
 			while (colorIdx == -1)
 			{
 				colorIdx = GameLogicRandomValue(0, TheMultiplayerSettings->getNumColors()-1);
@@ -816,6 +821,11 @@ static void populateRandomSideAndColor( GameInfo *game )
 			}
 			DEBUG_LOG(("Setting color %d to %d", i, colorIdx));
 			slot->setColor(colorIdx);
+		}
+		CRCGEN_LOG(("Slot %d FINAL: playerTemplate=%d, color=%d", i, slot->getPlayerTemplate(), slot->getColor()));
+		if (g_logRandom)
+		{
+			addCRCRandomLine("Slot %d FINAL: playerTemplate=%d, color=%d", i, slot->getPlayerTemplate(), slot->getColor());
 		}
 	}
 }

@@ -189,6 +189,19 @@ void LANAPI::OnGameStart()
 
 	if (m_currentGame)
 	{
+		DEBUG_LOG(("WIN_LANAPI: === OnGameStart === amIHost=%d, localSlot=%d, seed=%u",
+			m_currentGame->amIHost(), m_currentGame->getLocalSlotNum(), m_currentGame->getSeed()));
+		for (Int dbgSlot = 0; dbgSlot < MAX_SLOTS; ++dbgSlot)
+		{
+			GameSlot *dbgS = m_currentGame->getSlot(dbgSlot);
+			if (dbgS && dbgS->isOccupied())
+			{
+				DEBUG_LOG(("WIN_LANAPI:   Slot %d: human=%d, ai=%d, playerTemplate=%d, color=%d, startPos=%d, team=%d, IP=0x%08X",
+					dbgSlot, dbgS->isHuman(), dbgS->isAI(), dbgS->getPlayerTemplate(),
+					dbgS->getColor(), dbgS->getStartPos(), dbgS->getTeamNumber(), dbgS->getIP()));
+			}
+		}
+
 		LANPreferences pref;
 		AsciiString option;
 		option.format("%d", m_currentGame->getLANSlot( m_currentGame->getLocalSlotNum() )->getPlayerTemplate());
@@ -328,6 +341,8 @@ void LANAPI::OnGameOptions( UnsignedInt playerIP, Int playerSlot, AsciiString op
 		// Parse player requests (side, color, etc)
 		if( AmIHost() && m_localIP != playerIP)
 		{
+			DEBUG_LOG(("WIN_LANAPI: [HOST] received options from slot %d (IP=0x%08X): \"%s\"",
+				playerSlot, playerIP, options.str()));
 			if (options.compare("HELLO") == 0)
 			{
 				m_currentGame->setPlayerLastHeard(playerSlot, timeGetTime());
@@ -511,6 +526,8 @@ void LANAPI::OnGameJoin( ReturnType ret, LANGameInfo *theGame )
 
 		LANPreferences pref;
 		AsciiString options;
+		DEBUG_LOG(("WIN_LANAPI: OnGameJoin OK: preferredFaction=%d, preferredColor=%d",
+			pref.getPreferredFaction(), pref.getPreferredColor()));
 		options.format("PlayerTemplate=%d", pref.getPreferredFaction());
 		RequestGameOptions(options, true);
 		options.format("Color=%d", pref.getPreferredColor());
