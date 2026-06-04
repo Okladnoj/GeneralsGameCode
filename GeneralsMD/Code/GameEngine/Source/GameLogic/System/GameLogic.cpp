@@ -4052,8 +4052,13 @@ void GameLogic::registerObject( Object *obj )
 	UnsignedInt now = getFrame();
 	if (now == 0)
 		now = 1;
+
+	int regCount = 0;
+	int totalBehaviors = 0;
+
 	for (BehaviorModule** b = obj->getBehaviorModules(); *b; ++b)
 	{
+		totalBehaviors++;
 #ifdef DIRECT_UPDATEMODULE_ACCESS
 		// evil, but necessary at this point. (srj)
 		UpdateModulePtr u = (UpdateModulePtr)((*b)->getUpdate());
@@ -4063,6 +4068,7 @@ void GameLogic::registerObject( Object *obj )
 		if (!u)
 			continue;
 
+		regCount++;
 		UnsignedInt when = u->friend_getNextCallFrame();
 #ifdef ALLOW_NONSLEEPY_UPDATES
 		if (when == 0)
@@ -4082,6 +4088,12 @@ void GameLogic::registerObject( Object *obj )
 			DEBUG_ASSERTCRASH(u->friend_getNextCallFrame() >= now, ("you may not specify a zero initial sleep time for sleepy modules (%d %d)",u->friend_getNextCallFrame(),now));
 			pushSleepyUpdate(u);
 		}
+	}
+
+	{
+		static FILE* regLog = nullptr;
+		if (!regLog) regLog = fopen("RegDiag.txt", "w");
+		if (regLog) { fprintf(regLog, "REG_OBJ id=%d behaviors=%d sleepy=%d frame=%d\n", obj->getID(), totalBehaviors, regCount, now); fflush(regLog); }
 	}
 
 }
