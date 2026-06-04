@@ -3863,6 +3863,14 @@ void GameLogic::update()
 #endif
 
 	{
+		{
+			extern FILE* g_diagLog;
+			if (g_diagLog) {
+				UnsignedInt topWake = m_sleepyUpdates.empty() ? 0 : m_sleepyUpdates.front()->friend_getNextCallFrame();
+				fprintf(g_diagLog, "HEAP f%d size=%d topWake=%d\n", now, (int)m_sleepyUpdates.size(), topWake);
+				fflush(g_diagLog);
+			}
+		}
 		while (!m_sleepyUpdates.empty())
 		{
 			UpdateModulePtr u = peekSleepyUpdate();
