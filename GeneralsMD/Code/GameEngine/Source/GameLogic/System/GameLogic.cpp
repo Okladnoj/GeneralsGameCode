@@ -118,6 +118,8 @@ struct QuitGameException {};
 
 DECLARE_PERF_TIMER(SleepyMaintenance)
 
+FILE* g_diagLog = nullptr;
+
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
 // If defined, the game times various units.
 #ifdef DO_UNIT_TIMINGS
@@ -3706,6 +3708,12 @@ void GameLogic::update()
 	PROFILER_SECTION_COLOR(0x4CAF50);
 
 	LatchRestore<Bool> inUpdateLatch(m_isInUpdate, TRUE);
+
+	{
+		static int diagLastFrame = -1;
+		if (m_frame == 1 && diagLastFrame != 1) { if (g_diagLog) fclose(g_diagLog); g_diagLog = fopen("DiagLog.txt", "w"); }
+		diagLastFrame = m_frame;
+	}
 #ifdef DO_UNIT_TIMINGS
 	unitTimings();
 #endif
@@ -3903,10 +3911,8 @@ void GameLogic::update()
 			u->friend_setNextCallFrame(now + sleepLen);
 			rebalanceSleepyUpdate(0);
 
-			{
-				static FILE* sleepyLog = nullptr;
-				if (!sleepyLog) sleepyLog = fopen("SleepyDiag.txt", "w");
-				if (sleepyLog) { fprintf(sleepyLog, "SLEEPY_DIAG f%d obj=%d mod=%s wake=%d sleep=%d\n", now, u->friend_getObject()->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame(), sleepLen); fflush(sleepyLog); }
+				extern FILE* g_diagLog;
+				if (g_diagLog) { fprintf(g_diagLog, "SLEEPY f%d obj=%d mod=%s wake=%d sleep=%d\n", now, u->friend_getObject()->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame(), sleepLen); fflush(g_diagLog); }
 			}
 		}
 	}
@@ -4091,9 +4097,8 @@ void GameLogic::registerObject( Object *obj )
 	}
 
 	{
-		static FILE* regLog = nullptr;
-		if (!regLog) regLog = fopen("RegDiag.txt", "w");
-		if (regLog) { fprintf(regLog, "REG_OBJ id=%d behaviors=%d sleepy=%d frame=%d\n", obj->getID(), totalBehaviors, regCount, now); fflush(regLog); }
+		extern FILE* g_diagLog;
+		if (g_diagLog) { fprintf(g_diagLog, "REG id=%d beh=%d slp=%d f=%d\n", obj->getID(), totalBehaviors, regCount, now); fflush(g_diagLog); }
 	}
 
 }
