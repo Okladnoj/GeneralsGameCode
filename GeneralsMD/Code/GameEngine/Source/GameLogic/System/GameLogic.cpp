@@ -3906,7 +3906,7 @@ void GameLogic::update()
 			{
 				static FILE* sleepyLog = nullptr;
 				if (!sleepyLog) sleepyLog = fopen("SleepyDiag.txt", "w");
-				if (sleepyLog) { fprintf(sleepyLog, "SLEEPY_DIAG f%d obj=%d wake=%d sleep=%d\n", now, u->friend_getObject()->getID(), u->friend_getNextCallFrame(), sleepLen); fflush(sleepyLog); }
+				if (sleepyLog) { fprintf(sleepyLog, "SLEEPY_DIAG f%d obj=%d mod=%s wake=%d sleep=%d\n", now, u->friend_getObject()->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame(), sleepLen); fflush(sleepyLog); }
 			}
 		}
 	}
