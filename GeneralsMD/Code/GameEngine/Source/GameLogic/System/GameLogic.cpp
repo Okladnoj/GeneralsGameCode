@@ -4084,6 +4084,11 @@ void GameLogic::registerObject( Object *obj )
 			continue;
 
 		regCount++;
+		{
+			extern FILE* g_diagLog;
+			if (!g_diagLog) { g_diagLog = fopen("DiagLog.txt", "w"); }
+			if (g_diagLog && now == 1) { fprintf(g_diagLog, "REGMOD id=%d mod=%s wake=%d\n", obj->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame()); fflush(g_diagLog); }
+		}
 		UnsignedInt when = u->friend_getNextCallFrame();
 #ifdef ALLOW_NONSLEEPY_UPDATES
 		if (when == 0)
