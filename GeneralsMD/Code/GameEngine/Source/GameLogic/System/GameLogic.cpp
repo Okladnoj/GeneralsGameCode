@@ -3911,6 +3911,7 @@ void GameLogic::update()
 			u->friend_setNextCallFrame(now + sleepLen);
 			rebalanceSleepyUpdate(0);
 
+			{
 				extern FILE* g_diagLog;
 				if (g_diagLog) { fprintf(g_diagLog, "SLEEPY f%d obj=%d mod=%s wake=%d sleep=%d\n", now, u->friend_getObject()->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame(), sleepLen); fflush(g_diagLog); }
 			}
