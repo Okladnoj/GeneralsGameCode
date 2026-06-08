@@ -199,6 +199,28 @@ static void appendSimulationMathCrc_Deterministic(XferCRC &xfer)
         WWMath::Logf(1.4f));
 
     Matrix3D::Multiply(matrix, factorsMatrix, &matrix);
+    
+    // EDGE CASES: Real-world situations that can break determinism due to FPU precision (x87 vs SSE)
+    float z1 = 1.0f;
+    float len1 = WWMath::Sqrtf(z1 * z1);
+    float ratio1 = z1 / len1; // Can be slightly > 1.0f on x87 due to intermediate precision
+    
+    float clampedRatio1 = ratio1;
+    if (clampedRatio1 > 1.0f) clampedRatio1 = 1.0f;
+    if (clampedRatio1 < -1.0f) clampedRatio1 = -1.0f;
+    
+    Matrix3D edgeCasesMatrix;
+    edgeCasesMatrix.Set(
+        WWMath::Asinf(ratio1), // Unclamped ASin that might receive > 1.0f
+        WWMath::Acosf(-ratio1), // Unclamped ACos that might receive < -1.0f
+        WWMath::Asinf(clampedRatio1), // Clamped ASin (Safe)
+        WWMath::Acosf(-clampedRatio1), // Clamped ACos (Safe)
+        WWMath::Atan2f(0.0f, 0.0f), // ATan2(0,0) edge case
+        WWMath::Sqrtf(-0.0f), // Negative zero sqrt
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
+    );
+    Matrix3D::Multiply(matrix, edgeCasesMatrix, &matrix);
+
     matrix.Get_Inverse(matrix);
 
     xfer.xferMatrix3D(&matrix);
@@ -229,6 +251,28 @@ static void appendSimulationMathCrc_Native(XferCRC &xfer)
         (float)::log(1.4));
 
     Matrix3D::Multiply(matrix, factorsMatrix, &matrix);
+    
+    // EDGE CASES: Real-world situations that can break determinism due to FPU precision (x87 vs SSE)
+    float z1 = 1.0f;
+    float len1 = (float)::sqrt(z1 * z1);
+    float ratio1 = z1 / len1; // Can be slightly > 1.0f on x87 due to intermediate precision
+    
+    float clampedRatio1 = ratio1;
+    if (clampedRatio1 > 1.0f) clampedRatio1 = 1.0f;
+    if (clampedRatio1 < -1.0f) clampedRatio1 = -1.0f;
+    
+    Matrix3D edgeCasesMatrix;
+    edgeCasesMatrix.Set(
+        (float)::asin(ratio1), // Unclamped ASin that might receive > 1.0f
+        (float)::acos(-ratio1), // Unclamped ACos that might receive < -1.0f
+        (float)::asin(clampedRatio1), // Clamped ASin (Safe)
+        (float)::acos(-clampedRatio1), // Clamped ACos (Safe)
+        (float)::atan2(0.0, 0.0), // ATan2(0,0) edge case
+        (float)::sqrt(-0.0), // Negative zero sqrt
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
+    );
+    Matrix3D::Multiply(matrix, edgeCasesMatrix, &matrix);
+
     matrix.Get_Inverse(matrix);
 
     xfer.xferMatrix3D(&matrix);
