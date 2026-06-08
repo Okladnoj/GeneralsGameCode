@@ -28,6 +28,152 @@
 #include <stdio.h>
 #include <time.h>
 
+static inline unsigned int f2h(float f) {
+    union { float f; unsigned int i; } u;
+    u.f = f;
+    return u.i;
+}
+
+static void dumpMathDiagnostic(const char* filename)
+{
+    FILE* f = fopen(filename, "w");
+    if (!f) return;
+
+    fprintf(f, "================ MATH DEBUG DIAGNOSTIC ================\n");
+
+    setFPMode();
+
+    fprintf(f, "1. BASIC WWMath vs NATIVE TRANSCENDENTALS\n");
+    fprintf(f, "---------------------------------------------------------\n");
+    
+    // Evaluate the exact same expressions as SimulationMathCrc
+    float s1_w = WWMath::Sinf(0.7f);
+    float l1_w = WWMath::Log10f(2.3f);
+    float p1_w = s1_w * l1_w;
+
+    float s1_n = (float)::sin(0.7);
+    float l1_n = (float)::log10(2.3);
+    float p1_n = (float)(::sin(0.7) * ::log10(2.3));
+
+    fprintf(f, "Sinf(0.7f):        WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(s1_w), s1_w, f2h(s1_n), s1_n);
+    fprintf(f, "Log10f(2.3f):      WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(l1_w), l1_w, f2h(l1_n), l1_n);
+    fprintf(f, "Sin * Log10:       WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(p1_w), p1_w, f2h(p1_n), p1_n);
+    
+    float c2_w = WWMath::Cosf(1.1f);
+    float po2_w = WWMath::Powf(1.1f, 2.0f);
+    float p2_w = c2_w * po2_w;
+
+    float c2_n = (float)::cos(1.1);
+    float po2_n = (float)::pow(1.1, 2.0);
+    float p2_n = (float)(::cos(1.1) * ::pow(1.1, 2.0));
+
+    fprintf(f, "Cosf(1.1f):        WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(c2_w), c2_w, f2h(c2_n), c2_n);
+    fprintf(f, "Powf(1.1f, 2.0f):  WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(po2_w), po2_w, f2h(po2_n), po2_n);
+    fprintf(f, "Cos * Pow:         WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(p2_w), p2_w, f2h(p2_n), p2_n);
+
+    float t3_w = WWMath::Tanf(0.3f);
+    float t3_n = (float)::tan(0.3);
+    fprintf(f, "Tanf(0.3f):        WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(t3_w), t3_w, f2h(t3_n), t3_n);
+
+    float as4_w = WWMath::Asinf(0.967302263f);
+    float as4_n = (float)::asin(0.967302263);
+    fprintf(f, "Asinf(0.9673...):  WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(as4_w), as4_w, f2h(as4_n), as4_n);
+
+    float ac5_w = WWMath::Acosf(0.967302263f);
+    float ac5_n = (float)::acos(0.967302263);
+    fprintf(f, "Acosf(0.9673...):  WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(ac5_w), ac5_w, f2h(ac5_n), ac5_n);
+
+    float at6_w = WWMath::Atanf(0.967302263f);
+    float p6_w = WWMath::Powf(1.1f, 2.0f);
+    float m6_w = at6_w * p6_w;
+    
+    float at6_n = (float)::atan(0.967302263);
+    float p6_n = (float)::pow(1.1, 2.0);
+    float m6_n = (float)(::atan(0.967302263) * ::pow(1.1, 2.0));
+    
+    fprintf(f, "Atanf(0.9673...):  WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(at6_w), at6_w, f2h(at6_n), at6_n);
+    fprintf(f, "Atan * Pow:        WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(m6_w), m6_w, f2h(m6_n), m6_n);
+
+    float at27_w = WWMath::Atan2f(0.4f, 1.3f);
+    float at27_n = (float)::atan2(0.4, 1.3);
+    fprintf(f, "Atan2f(0.4, 1.3):  WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(at27_w), at27_w, f2h(at27_n), at27_n);
+
+    float sh8_w = WWMath::Sinhf(0.2f);
+    float sh8_n = (float)::sinh(0.2);
+    fprintf(f, "Sinhf(0.2f):       WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(sh8_w), sh8_w, f2h(sh8_n), sh8_n);
+
+    float ch9_w = WWMath::Coshf(0.4f);
+    float th9_w = WWMath::Tanhf(0.5f);
+    float m9_w = ch9_w * th9_w;
+
+    float ch9_n = (float)::cosh(0.4);
+    float th9_n = (float)::tanh(0.5);
+    float m9_n = (float)(::cosh(0.4) * ::tanh(0.5));
+
+    fprintf(f, "Coshf(0.4f):       WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(ch9_w), ch9_w, f2h(ch9_n), ch9_n);
+    fprintf(f, "Tanhf(0.5f):       WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(th9_w), th9_w, f2h(th9_n), th9_n);
+    fprintf(f, "Cosh * Tanh:       WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(m9_w), m9_w, f2h(m9_n), m9_n);
+
+    float sq10_w = WWMath::Sqrtf(55788.84375f);
+    float sq10_n = (float)::sqrt(55788.84375);
+    fprintf(f, "Sqrtf(55788.8):    WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(sq10_w), sq10_w, f2h(sq10_n), sq10_n);
+
+    float ex11_w = WWMath::Expf(0.1f);
+    float m11_w = ex11_w * l1_w; // Log10f(2.3) calculated above
+
+    float ex11_n = (float)::exp(0.1);
+    float m11_n = (float)(::exp(0.1) * ::log10(2.3));
+    fprintf(f, "Expf(0.1f):        WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(ex11_w), ex11_w, f2h(ex11_n), ex11_n);
+    fprintf(f, "Exp * Log10:       WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(m11_w), m11_w, f2h(m11_n), m11_n);
+
+    float lg12_w = WWMath::Logf(1.4f);
+    float lg12_n = (float)::log(1.4);
+    fprintf(f, "Logf(1.4f):        WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(lg12_w), lg12_w, f2h(lg12_n), lg12_n);
+
+    fprintf(f, "\n2. MATRIX OPERATIONS (WWMath)\n");
+    fprintf(f, "---------------------------------------------------------\n");
+    
+    Matrix3D m1, m2, res;
+    m1.Set(4.1f, 1.2f, 0.3f, 0.4f, 0.5f, 3.6f, 0.7f, 0.8f, 0.9f, 1.0f, 2.1f, 1.2f);
+    m2.Set(p1_w, p2_w, t3_w, as4_w, ac5_w, m6_w, at27_w, sh8_w, m9_w, sq10_w, m11_w, lg12_w);
+    
+    Matrix3D::Multiply(m1, m2, &res);
+    
+    fprintf(f, "Matrix Multiplication Result (WWMath):\n");
+    fprintf(f, "Row0: %08X %08X %08X %08X\n", f2h(res[0][0]), f2h(res[0][1]), f2h(res[0][2]), f2h(res[0][3]));
+    fprintf(f, "Row1: %08X %08X %08X %08X\n", f2h(res[1][0]), f2h(res[1][1]), f2h(res[1][2]), f2h(res[1][3]));
+    fprintf(f, "Row2: %08X %08X %08X %08X\n", f2h(res[2][0]), f2h(res[2][1]), f2h(res[2][2]), f2h(res[2][3]));
+
+    res.Get_Inverse(res);
+    
+    fprintf(f, "\nMatrix Inverse Result (WWMath):\n");
+    fprintf(f, "Row0: %08X %08X %08X %08X\n", f2h(res[0][0]), f2h(res[0][1]), f2h(res[0][2]), f2h(res[0][3]));
+    fprintf(f, "Row1: %08X %08X %08X %08X\n", f2h(res[1][0]), f2h(res[1][1]), f2h(res[1][2]), f2h(res[1][3]));
+    fprintf(f, "Row2: %08X %08X %08X %08X\n", f2h(res[2][0]), f2h(res[2][1]), f2h(res[2][2]), f2h(res[2][3]));
+
+    fprintf(f, "\n2. MATRIX OPERATIONS (Native)\n");
+    fprintf(f, "---------------------------------------------------------\n");
+    
+    Matrix3D m2_n, res_n;
+    m2_n.Set(p1_n, p2_n, t3_n, as4_n, ac5_n, m6_n, at27_n, sh8_n, m9_n, sq10_n, m11_n, lg12_n);
+    
+    Matrix3D::Multiply(m1, m2_n, &res_n);
+    
+    fprintf(f, "Matrix Multiplication Result (Native):\n");
+    fprintf(f, "Row0: %08X %08X %08X %08X\n", f2h(res_n[0][0]), f2h(res_n[0][1]), f2h(res_n[0][2]), f2h(res_n[0][3]));
+    fprintf(f, "Row1: %08X %08X %08X %08X\n", f2h(res_n[1][0]), f2h(res_n[1][1]), f2h(res_n[1][2]), f2h(res_n[1][3]));
+    fprintf(f, "Row2: %08X %08X %08X %08X\n", f2h(res_n[2][0]), f2h(res_n[2][1]), f2h(res_n[2][2]), f2h(res_n[2][3]));
+
+    res_n.Get_Inverse(res_n);
+    
+    fprintf(f, "\nMatrix Inverse Result (Native):\n");
+    fprintf(f, "Row0: %08X %08X %08X %08X\n", f2h(res_n[0][0]), f2h(res_n[0][1]), f2h(res_n[0][2]), f2h(res_n[0][3]));
+    fprintf(f, "Row1: %08X %08X %08X %08X\n", f2h(res_n[1][0]), f2h(res_n[1][1]), f2h(res_n[1][2]), f2h(res_n[1][3]));
+    fprintf(f, "Row2: %08X %08X %08X %08X\n", f2h(res_n[2][0]), f2h(res_n[2][1]), f2h(res_n[2][2]), f2h(res_n[2][3]));
+
+    fclose(f);
+}
+
 static void appendSimulationMathCrc_Deterministic(XferCRC &xfer)
 {
     Matrix3D matrix;
@@ -97,7 +243,9 @@ UnsignedInt SimulationMathCrc::calculate()
 
     appendSimulationMathCrc_Deterministic(xfer);
 
+#ifdef _WIN32
     _fpreset();
+#endif
 
     xfer.close();
 
@@ -110,6 +258,9 @@ void SimulationMathCrc::runBenchmark(int iterations)
     clock_t startDet = clock();
     UnsignedInt crcDet = 0;
     
+    // Create detailed debug log of math precision differences
+    dumpMathDiagnostic("MathPrecisionDiag.txt");
+
     setFPMode();
 
     for (i = 0; i < iterations; ++i)
@@ -121,7 +272,9 @@ void SimulationMathCrc::runBenchmark(int iterations)
 		if (i == 0)
 			crcDet = xfer.getCRC();
     }
+#ifndef __APPLE__
     _fpreset();
+#endif
     clock_t endDet = clock();
     double timeDetMs = (double)(endDet - startDet) / CLOCKS_PER_SEC * 1000.0;
 
@@ -139,7 +292,9 @@ void SimulationMathCrc::runBenchmark(int iterations)
 		if (i == 0)
 			crcNat = xfer.getCRC();
     }
+#ifndef __APPLE__
     _fpreset();
+#endif
     clock_t endNat = clock();
     double timeNatMs = (double)(endNat - startNat) / CLOCKS_PER_SEC * 1000.0;
 
