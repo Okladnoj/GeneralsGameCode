@@ -89,7 +89,7 @@ static void dumpMathDiagnostic(const char* filename)
     
     float at6_n = (float)::atan(0.967302263);
     float p6_n = (float)::pow(1.1, 2.0);
-    float m6_n = (float)(::atan(0.967302263) * ::pow(1.1, 2.0));
+    float m6_n = at6_n * p6_n;
     
     fprintf(f, "Atanf(0.9673...):  WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(at6_w), at6_w, f2h(at6_n), at6_n);
     fprintf(f, "Atan * Pow:        WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(m6_w), m6_w, f2h(m6_n), m6_n);
