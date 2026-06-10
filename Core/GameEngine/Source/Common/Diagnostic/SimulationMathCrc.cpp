@@ -43,6 +43,45 @@ static void dumpMathDiagnostic(const char* filename)
 
     setFPMode();
 
+    fprintf(f, "0. BUILD ENVIRONMENT\n");
+    fprintf(f, "---------------------------------------------------------\n");
+#ifdef HAS_GAMEMATH
+    fprintf(f, "HAS_GAMEMATH:            %d\n", HAS_GAMEMATH);
+#else
+    fprintf(f, "HAS_GAMEMATH:            UNDEFINED\n");
+#endif
+#ifdef USE_DETERMINISTIC_MATH
+    fprintf(f, "USE_DETERMINISTIC_MATH:  %d\n", USE_DETERMINISTIC_MATH);
+#else
+    fprintf(f, "USE_DETERMINISTIC_MATH:  UNDEFINED (native math fallback!)\n");
+#endif
+#ifdef RETAIL_COMPATIBLE_CRC
+    fprintf(f, "RETAIL_COMPATIBLE_CRC:   %d\n", RETAIL_COMPATIBLE_CRC);
+#else
+    fprintf(f, "RETAIL_COMPATIBLE_CRC:   UNDEFINED\n");
+#endif
+#if defined(__clang__)
+    fprintf(f, "COMPILER:                Clang %d.%d.%d\n", __clang_major__, __clang_minor__, __clang_patchlevel__);
+#elif defined(_MSC_VER)
+    fprintf(f, "COMPILER:                MSVC %d\n", _MSC_VER);
+#elif defined(__GNUC__)
+    fprintf(f, "COMPILER:                GCC %d.%d\n", __GNUC__, __GNUC_MINOR__);
+#else
+    fprintf(f, "COMPILER:                Unknown\n");
+#endif
+#if defined(__aarch64__) || defined(_M_ARM64)
+    fprintf(f, "ARCH:                    ARM64\n");
+#elif defined(__x86_64__) || defined(_M_X64)
+    fprintf(f, "ARCH:                    x86_64\n");
+#elif defined(__i386__) || defined(_M_IX86)
+    fprintf(f, "ARCH:                    x86 (32-bit)\n");
+#else
+    fprintf(f, "ARCH:                    Unknown\n");
+#endif
+    fprintf(f, "sizeof(Real):            %zu\n", sizeof(Real));
+    fprintf(f, "sizeof(void*):           %zu\n", sizeof(void*));
+    fprintf(f, "\n");
+
     fprintf(f, "1. BASIC WWMath vs NATIVE TRANSCENDENTALS\n");
     fprintf(f, "---------------------------------------------------------\n");
     
