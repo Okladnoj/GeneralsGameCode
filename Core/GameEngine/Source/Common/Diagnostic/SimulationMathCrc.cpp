@@ -133,42 +133,26 @@ static void dumpMathDiagnostic(const char* filename)
     fprintf(f, "\n1b. EDGE CASE (ASIN AND DIVISION PRECISION)\n");
     fprintf(f, "---------------------------------------------------------\n");
     
+    struct MockCoord3D {
+        float x, y, z;
+        inline float length_w() const { return WWMath::Sqrtf(x*x + y*y + z*z); }
+        inline float length_n() const { return (float)::sqrt(x*x + y*y + z*z); }
+    };
+
     float vx[] = { 0.0f, 0.0001f, 0.00001f, 0.03f, 0.015f };
     float vy[] = { 0.0f, 0.0001f, 0.00001f, 0.04f, 0.020f };
     float vz[] = { 10.0f, 10.0f, 10.0f, 10.0f, 10.0f };
     
     for (int idx = 0; idx < 5; ++idx) {
-        float x = vx[idx];
-        float y = vy[idx];
-        float z = vz[idx];
+        MockCoord3D v = { vx[idx], vy[idx], vz[idx] };
         
-        // WWMath version
-        float len2_w = x*x + y*y + z*z;
-        float len_w = WWMath::Sqrtf(len2_w);
-        float ratio_w = z / len_w;
-        float clamped_w = ratio_w;
-        if (clamped_w > 1.0f) clamped_w = 1.0f;
-        if (clamped_w < -1.0f) clamped_w = -1.0f;
+        // 1:1 In-place evaluation exactly as in game code (no intermediate variables)
+        float pitch_w = WWMath::Asinf( v.z / v.length_w() );
+        float pitch_n = (float)::asin( v.z / v.length_n() );
         
-        float asin_unclamped_w = WWMath::Asinf(ratio_w);
-        float asin_clamped_w = WWMath::Asinf(clamped_w);
-        
-        // Native version
-        float len2_n = x*x + y*y + z*z;
-        float len_n = (float)::sqrt(len2_n);
-        float ratio_n = z / len_n;
-        float clamped_n = ratio_n;
-        if (clamped_n > 1.0f) clamped_n = 1.0f;
-        if (clamped_n < -1.0f) clamped_n = -1.0f;
-        
-        float asin_unclamped_n = (float)::asin(ratio_n);
-        float asin_clamped_n = (float)::asin(clamped_n);
-        
-        fprintf(f, "Vec[%d] (%f, %f, %f):\n", idx, x, y, z);
-        fprintf(f, "  WWMath: len=%08X ratio=%08X clamped=%08X asin_uncl = %08X (%f) asin_clamp = %08X (%f)\n",
-                f2h(len_w), f2h(ratio_w), f2h(clamped_w), f2h(asin_unclamped_w), asin_unclamped_w, f2h(asin_clamped_w), asin_clamped_w);
-        fprintf(f, "  Native: len=%08X ratio=%08X clamped=%08X asin_uncl = %08X (%f) asin_clamp = %08X (%f)\n",
-                f2h(len_n), f2h(ratio_n), f2h(clamped_n), f2h(asin_unclamped_n), asin_unclamped_n, f2h(asin_clamped_n), asin_clamped_n);
+        fprintf(f, "Vec[%d] (%f, %f, %f):\n", idx, v.x, v.y, v.z);
+        fprintf(f, "  WWMath in-place ASin(v.z/v.length()):  %08X (%f)\n", f2h(pitch_w), pitch_w);
+        fprintf(f, "  Native in-place ASin(v.z/v.length()):  %08X (%f)\n", f2h(pitch_n), pitch_n);
     }
 
     fprintf(f, "\n2. MATRIX OPERATIONS (WWMath)\n");
