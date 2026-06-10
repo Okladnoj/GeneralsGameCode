@@ -1027,6 +1027,17 @@ UpdateSleepTime AIUpdateInterface::update()
 		subMachineSleep = UPDATE_SLEEP_NONE;
 	}
 
+	{
+		extern FILE* g_diagLog;
+		if (g_diagLog) {
+			fprintf(g_diagLog, "AIUPD f%d obj=%d stRet=%d stateID=%d sleepAfterSM=%d isSleep=%d\n",
+				TheGameLogic->getFrame(), getObject()->getID(),
+				(int)stRet, (int)getStateMachine()->getCurrentStateID(),
+				(int)subMachineSleep, IS_STATE_SLEEP(stRet) ? 1 : 0);
+			fflush(g_diagLog);
+		}
+	}
+
 	// note that this is all OK with sleepiness, since m_movementComplete can
 	// only be set via our statemachine (via friend_startingMove or friend_endMove),
 	// which we just called. thus we should
@@ -1114,6 +1125,18 @@ UpdateSleepTime AIUpdateInterface::update()
 	UpdateSleepTime tmp = doLocomotor();
 	if (tmp < subMachineSleep)
 		subMachineSleep = tmp;
+
+	{
+		extern FILE* g_diagLog;
+		if (g_diagLog) {
+			fprintf(g_diagLog, "AIUPD_FINAL f%d obj=%d locoSleep=%d finalSleep=%d dead=%d movComplete=%d\n",
+				TheGameLogic->getFrame(), getObject()->getID(),
+				(int)tmp, (int)subMachineSleep,
+				getObject()->isEffectivelyDead() ? 1 : 0,
+				m_movementComplete ? 1 : 0);
+			fflush(g_diagLog);
+		}
+	}
 
 #ifdef ALLOW_DEMORALIZE
 	RELEASE_CRASH(("If ALLOW_DEMORALIZE is ever defined, this code must be redone to do proper SLEEPY updates. (srj)"));
