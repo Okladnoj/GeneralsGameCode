@@ -411,6 +411,25 @@ Bool TurretAI::friend_turnTowardsAngle(Real desiredAngle, Real rateModifier, Rea
 
 	Bool aligned = WWMath::Fabs(m_angle - desiredAngle) <= relThresh;
 
+	{
+		extern FILE* g_diagLog;
+		if (g_diagLog && getOwner()->getID() == 294) {
+			unsigned int hOrig, hDesired, hAngle, hDiff, hRate, hFinal;
+			memcpy(&hOrig, &origAngle, 4);
+			memcpy(&hDesired, &desiredAngle, 4);
+			memcpy(&hAngle, &m_angle, 4);
+			memcpy(&hDiff, &angleDiff, 4);
+			memcpy(&hRate, &turnRate, 4);
+			Real finalDiff = m_angle - desiredAngle;
+			memcpy(&hFinal, &finalDiff, 4);
+			fprintf(g_diagLog, "TURNHEX f%d obj=294 orig=%08X desired=%08X angle=%08X diff=%08X rate=%08X finalDiff=%08X aligned=%d thresh=%08X\n",
+				TheGameLogic->getFrame(),
+				hOrig, hDesired, hAngle, hDiff, hRate, hFinal, aligned ? 1 : 0,
+				*(unsigned int*)&relThresh);
+			fflush(g_diagLog);
+		}
+	}
+
 	return aligned;
 }
 
