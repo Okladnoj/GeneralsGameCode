@@ -1090,6 +1090,18 @@ UpdateSleepTime AIUpdateInterface::update()
 
 	Object *obj = getObject();
 
+	{
+		extern FILE* g_diagLog;
+		if (g_diagLog) {
+			fprintf(g_diagLog, "AIUPD_MID f%d obj=%d sleepAfterPath=%d queueFrame=%d dead=%d aiDead=%d\n",
+				TheGameLogic->getFrame(), getObject()->getID(),
+				(int)subMachineSleep, (int)m_queueForPathFrame,
+				obj->isEffectivelyDead() ? 1 : 0,
+				isAiInDeadState() ? 1 : 0);
+			fflush(g_diagLog);
+		}
+	}
+
 	if (! obj->isEffectivelyDead() &&
 			! obj->isDisabledByType( DISABLED_PARALYZED ) &&
 			! obj->isDisabledByType( DISABLED_UNMANNED ) &&
@@ -1103,6 +1115,15 @@ UpdateSleepTime AIUpdateInterface::update()
 			if (m_turretAI[i])
 			{
 				UpdateSleepTime tmp = m_turretAI[i]->updateTurretAI();
+				{
+					extern FILE* g_diagLog;
+					if (g_diagLog) {
+						fprintf(g_diagLog, "AIUPD_TUR f%d obj=%d tur=%d turSleep=%d sleepNow=%d\n",
+							TheGameLogic->getFrame(), getObject()->getID(),
+							i, (int)tmp, (int)(tmp < subMachineSleep ? tmp : subMachineSleep));
+						fflush(g_diagLog);
+					}
+				}
 				if (tmp < subMachineSleep)
 					subMachineSleep = tmp;
 			}
@@ -1119,6 +1140,16 @@ UpdateSleepTime AIUpdateInterface::update()
 		// strangely, dead things need to NOT sleep at all. (but they don't stay dead for long,
 		// so this is not too bad.)
 		subMachineSleep = UPDATE_SLEEP_NONE;
+	}
+
+	{
+		extern FILE* g_diagLog;
+		if (g_diagLog) {
+			fprintf(g_diagLog, "AIUPD_POST f%d obj=%d sleepAfterTurDeath=%d\n",
+				TheGameLogic->getFrame(), getObject()->getID(),
+				(int)subMachineSleep);
+			fflush(g_diagLog);
+		}
 	}
 
 	// do this objects movement
