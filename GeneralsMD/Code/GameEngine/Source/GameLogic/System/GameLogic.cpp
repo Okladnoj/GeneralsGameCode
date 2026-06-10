@@ -497,6 +497,8 @@ void GameLogic::reset()
 	TheWeatherSetting = (WeatherSetting*) ws->deleteOverrides();
 
 	m_rankPointsToAddAtGameStart = 0;
+
+	if (g_diagLog) { fclose(g_diagLog); g_diagLog = nullptr; }
 }
 
 static Object * placeObjectAtPosition(Int slotNum, AsciiString objectTemplateName, Coord3D& pos, Player *pPlayer,
@@ -3710,9 +3712,9 @@ void GameLogic::update()
 	LatchRestore<Bool> inUpdateLatch(m_isInUpdate, TRUE);
 
 	{
-		static int diagLastFrame = -1;
-		if (m_frame == 1 && diagLastFrame != 1) { if (g_diagLog) fclose(g_diagLog); g_diagLog = fopen("DiagLog.txt", "w"); }
-		diagLastFrame = m_frame;
+		if (m_frame == 1 && !g_diagLog && getGameMode() != GAME_SHELL) {
+			g_diagLog = fopen("DiagLog.txt", "w");
+		}
 	}
 #ifdef DO_UNIT_TIMINGS
 	unitTimings();
@@ -4086,7 +4088,6 @@ void GameLogic::registerObject( Object *obj )
 		regCount++;
 		{
 			extern FILE* g_diagLog;
-			if (!g_diagLog) { g_diagLog = fopen("DiagLog.txt", "w"); }
 			if (g_diagLog && now == 1) { fprintf(g_diagLog, "REGMOD id=%d mod=%s wake=%d\n", obj->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame()); fflush(g_diagLog); }
 		}
 		UnsignedInt when = u->friend_getNextCallFrame();
