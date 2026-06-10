@@ -684,7 +684,16 @@ UpdateSleepTime TurretAI::updateTurretAI()
 	UnsignedInt now = TheGameLogic->getFrame();
 	if (m_sleepUntil != 0 && now < m_sleepUntil)
 	{
-		return UPDATE_SLEEP(m_sleepUntil - now);
+		UpdateSleepTime earlyRet = UPDATE_SLEEP(m_sleepUntil - now);
+		{
+			extern FILE* g_diagLog;
+			if (g_diagLog) {
+				fprintf(g_diagLog, "TURDIAG f%d obj=%d EARLY sleepUntil=%d now=%d ret=%d\n",
+					now, getOwner()->getID(), m_sleepUntil, now, (int)earlyRet);
+				fflush(g_diagLog);
+			}
+		}
+		return earlyRet;
 	}
 
 	//DEBUG_LOG(("updateTurretAI frame %d: %08lx",TheGameLogic->getFrame(),getOwner()));
@@ -730,6 +739,29 @@ UpdateSleepTime TurretAI::updateTurretAI()
 			subMachineSleep = UPDATE_SLEEP_NONE;
 		}
 
+		{
+			extern FILE* g_diagLog;
+			if (g_diagLog) {
+				fprintf(g_diagLog, "TURDIAG f%d obj=%d SM stRet=%d stateID=%d isSleep=%d sleep=%d enabled=%d\n",
+					now, getOwner()->getID(),
+					(int)stRet, (int)m_turretStateMachine->getCurrentStateID(),
+					IS_STATE_SLEEP(stRet) ? 1 : 0, (int)subMachineSleep,
+					m_enabled ? 1 : 0);
+				fflush(g_diagLog);
+			}
+		}
+
+	}
+	else
+	{
+		extern FILE* g_diagLog;
+		if (g_diagLog) {
+			fprintf(g_diagLog, "TURDIAG f%d obj=%d SKIP enabled=%d stateID=%d sleep=FOREVER\n",
+				now, getOwner()->getID(),
+				m_enabled ? 1 : 0,
+				(int)m_turretStateMachine->getCurrentStateID());
+			fflush(g_diagLog);
+		}
 	}
 
 	m_sleepUntil = now + subMachineSleep;
