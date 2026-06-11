@@ -3972,6 +3972,21 @@ void Object::crc( Xfer *xfer )
 	}
 #endif // DEBUG_CRC
 
+	{
+		extern FILE* g_diagLog;
+		if (g_diagLog) {
+			const Matrix3D *mtx = getTransformMatrix();
+			const float *f = (const float*)mtx;
+			unsigned int hx, hy, hz, hr0;
+			memcpy(&hx, &f[3], 4);
+			memcpy(&hy, &f[7], 4);
+			memcpy(&hz, &f[11], 4);
+			memcpy(&hr0, &f[0], 4);
+			fprintf(g_diagLog, "MTX f%d o=%d x=%08X y=%08X z=%08X r=%08X\n",
+				TheGameLogic->getFrame(), m_id, hx, hy, hz, hr0);
+		}
+	}
+
 
 	xfer->xferUser(&m_id,															sizeof(m_id));
 #ifdef DEBUG_CRC
