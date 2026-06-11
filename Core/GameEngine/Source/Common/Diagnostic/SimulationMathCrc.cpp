@@ -169,6 +169,43 @@ static void dumpMathDiagnostic(const char* filename)
     float lg12_n = (float)::log(1.4);
     fprintf(f, "Logf(1.4f):        WWMath=%08X (%f)  Native=%08X (%f)\n", f2h(lg12_w), lg12_w, f2h(lg12_n), lg12_n);
 
+    fprintf(f, "\n1a. ATAN2F CROSS-PLATFORM (real game values from LocoDiag)\n");
+    fprintf(f, "---------------------------------------------------------\n");
+    {
+        union { float f; unsigned int i; } upx, upy, ugx, ugy;
+        upx.i = 0x44F33AF3; upy.i = 0x4433C913;
+        ugx.i = 0x44E628C2; ugy.i = 0x443C1F3A;
+        float dy = ugy.f - upy.f;
+        float dx = ugx.f - upx.f;
+        float a2_w = WWMath::Atan2f(dy, dx);
+        float a2_n = (float)::atan2(dy, dx);
+        fprintf(f, "Case1 dy=%08X dx=%08X  WWMath=%08X  Native=%08X\n",
+            f2h(dy), f2h(dx), f2h(a2_w), f2h(a2_n));
+
+        upx.i = 0x44CD5B1B; upy.i = 0x44D3E48E;
+        ugx.i = 0x44E628C2; ugy.i = 0x443C1F3A;
+        dy = ugy.f - upy.f;
+        dx = ugx.f - upx.f;
+        a2_w = WWMath::Atan2f(dy, dx);
+        a2_n = (float)::atan2(dy, dx);
+        fprintf(f, "Case2 dy=%08X dx=%08X  WWMath=%08X  Native=%08X\n",
+            f2h(dy), f2h(dx), f2h(a2_w), f2h(a2_n));
+
+        float test_angles[] = { 0.1f, 0.5f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, -0.3f, -1.2f, -2.7f };
+        for (int i = 0; i < 10; i++) {
+            float y_v = WWMath::Sinf(test_angles[i]) * 100.0f;
+            float x_v = WWMath::Cosf(test_angles[i]) * 100.0f;
+            float r_w = WWMath::Atan2f(y_v, x_v);
+            fprintf(f, "Sweep[%d] y=%08X x=%08X  Atan2=%08X\n", i, f2h(y_v), f2h(x_v), f2h(r_w));
+        }
+
+        float atanf_inputs[] = { 0.1f, 0.5f, 0.999f, 1.5f, 3.0f, 10.0f, 100.0f };
+        for (int i = 0; i < 7; i++) {
+            float r_w = WWMath::Atanf(atanf_inputs[i]);
+            fprintf(f, "Atanf[%d] in=%08X  out=%08X\n", i, f2h(atanf_inputs[i]), f2h(r_w));
+        }
+    }
+
     fprintf(f, "\n1b. EDGE CASE (ASIN AND DIVISION PRECISION)\n");
     fprintf(f, "---------------------------------------------------------\n");
     
