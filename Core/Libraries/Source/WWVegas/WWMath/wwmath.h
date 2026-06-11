@@ -164,19 +164,6 @@ static WWINLINE float  Log10f(float x);
 static WWINLINE double Log(double x);
 static WWINLINE float  Logf(float x);
 
-// TheSuperHackers @info Float overloads to prevent implicit float-to-double promotion.
-// Without these, calling e.g. Atan2(float, float) resolves to the double overload (gm_atan2),
-// which is not cross-platform deterministic. These delegate to the float-specific (gm_*f)
-// implementations that are proven bit-identical across ARM64 and x86.
-static WWINLINE float  Atan2(float x, float y) { return Atan2f(x, y); }
-static WWINLINE float  Atan(float x)   { return Atanf(x); }
-static WWINLINE float  Asin(float x)   { return Asinf(x); }
-static WWINLINE float  Acos(float x)   { return Acosf(x); }
-static WWINLINE float  Sin(float val)  { return Sinf(val); }
-static WWINLINE float  Cos(float val)  { return Cosf(val); }
-static WWINLINE float  Tan(float x)    { return Tanf(x); }
-static WWINLINE float  Fabs(float x)   { return Fabsf(x); }
-
 static WWINLINE bool		Fast_Is_Float_Positive(const float & val);
 static WWINLINE bool		Is_Power_Of_2(const unsigned int val);
 
