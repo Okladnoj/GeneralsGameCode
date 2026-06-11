@@ -204,6 +204,34 @@ static void dumpMathDiagnostic(const char* filename)
             float r_w = WWMath::Atanf(atanf_inputs[i]);
             fprintf(f, "Atanf[%d] in=%08X  out=%08X\n", i, f2h(atanf_inputs[i]), f2h(r_w));
         }
+
+        fprintf(f, "\n1a2. ATAN2F DIRECT HEX (exact dy/dx from LocoDiag divergence)\n");
+        fprintf(f, "---------------------------------------------------------\n");
+        {
+            union { float f; unsigned int i; } udy, udx;
+
+            udy.i = 0x446C04C6; udx.i = 0xC3A4DDB0;
+            float r1 = WWMath::Atan2f(udy.f, udx.f);
+            fprintf(f, "o312 dy=%08X dx=%08X  Atan2=%08X  (expect Mac=3FF4128C Win=3FF4128B)\n",
+                f2h(udy.f), f2h(udx.f), f2h(r1));
+
+            udy.i = 0x42056270; udx.i = 0xC2D12310;
+            float r2 = WWMath::Atan2f(udy.f, udx.f);
+            fprintf(f, "o326 dy=%08X dx=%08X  Atan2=%08X  (expect Mac=40354E24 Win=40354E25)\n",
+                f2h(udy.f), f2h(udx.f), f2h(r2));
+
+            udy.i = 0x446C04C6; udx.i = 0xC3A4DDB0;
+            float ratio = WWMath::Fabs(udy.f / udx.f);
+            float at = WWMath::Atanf(ratio);
+            fprintf(f, "o312 ratio=%08X  atanf=%08X  fabsf_y_over_x\n",
+                f2h(ratio), f2h(at));
+
+            udy.i = 0x42056270; udx.i = 0xC2D12310;
+            ratio = WWMath::Fabs(udy.f / udx.f);
+            at = WWMath::Atanf(ratio);
+            fprintf(f, "o326 ratio=%08X  atanf=%08X  fabsf_y_over_x\n",
+                f2h(ratio), f2h(at));
+        }
     }
 
     fprintf(f, "\n1b. EDGE CASE (ASIN AND DIVISION PRECISION)\n");
