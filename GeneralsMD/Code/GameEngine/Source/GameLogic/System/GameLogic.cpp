@@ -3870,7 +3870,16 @@ void GameLogic::update()
 			if (g_diagLog) {
 				UnsignedInt topWake = m_sleepyUpdates.empty() ? 0 : m_sleepyUpdates.front()->friend_getNextCallFrame();
 				fprintf(g_diagLog, "HEAP f%d size=%d topWake=%d\n", now, (int)m_sleepyUpdates.size(), topWake);
+				fflush(g_diagLog);
+			}
 
+			static FILE* s_mtxFile = NULL;
+			static bool s_mtxTried = false;
+			if (!s_mtxTried && getGameMode() != GAME_SHELL) {
+				s_mtxTried = true;
+				s_mtxFile = fopen("MtxDiag.txt", "w");
+			}
+			if (s_mtxFile && getGameMode() != GAME_SHELL) {
 				for (Object *obj = getFirstObject(); obj; obj = obj->getNextObject()) {
 					const Matrix3D *mtx = obj->getTransformMatrix();
 					const float *f = (const float*)mtx;
@@ -3879,10 +3888,10 @@ void GameLogic::update()
 					memcpy(&hy, &f[7], 4);
 					memcpy(&hz, &f[11], 4);
 					memcpy(&hr0, &f[0], 4);
-					fprintf(g_diagLog, "MTX f%d o=%d x=%08X y=%08X z=%08X r=%08X\n",
+					fprintf(s_mtxFile, "MTX f%d o=%d x=%08X y=%08X z=%08X r=%08X\n",
 						now, obj->getID(), hx, hy, hz, hr0);
 				}
-				fflush(g_diagLog);
+				fflush(s_mtxFile);
 			}
 		}
 		while (!m_sleepyUpdates.empty())
