@@ -48,6 +48,10 @@
 
 
 static const Real DONUT_TIME_DELAY_SECONDS=2.5f;
+
+static FILE* s_locoFile = NULL;
+static bool s_locoTried = false;
+static inline unsigned int lf2h(float v) { unsigned int r; memcpy(&r, &v, 4); return r; }
 static const Real DONUT_DISTANCE=4.0*PATHFIND_CELL_SIZE_F;
 
 
@@ -1149,9 +1153,15 @@ void Locomotor::locoUpdate_moveTowardsPosition(Object* obj, const Coord3D& goalP
 				pos.y += dy * vel;
 			}
 		}
+		if (s_locoFile) {
+			UnsignedInt frame = TheGameLogic->getFrame();
+			fprintf(s_locoFile, "BRKPOS f%d o=%d px=%08X py=%08X\n",
+				frame, obj->getID(), lf2h(pos.x), lf2h(pos.y));
+		}
 		obj->setPosition(&pos);
 	}
 
+	if (s_locoFile) fflush(s_locoFile);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1290,6 +1300,20 @@ void Locomotor::moveTowardsPositionWheels(Object* obj, PhysicsBehavior *physics,
 //	Real desiredAngle = angle + relAngle;
 	Real desiredAngle = WWMath::Atan2(goalPos.y - obj->getPosition()->y, goalPos.x - obj->getPosition()->x);
 	Real relAngle = stdAngleDiff(desiredAngle, angle);
+
+	if (!s_locoTried) {
+		s_locoTried = true;
+		s_locoFile = fopen("LocoDiag.txt", "w");
+	}
+	if (s_locoFile) {
+		UnsignedInt frame = TheGameLogic->getFrame();
+		fprintf(s_locoFile, "WHLENTER f%d o=%d px=%08X py=%08X ang=%08X gx=%08X gy=%08X da=%08X ra=%08X\n",
+			frame, obj->getID(),
+			lf2h(obj->getPosition()->x), lf2h(obj->getPosition()->y),
+			lf2h(angle),
+			lf2h(goalPos.x), lf2h(goalPos.y),
+			lf2h(desiredAngle), lf2h(relAngle));
+	}
 
 	Bool moveBackwards = false;
 
@@ -2181,6 +2205,12 @@ PhysicsTurningType Locomotor::rotateObjAroundLocoPivot(Object* obj, const Coord3
 
 		mtx.mul(tmp, *obj->getTransformMatrix());
 
+		if (s_locoFile) {
+			UnsignedInt frame = TheGameLogic->getFrame();
+			const float *mf = (const float*)&mtx;
+			fprintf(s_locoFile, "ROTPVT f%d o=%d amt=%08X mx=%08X my=%08X mr=%08X\n",
+				frame, obj->getID(), lf2h(amount), lf2h(mf[3]), lf2h(mf[7]), lf2h(mf[0]));
+		}
 		obj->setTransformMatrix(&mtx);
 	}
 	else
@@ -2197,7 +2227,14 @@ PhysicsTurningType Locomotor::rotateObjAroundLocoPivot(Object* obj, const Coord3
 		} else {
 			turn = TURN_NONE;
 		}
-		obj->setOrientation( normalizeAngle(angle + amount) );
+		Real newAngle = normalizeAngle(angle + amount);
+		if (s_locoFile) {
+			UnsignedInt frame = TheGameLogic->getFrame();
+			fprintf(s_locoFile, "ROTATE f%d o=%d ang=%08X da=%08X amt=%08X na=%08X\n",
+				frame, obj->getID(),
+				lf2h(angle), lf2h(desiredAngle), lf2h(amount), lf2h(newAngle));
+		}
+		obj->setOrientation( newAngle );
 	}
 	return turn;
 }
@@ -2755,7 +2792,7 @@ void LocomotorSet::clear()
 {
 	for (size_t i = 0; i < m_locomotors.size(); ++i)
 	{
-		deleteInstance(m_locomotors[i]);
+			deleteInstance(m_locomotors[i]);
 	}
 	m_locomotors.clear();
 	m_validLocomotorSurfaces = 0;
