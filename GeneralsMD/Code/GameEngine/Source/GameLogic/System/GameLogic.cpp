@@ -3870,6 +3870,18 @@ void GameLogic::update()
 			if (g_diagLog) {
 				UnsignedInt topWake = m_sleepyUpdates.empty() ? 0 : m_sleepyUpdates.front()->friend_getNextCallFrame();
 				fprintf(g_diagLog, "HEAP f%d size=%d topWake=%d\n", now, (int)m_sleepyUpdates.size(), topWake);
+
+				for (Object *obj = getFirstObject(); obj; obj = obj->getNextObject()) {
+					const Matrix3D *mtx = obj->getTransformMatrix();
+					const float *f = (const float*)mtx;
+					unsigned int hx, hy, hz, hr0;
+					memcpy(&hx, &f[3], 4);
+					memcpy(&hy, &f[7], 4);
+					memcpy(&hz, &f[11], 4);
+					memcpy(&hr0, &f[0], 4);
+					fprintf(g_diagLog, "MTX f%d o=%d x=%08X y=%08X z=%08X r=%08X\n",
+						now, obj->getID(), hx, hy, hz, hr0);
+				}
 				fflush(g_diagLog);
 			}
 		}
