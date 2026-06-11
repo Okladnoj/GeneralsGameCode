@@ -205,32 +205,32 @@ static void dumpMathDiagnostic(const char* filename)
             fprintf(f, "Atanf[%d] in=%08X  out=%08X\n", i, f2h(atanf_inputs[i]), f2h(r_w));
         }
 
-        fprintf(f, "\n1a2. ATAN2F DIRECT HEX (exact dy/dx from LocoDiag divergence)\n");
+        fprintf(f, "\n1a2. ATAN2 FLOAT vs DOUBLE (Locomotor calls Atan2 double overload!)\n");
         fprintf(f, "---------------------------------------------------------\n");
         {
             union { float f; unsigned int i; } udy, udx;
 
             udy.i = 0x446C04C6; udx.i = 0xC3A4DDB0;
-            float r1 = WWMath::Atan2f(udy.f, udx.f);
-            fprintf(f, "o312 dy=%08X dx=%08X  Atan2=%08X  (expect Mac=3FF4128C Win=3FF4128B)\n",
-                f2h(udy.f), f2h(udx.f), f2h(r1));
+            float r1f = WWMath::Atan2f(udy.f, udx.f);
+            float r1d = (float)WWMath::Atan2((double)udy.f, (double)udx.f);
+            fprintf(f, "o312 Atan2f=%08X  Atan2_dbl=%08X  %s  (game_Mac=3FF4128C game_Win=3FF4128B)\n",
+                f2h(r1f), f2h(r1d), r1f == r1d ? "SAME" : "DIFFER");
 
             udy.i = 0x42056270; udx.i = 0xC2D12310;
-            float r2 = WWMath::Atan2f(udy.f, udx.f);
-            fprintf(f, "o326 dy=%08X dx=%08X  Atan2=%08X  (expect Mac=40354E24 Win=40354E25)\n",
-                f2h(udy.f), f2h(udx.f), f2h(r2));
+            float r2f = WWMath::Atan2f(udy.f, udx.f);
+            float r2d = (float)WWMath::Atan2((double)udy.f, (double)udx.f);
+            fprintf(f, "o326 Atan2f=%08X  Atan2_dbl=%08X  %s  (game_Mac=40354E24 game_Win=40354E25)\n",
+                f2h(r2f), f2h(r2d), r2f == r2d ? "SAME" : "DIFFER");
 
-            udy.i = 0x446C04C6; udx.i = 0xC3A4DDB0;
-            float ratio = WWMath::Fabs(udy.f / udx.f);
-            float at = WWMath::Atanf(ratio);
-            fprintf(f, "o312 ratio=%08X  atanf=%08X  fabsf_y_over_x\n",
-                f2h(ratio), f2h(at));
-
-            udy.i = 0x42056270; udx.i = 0xC2D12310;
-            ratio = WWMath::Fabs(udy.f / udx.f);
-            at = WWMath::Atanf(ratio);
-            fprintf(f, "o326 ratio=%08X  atanf=%08X  fabsf_y_over_x\n",
-                f2h(ratio), f2h(at));
+            float test_dy[] = {944.0746f, 33.3461f, -100.5f, 0.001f, 500.0f};
+            float test_dx[] = {-329.732f, -104.568f, 200.3f, -0.001f, -500.0f};
+            for (int i = 0; i < 5; i++) {
+                float rf = WWMath::Atan2f(test_dy[i], test_dx[i]);
+                float rd = (float)WWMath::Atan2((double)test_dy[i], (double)test_dx[i]);
+                fprintf(f, "Pair[%d] dy=%08X dx=%08X  f=%08X d=%08X  %s\n",
+                    i, f2h(test_dy[i]), f2h(test_dx[i]), f2h(rf), f2h(rd),
+                    rf == rd ? "SAME" : "DIFFER");
+            }
         }
     }
 
