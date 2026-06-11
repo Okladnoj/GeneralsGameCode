@@ -1298,7 +1298,9 @@ void Locomotor::moveTowardsPositionWheels(Object* obj, PhysicsBehavior *physics,
 	Real angle = obj->getOrientation();
 //	Real relAngle = ThePartitionManager->getRelativeAngle2D( obj, &goalPos );
 //	Real desiredAngle = angle + relAngle;
-	Real desiredAngle = WWMath::Atan2(goalPos.y - obj->getPosition()->y, goalPos.x - obj->getPosition()->x);
+	Real whl_dy = goalPos.y - obj->getPosition()->y;
+	Real whl_dx = goalPos.x - obj->getPosition()->x;
+	Real desiredAngle = WWMath::Atan2(whl_dy, whl_dx);
 	Real relAngle = stdAngleDiff(desiredAngle, angle);
 
 	if (!s_locoTried) {
@@ -1307,11 +1309,12 @@ void Locomotor::moveTowardsPositionWheels(Object* obj, PhysicsBehavior *physics,
 	}
 	if (s_locoFile) {
 		UnsignedInt frame = TheGameLogic->getFrame();
-		fprintf(s_locoFile, "WHLENTER f%d o=%d px=%08X py=%08X ang=%08X gx=%08X gy=%08X da=%08X ra=%08X\n",
+		fprintf(s_locoFile, "WHLENTER f%d o=%d px=%08X py=%08X ang=%08X gx=%08X gy=%08X dy=%08X dx=%08X da=%08X ra=%08X\n",
 			frame, obj->getID(),
 			lf2h(obj->getPosition()->x), lf2h(obj->getPosition()->y),
 			lf2h(angle),
 			lf2h(goalPos.x), lf2h(goalPos.y),
+			lf2h(whl_dy), lf2h(whl_dx),
 			lf2h(desiredAngle), lf2h(relAngle));
 	}
 
@@ -2215,7 +2218,9 @@ PhysicsTurningType Locomotor::rotateObjAroundLocoPivot(Object* obj, const Coord3
 	}
 	else
 	{
-		Real desiredAngle = WWMath::Atan2(goalPos.y - obj->getPosition()->y, goalPos.x - obj->getPosition()->x);
+		Real rot_dy = goalPos.y - obj->getPosition()->y;
+		Real rot_dx = goalPos.x - obj->getPosition()->x;
+		Real desiredAngle = WWMath::Atan2(rot_dy, rot_dx);
 		Real amount = stdAngleDiff(desiredAngle, angle);
 		if (relAngle) *relAngle = amount;
 		if (amount>maxTurnRate) {
@@ -2230,9 +2235,13 @@ PhysicsTurningType Locomotor::rotateObjAroundLocoPivot(Object* obj, const Coord3
 		Real newAngle = normalizeAngle(angle + amount);
 		if (s_locoFile) {
 			UnsignedInt frame = TheGameLogic->getFrame();
-			fprintf(s_locoFile, "ROTATE f%d o=%d ang=%08X da=%08X amt=%08X na=%08X\n",
+			fprintf(s_locoFile, "ROTATE f%d o=%d ang=%08X px=%08X py=%08X gx=%08X gy=%08X dy=%08X dx=%08X da=%08X amt=%08X na=%08X\n",
 				frame, obj->getID(),
-				lf2h(angle), lf2h(desiredAngle), lf2h(amount), lf2h(newAngle));
+				lf2h(angle),
+				lf2h(obj->getPosition()->x), lf2h(obj->getPosition()->y),
+				lf2h(goalPos.x), lf2h(goalPos.y),
+				lf2h(rot_dy), lf2h(rot_dx),
+				lf2h(desiredAngle), lf2h(amount), lf2h(newAngle));
 		}
 		obj->setOrientation( newAngle );
 	}
