@@ -3712,7 +3712,7 @@ void GameLogic::update()
 	LatchRestore<Bool> inUpdateLatch(m_isInUpdate, TRUE);
 
 	{
-		if (m_frame == 1 && !g_diagLog && getGameMode() != GAME_SHELL) {
+		if (m_frame <= 1 && !g_diagLog && getGameMode() != GAME_SHELL) {
 			g_diagLog = fopen("DiagLog.txt", "w");
 		}
 	}
