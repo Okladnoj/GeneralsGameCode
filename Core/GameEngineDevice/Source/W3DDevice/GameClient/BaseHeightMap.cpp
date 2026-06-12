@@ -969,11 +969,11 @@ Real BaseHeightMapRenderObjClass::getHeightMapHeight(Real x, Real y, Coord3D* no
 		// Interpolate to get the smoothed valued.
 		Real deltaZ_X_Left = deltaZ_X0*(1.0f-fx) + fx*deltaZ_X3;
 		Real deltaZ_X_Right = deltaZ_X1*(1.0f-fx) + fx*deltaZ_X2;
-		Real deltaZ_X = deltaZ_X_Left*(1.0-fy) + fy*deltaZ_X_Right;
+		Real deltaZ_X = deltaZ_X_Left*(1.0f-fy) + fy*deltaZ_X_Right;
 
 		Real deltaZ_Y_Left = deltaZ_Y0*(1.0f-fx) + fx*deltaZ_Y3;
 		Real deltaZ_Y_Right = deltaZ_Y1*(1.0f-fx) + fx*deltaZ_Y2;
-		Real deltaZ_Y = deltaZ_Y_Left*(1.0-fy) + fy*deltaZ_Y_Right;
+		Real deltaZ_Y = deltaZ_Y_Left*(1.0f-fy) + fy*deltaZ_Y_Right;
 
 
 
