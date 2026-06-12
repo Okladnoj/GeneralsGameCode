@@ -117,19 +117,15 @@ static WWINLINE float  Fast_Asin(float val);
 static WWINLINE float  Acos_Legacy(float val);
 static WWINLINE double Acos(double x);
 static WWINLINE float  Acosf(float x);
-static WWINLINE float  Acos(float x);
 static WWINLINE float  Asin_Legacy(float val);
 static WWINLINE double Asin(double x);
 static WWINLINE float  Asinf(float x);
-static WWINLINE float  Asin(float x);
 static WWINLINE float  Atan_Legacy(float x);
 static WWINLINE double Atan(double x);
 static WWINLINE float  Atanf(float x);
-static WWINLINE float  Atan(float x);
 static WWINLINE float  Atan2_Legacy(float x, float y);
 static WWINLINE double Atan2(double x, double y);
 static WWINLINE float  Atan2f(float x, float y);
-static WWINLINE float  Atan2(float x, float y);
 
 static WWINLINE float  Fast_Cos(float val);
 static WWINLINE float  Fast_Inv_Cos(float val);
@@ -137,15 +133,12 @@ static WWINLINE float  Fast_Sin(float val);
 static WWINLINE float  Fast_Inv_Sin(float val);
 static WWINLINE double Cos(double val);
 static WWINLINE float  Cosf(float val);
-static WWINLINE float  Cos(float val);
 static WWINLINE float  Cosf_Legacy(float val);
 static WWINLINE double Sin(double val);
 static WWINLINE float  Sinf(float val);
-static WWINLINE float  Sin(float val);
 static WWINLINE float  Sinf_Legacy(float val);
 static WWINLINE double Tan(double x);
 static WWINLINE float  Tanf(float x);
-static WWINLINE float  Tan(float x);
 
 static WWINLINE double Cosh(double x);
 static WWINLINE float  Coshf(float x);
@@ -412,15 +405,6 @@ WWINLINE float WWMath::Acosf(float x)
 #endif
 }
 
-WWINLINE float WWMath::Acos(float x)
-{
-#if USE_DETERMINISTIC_MATH
-	return gm_acosf(x);
-#else
-	return acosf(x);
-#endif
-}
-
 WWINLINE float WWMath::Asin_Legacy(float val)
 {
 #if USE_DETERMINISTIC_MATH
@@ -439,15 +423,6 @@ WWINLINE double WWMath::Asin(double x)
 #endif
 }
 WWINLINE float WWMath::Asinf(float x)
-{
-#if USE_DETERMINISTIC_MATH
-	return gm_asinf(x);
-#else
-	return asinf(x);
-#endif
-}
-
-WWINLINE float WWMath::Asin(float x)
 {
 #if USE_DETERMINISTIC_MATH
 	return gm_asinf(x);
@@ -483,15 +458,6 @@ WWINLINE float WWMath::Atanf(float x)
 #endif
 }
 
-WWINLINE float WWMath::Atan(float x)
-{
-#if USE_DETERMINISTIC_MATH
-	return gm_atanf(x);
-#else
-	return atanf(x);
-#endif
-}
-
 WWINLINE float WWMath::Atan2_Legacy(float x, float y)
 {
 #if USE_DETERMINISTIC_MATH
@@ -511,15 +477,6 @@ WWINLINE double WWMath::Atan2(double x, double y)
 }
 
 WWINLINE float WWMath::Atan2f(float x, float y)
-{
-#if USE_DETERMINISTIC_MATH
-	return gm_atan2f(x, y);
-#else
-	return atan2f(x, y);
-#endif
-}
-
-WWINLINE float WWMath::Atan2(float x, float y)
 {
 #if USE_DETERMINISTIC_MATH
 	return gm_atan2f(x, y);
@@ -623,15 +580,6 @@ WWINLINE float WWMath::Cosf(float val)
 #endif
 }
 
-WWINLINE float WWMath::Cos(float val)
-{
-#if USE_DETERMINISTIC_MATH
-	return gm_cosf(val);
-#else
-	return cosf(val);
-#endif
-}
-
 WWINLINE float WWMath::Cosf_Legacy(float val)
 {
 #if USE_DETERMINISTIC_MATH
@@ -669,15 +617,6 @@ WWINLINE float WWMath::Sinf(float val)
 #endif
 }
 
-WWINLINE float WWMath::Sin(float val)
-{
-#if USE_DETERMINISTIC_MATH
-	return gm_sinf(val);
-#else
-	return sinf(val);
-#endif
-}
-
 WWINLINE float WWMath::Sinf_Legacy(float val)
 {
 #if USE_DETERMINISTIC_MATH
@@ -707,15 +646,6 @@ WWINLINE double WWMath::Tan(double x)
 }
 
 WWINLINE float WWMath::Tanf(float x)
-{
-#if USE_DETERMINISTIC_MATH
-	return gm_tanf(x);
-#else
-	return tanf(x);
-#endif
-}
-
-WWINLINE float WWMath::Tan(float x)
 {
 #if USE_DETERMINISTIC_MATH
 	return gm_tanf(x);
