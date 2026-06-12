@@ -40,6 +40,7 @@
 #include <math.h>
 #include <float.h>
 #include <assert.h>
+#include "Lib/BaseDefines.h"
 
 #if USE_DETERMINISTIC_MATH
 #include "gmath.h"
