@@ -23,17 +23,50 @@ $SearchDirs = @($GameDir, "$GameDir\CRCLogs", $DocsDir, "D:\OKJI\dev\GeneralsGam
 
 $foundCount = 0
 
+# 1. Collect all matching files
+$allFiles = @()
 foreach ($dir in $SearchDirs) {
     if (Test-Path $dir) {
         foreach ($pattern in $LogPatterns) {
             $files = Get-ChildItem -Path $dir -Filter $pattern -ErrorAction SilentlyContinue
-            foreach ($file in $files) {
-                Write-Host "Copying: $($file.FullName)"
-                Copy-Item -Path $file.FullName -Destination $ArchiveDir -Force
-                $foundCount++
-            }
+            if ($files) { $allFiles += $files }
         }
     }
+}
+
+# 2. Filter DebugFrame files to keep only the last 1000
+$debugFrames = $allFiles | Where-Object { $_.Name -like "DebugFrame_*.txt" } | Sort-Object Name
+$debugFramesToKeep = @()
+if ($debugFrames.Count -gt 1000) {
+    $debugFramesToKeep = $debugFrames | Select-Object -Last 1000
+} else {
+    $debugFramesToKeep = $debugFrames
+}
+
+# 3. Process the files
+$otherFiles = $allFiles | Where-Object { $_.Name -notlike "DebugFrame_*.txt" }
+$filesToProcess = $otherFiles + $debugFramesToKeep
+
+# Remove duplicates if any
+$filesToProcess = $filesToProcess | Select-Object -Unique FullName
+
+foreach ($file in $filesToProcess) {
+    $destPath = Join-Path $ArchiveDir $file.Name
+    Write-Host "Processing: $($file.FullName)"
+    
+    # Truncate large text logs (e.g., MtxDiag.txt) if they exceed 5MB
+    if ($file.Length -gt 5MB -and $file.Name -match "\.(txt|log)$") {
+        Write-Host "  -> File is large ($([math]::Round($file.Length / 1MB, 2)) MB), truncating..." -ForegroundColor Yellow
+        $head = Get-Content -Path $file.FullName -TotalCount 500
+        $tail = Get-Content -Path $file.FullName -Tail 5000
+        
+        $head | Set-Content -Path $destPath -Encoding UTF8
+        Add-Content -Path $destPath -Value "`n... [CONTENT TRUNCATED BY ARCHIVE SCRIPT] ...`n" -Encoding UTF8
+        $tail | Add-Content -Path $destPath -Encoding UTF8
+    } else {
+        Copy-Item -Path $file.FullName -Destination $ArchiveDir -Force
+    }
+    $foundCount++
 }
 
 if ($foundCount -gt 0) {
