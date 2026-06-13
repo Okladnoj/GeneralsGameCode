@@ -155,6 +155,7 @@ static WWINLINE float  Atan2(float x, float y);
 static WWINLINE float  Asin(float x);
 static WWINLINE float  Acos(float x);
 static WWINLINE float  Sqrt(float x);
+static WWINLINE float  Sqrt(int x);
 static WWINLINE float  Fabs(float x);
 
 static WWINLINE double Cosh(double x);
@@ -510,7 +511,7 @@ WWINLINE float WWMath::Sin(float val)
 #if USE_DETERMINISTIC_MATH
 	return gm_sinf(val);
 #else
-	return sinf(val);
+	return (float)Sin((double)val);
 #endif
 }
 
@@ -519,7 +520,7 @@ WWINLINE float WWMath::Cos(float val)
 #if USE_DETERMINISTIC_MATH
 	return gm_cosf(val);
 #else
-	return cosf(val);
+	return (float)Cos((double)val);
 #endif
 }
 
@@ -528,7 +529,7 @@ WWINLINE float WWMath::Tan(float x)
 #if USE_DETERMINISTIC_MATH
 	return gm_tanf(x);
 #else
-	return tanf(x);
+	return (float)Tan((double)x);
 #endif
 }
 
@@ -537,7 +538,7 @@ WWINLINE float WWMath::Atan(float x)
 #if USE_DETERMINISTIC_MATH
 	return gm_atanf(x);
 #else
-	return atanf(x);
+	return (float)Atan((double)x);
 #endif
 }
 
@@ -546,7 +547,7 @@ WWINLINE float WWMath::Atan2(float x, float y)
 #if USE_DETERMINISTIC_MATH
 	return gm_atan2f(x, y);
 #else
-	return atan2f(x, y);
+	return (float)Atan2((double)x, (double)y);
 #endif
 }
 
@@ -555,7 +556,7 @@ WWINLINE float WWMath::Asin(float x)
 #if USE_DETERMINISTIC_MATH
 	return gm_asinf(x);
 #else
-	return asinf(x);
+	return (float)Asin((double)x);
 #endif
 }
 
@@ -564,7 +565,7 @@ WWINLINE float WWMath::Acos(float x)
 #if USE_DETERMINISTIC_MATH
 	return gm_acosf(x);
 #else
-	return acosf(x);
+	return (float)Acos((double)x);
 #endif
 }
 
@@ -573,7 +574,16 @@ WWINLINE float WWMath::Sqrt(float x)
 #if USE_DETERMINISTIC_MATH
 	return gm_sqrtf(x);
 #else
-	return sqrtf(x);
+	return (float)Sqrt((double)x);
+#endif
+}
+
+WWINLINE float WWMath::Sqrt(int x)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_sqrtf((float)x);
+#else
+	return (float)Sqrt((double)x);
 #endif
 }
 
@@ -582,7 +592,7 @@ WWINLINE float WWMath::Fabs(float x)
 #if USE_DETERMINISTIC_MATH
 	return gm_fabsf(x);
 #else
-	return fabsf(x);
+	return (float)Fabs((double)x);
 #endif
 }
 
