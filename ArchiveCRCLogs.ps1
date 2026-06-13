@@ -48,7 +48,7 @@ $otherFiles = $allFiles | Where-Object { $_.Name -notlike "DebugFrame_*.txt" }
 $filesToProcess = $otherFiles + $debugFramesToKeep
 
 # Remove duplicates if any
-$filesToProcess = $filesToProcess | Select-Object -Unique FullName
+$filesToProcess = $filesToProcess | Sort-Object -Property FullName -Unique
 
 foreach ($file in $filesToProcess) {
     $destPath = Join-Path $ArchiveDir $file.Name
