@@ -34,11 +34,11 @@ foreach ($dir in $SearchDirs) {
     }
 }
 
-# 2. Filter DebugFrame files to keep only the last 1000
+# 2. Filter DebugFrame files to keep only the last 600
 $debugFrames = $allFiles | Where-Object { $_.Name -like "DebugFrame_*.txt" } | Sort-Object Name
 $debugFramesToKeep = @()
-if ($debugFrames.Count -gt 1000) {
-    $debugFramesToKeep = $debugFrames | Select-Object -Last 1000
+if ($debugFrames.Count -gt 600) {
+    $debugFramesToKeep = $debugFrames | Select-Object -Last 600
 } else {
     $debugFramesToKeep = $debugFrames
 }
@@ -54,15 +54,32 @@ foreach ($file in $filesToProcess) {
     $destPath = Join-Path $ArchiveDir $file.Name
     Write-Host "Processing: $($file.FullName)"
     
-    # Truncate large text logs (e.g., MtxDiag.txt) if they exceed 5MB
-    if ($file.Length -gt 5MB -and $file.Name -match "\.(txt|log)$") {
-        Write-Host "  -> File is large ($([math]::Round($file.Length / 1MB, 2)) MB), truncating..." -ForegroundColor Yellow
-        $head = Get-Content -Path $file.FullName -TotalCount 500
-        $tail = Get-Content -Path $file.FullName -Tail 5000
+    # Strictly truncate large diagnostic files (except DebugFrames which we need intact)
+    if ($file.Length -gt 5MB -and $file.Name -notlike "DebugFrame_*.txt") {
+        Write-Host "  -> File is large ($([math]::Round($file.Length / 1MB, 2)) MB), strictly keeping 50KB head and 1MB tail..." -ForegroundColor Yellow
         
-        $head | Set-Content -Path $destPath -Encoding UTF8
-        Add-Content -Path $destPath -Value "`n... [CONTENT TRUNCATED BY ARCHIVE SCRIPT] ...`n" -Encoding UTF8
-        $tail | Add-Content -Path $destPath -Encoding UTF8
+        $headSize = 50KB
+        $tailSize = 1MB
+        
+        $fileStream = [System.IO.File]::OpenRead($file.FullName)
+        
+        $headBuffer = New-Object byte[] $headSize
+        $headBytesRead = $fileStream.Read($headBuffer, 0, $headSize)
+        
+        $fileStream.Position = $fileStream.Length - $tailSize
+        $tailBuffer = New-Object byte[] $tailSize
+        $tailBytesRead = $fileStream.Read($tailBuffer, 0, $tailSize)
+        
+        $fileStream.Close()
+        
+        $outStream = [System.IO.File]::Create($destPath)
+        $outStream.Write($headBuffer, 0, $headBytesRead)
+        
+        $separator = [System.Text.Encoding]::UTF8.GetBytes("`n... [CONTENT TRUNCATED BY ARCHIVE SCRIPT] ...`n")
+        $outStream.Write($separator, 0, $separator.Length)
+        
+        $outStream.Write($tailBuffer, 0, $tailBytesRead)
+        $outStream.Close()
     } else {
         Copy-Item -Path $file.FullName -Destination $ArchiveDir -Force
     }
