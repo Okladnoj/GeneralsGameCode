@@ -58,8 +58,8 @@ foreach ($file in $filesToProcess) {
     if ($file.Length -gt 5MB -and $file.Name -notlike "DebugFrame_*.txt") {
         Write-Host "  -> File is large ($([math]::Round($file.Length / 1MB, 2)) MB), strictly keeping 50KB head and 1MB tail..." -ForegroundColor Yellow
         
-        $headSize = 50KB
-        $tailSize = 1MB
+        $headSize = 100KB
+        $tailSize = 10MB
         
         $fileStream = [System.IO.File]::OpenRead($file.FullName)
         
