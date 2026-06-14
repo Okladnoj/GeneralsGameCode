@@ -611,6 +611,18 @@ void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) c
 				m_validStuff, 
 				(int)m_pristineBones.size(),
 				m_modelName.isEmpty() ? "none" : m_modelName.str());
+				
+			for (PristineBoneInfoMap::const_iterator it = m_pristineBones.begin(); it != m_pristineBones.end(); ++it)
+			{
+				fprintf(s_diagFile, "  BONE hash=%u idx=%d x=%f y=%f z=%f\n", 
+					it->first,
+					it->second.boneIndex,
+					it->second.mtx.Get_X_Translation(),
+					it->second.mtx.Get_Y_Translation(),
+					it->second.mtx.Get_Z_Translation()
+				);
+			}
+				
 			fflush(s_diagFile);
 		}
 	}
