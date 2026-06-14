@@ -54,12 +54,12 @@ foreach ($file in $filesToProcess) {
     $destPath = Join-Path $ArchiveDir $file.Name
     Write-Host "Processing: $($file.FullName)"
     
+    $headSize = 100KB
+    $tailSize = 10MB
+    
     # Strictly truncate large diagnostic files (except DebugFrames which we need intact)
-    if ($file.Length -gt 5MB -and $file.Name -notlike "DebugFrame_*.txt") {
-        Write-Host "  -> File is large ($([math]::Round($file.Length / 1MB, 2)) MB), strictly keeping 50KB head and 1MB tail..." -ForegroundColor Yellow
-        
-        $headSize = 100KB
-        $tailSize = 10MB
+    if ($file.Length -gt ($headSize + $tailSize) -and $file.Name -notlike "DebugFrame_*.txt") {
+        Write-Host "  -> File is large ($([math]::Round($file.Length / 1MB, 2)) MB), strictly keeping 100KB head and 10MB tail..." -ForegroundColor Yellow
         
         $fileStream = [System.IO.File]::OpenRead($file.FullName)
         
