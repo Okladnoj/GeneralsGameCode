@@ -592,48 +592,6 @@ void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) c
 	static unsigned int s_validateCallCount = 0;
 	s_validateCallCount++;
 
-	if (TheGameLogic)
-	{
-		static FILE* s_diagFile = NULL;
-		static bool s_triedDiag = false;
-		if (!s_triedDiag)
-		{
-			s_triedDiag = true;
-			s_diagFile = fopen("ValidateCachedBonesDiag.txt", "w");
-		}
-		
-		if (s_diagFile)
-		{
-			fprintf(s_diagFile, "TAG f%d call=%u isLogic=%d validStuff=%08X pristineCount=%d model=%s\n", 
-				TheGameLogic->getFrame(), 
-				s_validateCallCount, 
-				isValidTimeToCalcLogicStuff() ? 1 : 0, 
-				m_validStuff, 
-				(int)m_pristineBones.size(),
-				m_modelName.isEmpty() ? "none" : m_modelName.str());
-				
-			for (PristineBoneInfoMap::const_iterator it = m_pristineBones.begin(); it != m_pristineBones.end(); ++it)
-			{
-				float px = it->second.mtx.Get_X_Translation();
-				float py = it->second.mtx.Get_Y_Translation();
-				float pz = it->second.mtx.Get_Z_Translation();
-				unsigned int hx, hy, hz;
-				memcpy(&hx, &px, 4);
-				memcpy(&hy, &py, 4);
-				memcpy(&hz, &pz, 4);
-				
-				fprintf(s_diagFile, "  BONE hash=%u str='%s' idx=%d x=%08X y=%08X z=%08X\n", 
-					it->first,
-					KEYNAME(it->first).str(),
-					it->second.boneIndex,
-					hx, hy, hz
-				);
-			}
-				
-			fflush(s_diagFile);
-		}
-	}
-
 	//DEBUG_ASSERTCRASH(isValidTimeToCalcLogicStuff(), ("calling validateCachedBones() from in GameClient!"));
 	if (m_validStuff & PRISTINE_BONES_VALID)
 		return;
@@ -749,6 +707,49 @@ void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) c
 	{
 		robj->Set_Animation(curAnim, frame, mode);
 		hlod->Set_Animation_Frame_Rate_Multiplier(mult);
+	}
+
+	if (TheGameLogic)
+	{
+		static FILE* s_diagFile = NULL;
+		static bool s_triedDiag = false;
+		if (!s_triedDiag)
+		{
+			s_triedDiag = true;
+			s_diagFile = fopen("ValidateCachedBonesDiag.txt", "w");
+		}
+		
+		if (s_diagFile)
+		{
+			fprintf(s_diagFile, "TAG f%d animFrame=%.3f call=%u isLogic=%d validStuff=%08X pristineCount=%d model=%s\n", 
+				TheGameLogic->getFrame(),
+				frame,
+				s_validateCallCount, 
+				isValidTimeToCalcLogicStuff() ? 1 : 0, 
+				m_validStuff, 
+				(int)m_pristineBones.size(),
+				m_modelName.isEmpty() ? "none" : m_modelName.str());
+				
+			for (PristineBoneInfoMap::const_iterator it = m_pristineBones.begin(); it != m_pristineBones.end(); ++it)
+			{
+				float px = it->second.mtx.Get_X_Translation();
+				float py = it->second.mtx.Get_Y_Translation();
+				float pz = it->second.mtx.Get_Z_Translation();
+				unsigned int hx, hy, hz;
+				memcpy(&hx, &px, 4);
+				memcpy(&hy, &py, 4);
+				memcpy(&hz, &pz, 4);
+				
+				fprintf(s_diagFile, "  BONE hash=%u str='%s' idx=%d x=%08X y=%08X z=%08X\n", 
+					it->first,
+					KEYNAME(it->first).str(),
+					it->second.boneIndex,
+					hx, hy, hz
+				);
+			}
+				
+			fflush(s_diagFile);
+		}
 	}
 
 	if (tossRobj)
