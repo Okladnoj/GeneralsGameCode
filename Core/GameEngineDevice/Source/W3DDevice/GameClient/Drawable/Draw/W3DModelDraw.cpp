@@ -721,9 +721,12 @@ void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) c
 		
 		if (s_diagFile)
 		{
-			fprintf(s_diagFile, "TAG f%d animFrame=%.3f call=%u isLogic=%d validStuff=%08X pristineCount=%d model=%s\n", 
+			unsigned int hFrame;
+			memcpy(&hFrame, &frame, 4);
+
+			fprintf(s_diagFile, "TAG f%d animFrame=%08X call=%u isLogic=%d validStuff=%08X pristineCount=%d model=%s\n", 
 				TheGameLogic->getFrame(),
-				frame,
+				hFrame,
 				s_validateCallCount, 
 				isValidTimeToCalcLogicStuff() ? 1 : 0, 
 				m_validStuff, 

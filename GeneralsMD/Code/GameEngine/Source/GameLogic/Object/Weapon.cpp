@@ -3128,14 +3128,29 @@ void Weapon::processRequestAssistance( const Object *requestingObject, Object *v
 
 	if (TheGameLogic)
 	{
-		static FILE* s_detachLog = fopen("RocketDetachLog.txt", "a");
+		static FILE* s_detachLog = NULL;
+		static bool s_triedDetach = false;
+		if (!s_triedDetach)
+		{
+			s_triedDetach = true;
+			s_detachLog = fopen("RocketDetachLog.txt", "w");
+		}
+		
 		if (s_detachLog)
 		{
-			fprintf(s_detachLog, "DETACH frame=%u launcher=%s projectile=%s pos=%.3f,%.3f,%.3f\n",
+			unsigned int hx, hy, hz;
+			float px = worldPos.x;
+			float py = worldPos.y;
+			float pz = worldPos.z;
+			memcpy(&hx, &px, 4);
+			memcpy(&hy, &py, 4);
+			memcpy(&hz, &pz, 4);
+
+			fprintf(s_detachLog, "TAG f%d obj=%u proj=%u x=%08X y=%08X z=%08X\n",
 				TheGameLogic->getFrame(),
-				launcher->getTemplate()->getName().str(),
-				projectile->getTemplate()->getName().str(),
-				worldPos.x, worldPos.y, worldPos.z);
+				launcher->getID(),
+				projectile->getID(),
+				hx, hy, hz);
 			fflush(s_detachLog);
 		}
 	}
