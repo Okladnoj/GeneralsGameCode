@@ -596,7 +596,7 @@ void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) c
 	{
 		static FILE* s_diagFile = NULL;
 		static bool s_triedDiag = false;
-		if (!s_triedDiag && TheGameLogic->getFrame() > 0)
+		if (!s_triedDiag)
 		{
 			s_triedDiag = true;
 			s_diagFile = fopen("ValidateCachedBonesDiag.txt", "w");
@@ -614,12 +614,19 @@ void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) c
 				
 			for (PristineBoneInfoMap::const_iterator it = m_pristineBones.begin(); it != m_pristineBones.end(); ++it)
 			{
-				fprintf(s_diagFile, "  BONE hash=%u idx=%d x=%f y=%f z=%f\n", 
+				float px = it->second.mtx.Get_X_Translation();
+				float py = it->second.mtx.Get_Y_Translation();
+				float pz = it->second.mtx.Get_Z_Translation();
+				unsigned int hx, hy, hz;
+				memcpy(&hx, &px, 4);
+				memcpy(&hy, &py, 4);
+				memcpy(&hz, &pz, 4);
+				
+				fprintf(s_diagFile, "  BONE hash=%u str='%s' idx=%d x=%08X y=%08X z=%08X\n", 
 					it->first,
+					KEYNAME(it->first).str(),
 					it->second.boneIndex,
-					it->second.mtx.Get_X_Translation(),
-					it->second.mtx.Get_Y_Translation(),
-					it->second.mtx.Get_Z_Translation()
+					hx, hy, hz
 				);
 			}
 				
