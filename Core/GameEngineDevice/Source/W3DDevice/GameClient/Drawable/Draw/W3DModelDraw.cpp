@@ -660,10 +660,17 @@ void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) c
 		if (animToUse)
 			animToUse->Add_Ref();
 	}
+	Int debug_animNumFrames = -1;
+	Int debug_whichFrame = -1;
+	Bool debug_hasAnim = false;
+
 	if (animToUse != nullptr)
 	{
+		debug_hasAnim = true;
+		debug_animNumFrames = animToUse->Get_Num_Frames();
 		// make sure we're in frame zero.
 		Int whichFrame = testFlagBit(m_flags, PRISTINE_BONE_POS_IN_FINAL_FRAME) ? animToUse->Get_Num_Frames()-1 : 0;
+		debug_whichFrame = whichFrame;
 		robj->Set_Animation(animToUse, whichFrame, RenderObjClass::ANIM_MODE_MANUAL);
 		// must balance the addref, above
 		REF_PTR_RELEASE(animToUse);
@@ -724,14 +731,15 @@ void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) c
 			unsigned int hFrame;
 			memcpy(&hFrame, &frame, 4);
 
-			fprintf(s_diagFile, "TAG f%d animFrame=%08X call=%u isLogic=%d validStuff=%08X pristineCount=%d model=%s\n", 
+			fprintf(s_diagFile, "TAG f%d animFrame=%08X call=%u isLogic=%d validStuff=%08X pristineCount=%d model=%s hasAnim=%d animFrames=%d wFrame=%d\n", 
 				TheGameLogic->getFrame(),
 				hFrame,
 				s_validateCallCount, 
 				isValidTimeToCalcLogicStuff() ? 1 : 0, 
 				m_validStuff, 
 				(int)m_pristineBones.size(),
-				m_modelName.isEmpty() ? "none" : m_modelName.str());
+				m_modelName.isEmpty() ? "none" : m_modelName.str(),
+				debug_hasAnim ? 1 : 0, debug_animNumFrames, debug_whichFrame);
 				
 			for (PristineBoneInfoMap::const_iterator it = m_pristineBones.begin(); it != m_pristineBones.end(); ++it)
 			{
