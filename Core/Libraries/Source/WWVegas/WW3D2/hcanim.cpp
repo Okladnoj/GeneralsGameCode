@@ -336,6 +336,12 @@ int HCompressedAnimClass::Load_W3D(ChunkLoadClass & cload)
 							// GTH 09-25-2000: print a warning and survive this error
 							delete ad_chan;
 							WWDEBUG_SAY(("ERROR! animation %s indexes a bone not present in the model. Please re-export!",Name));
+							
+							FILE* f = fopen("HCAnimDiag.txt", "a");
+							if (f) {
+								fprintf(f, "HCAnim ERROR deleted ad_chan for %s, Pivot=%d NumNodes=%d\n", Name, ad_chan->Get_Pivot(), NumNodes);
+								fclose(f);
+							}
 						}
 						break;
 				}
@@ -543,6 +549,16 @@ void HCompressedAnimClass::Get_Translation( Vector3& trans, int pividx, float fr
 			if (motion->ad.X) motion->ad.X->Get_Vector(frame, &(trans[0]));
 			if (motion->ad.Y) motion->ad.Y->Get_Vector(frame, &(trans[1]));
 			if (motion->ad.Z) motion->ad.Z->Get_Vector(frame, &(trans[2]));
+			
+			// OKJI DEBUG
+			{
+				FILE* f = fopen("HCAnimDiag.txt", "a");
+				if (f) {
+					fprintf(f, "HCAnim trans pividx=%d frame=%.2f X=%p Y=%p Z=%p out=(%.3f, %.3f, %.3f)\n", 
+							pividx, frame, motion->ad.X, motion->ad.Y, motion->ad.Z, trans[0], trans[1], trans[2]);
+					fclose(f);
+				}
+			}
 			break;
 		default:
 			WWASSERT(0);	// unknown flavor
