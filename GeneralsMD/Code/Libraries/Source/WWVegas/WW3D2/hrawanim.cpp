@@ -432,6 +432,15 @@ void HRawAnimClass::Get_Translation(Vector3& trans, int pividx, float frame ) co
 
 	if ( (motion->X == nullptr) && (motion->Y == nullptr) && (motion->Z == nullptr) ) {
 		 trans.Set(0.0f,0.0f,0.0f);
+		 
+		 // OKJI DEBUG
+		 {
+			 FILE* f = fopen("HRawAnimDiag.txt", "a");
+			 if (f) {
+				 fprintf(f, "HRawAnim NULL pividx=%d frame=%.2f\n", pividx, frame);
+				 fclose(f);
+			 }
+		 }
 		return;
 	}
 
@@ -461,6 +470,15 @@ void HRawAnimClass::Get_Translation(Vector3& trans, int pividx, float frame ) co
 
 	if ( ratio == 0.0f ) {
 		trans=trans0;
+		// OKJI DEBUG
+		{
+			FILE* f = fopen("HRawAnimDiag.txt", "a");
+			if (f) {
+				fprintf(f, "HRawAnim trans pividx=%d frame=%.2f ratio=0 out=(%.3f, %.3f, %.3f)\n", 
+						pividx, frame, trans.X, trans.Y, trans.Z);
+				fclose(f);
+			}
+		}
 		return;
 	}
 
