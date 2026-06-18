@@ -664,6 +664,33 @@ void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) c
 	Int debug_whichFrame = -1;
 	Bool debug_hasAnim = false;
 
+	{
+		static FILE* s_vbDiag2 = NULL;
+		static bool s_vbDiag2Tried = false;
+		static int s_vbDiag2Count = 0;
+		if (!s_vbDiag2Tried) {
+			s_vbDiag2Tried = true;
+			s_vbDiag2 = fopen("ValidateBonesDiag2.txt", "w");
+		}
+		s_vbDiag2Count++;
+		if (s_vbDiag2 && s_vbDiag2Count <= 500) {
+			const char* animName = animToUse ? animToUse->Get_Name() : "(null)";
+			int animClassID = animToUse ? animToUse->Class_ID() : -999;
+			int animNumPiv = animToUse ? animToUse->Get_Num_Pivots() : -1;
+			int animNumFrm = animToUse ? animToUse->Get_Num_Frames() : -1;
+			int robjClassID = robj ? robj->Class_ID() : -999;
+			int robjNumBones = robj ? robj->Get_Num_Bones() : -1;
+			fprintf(s_vbDiag2, "TAG vb=%d model=%s animName=%s animClassID=%d animNumPiv=%d animNumFrm=%d robjClassID=%d robjNumBones=%d animCount=%d curAnimPtr=%d\n",
+				s_vbDiag2Count,
+				m_modelName.str() ? m_modelName.str() : "(null)",
+				animName, animClassID, animNumPiv, animNumFrm,
+				robjClassID, robjNumBones,
+				(int)m_animations.size(),
+				curAnim ? 1 : 0);
+			fflush(s_vbDiag2);
+		}
+	}
+
 	if (animToUse != nullptr)
 	{
 		debug_hasAnim = true;

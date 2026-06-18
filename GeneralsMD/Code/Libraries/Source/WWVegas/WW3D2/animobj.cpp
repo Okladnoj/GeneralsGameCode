@@ -773,11 +773,33 @@ void Animatable3DObjClass::Control_Bone(int bindex,const Matrix3D & objtm,bool w
  *=============================================================================================*/
 void Animatable3DObjClass::Update_Sub_Object_Transforms()
 {
+	static FILE* s_usoFile = NULL;
+	static bool s_usoTried = false;
+	static int s_usoCount = 0;
+	if (!s_usoTried) {
+		s_usoTried = true;
+		s_usoFile = fopen("USODiag.txt", "w");
+	}
+	s_usoCount++;
+
 	/*
 	** The RenderObj implementation will cause our 'container'
 	** to update if we are not valid yet
 	*/
 	CompositeRenderObjClass::Update_Sub_Object_Transforms();
+
+	if (s_usoFile && s_usoCount <= 2000) {
+		int numPivots = HTree ? HTree->Get_Num_Pivots() : -1;
+		int motionClassID = -999;
+		int motionNumPivots = -1;
+		if (CurMotionMode == SINGLE_ANIM && ModeAnim.Motion) {
+			motionClassID = ModeAnim.Motion->Class_ID();
+			motionNumPivots = ModeAnim.Motion->Get_Num_Pivots();
+		}
+		fprintf(s_usoFile, "TAG uso=%d mode=%d numPiv=%d motionClassID=%d motionNumPiv=%d htree=%d\n",
+			s_usoCount, CurMotionMode, numPivots, motionClassID, motionNumPivots, HTree ? 1 : 0);
+		fflush(s_usoFile);
+	}
 
 	/*
 	** Update the transforms
