@@ -789,7 +789,7 @@ void Animatable3DObjClass::Update_Sub_Object_Transforms()
 	CompositeRenderObjClass::Update_Sub_Object_Transforms();
 
 	if (s_usoFile && s_usoCount <= 2000) {
-		int numPivots = HTree ? HTree->Get_Num_Pivots() : -1;
+		int numPivots = HTree ? HTree->Num_Pivots() : -1;
 		int motionClassID = -999;
 		int motionNumPivots = -1;
 		if (CurMotionMode == SINGLE_ANIM && ModeAnim.Motion) {
