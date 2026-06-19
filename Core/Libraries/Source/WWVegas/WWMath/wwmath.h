@@ -40,6 +40,7 @@
 #include <math.h>
 #include <float.h>
 #include <assert.h>
+#include "Lib/BaseDefines.h"
 
 #if USE_DETERMINISTIC_MATH
 #include "gmath.h"
@@ -138,6 +139,24 @@ static WWINLINE float  Sinf(float val);
 static WWINLINE float  Sinf_Legacy(float val);
 static WWINLINE double Tan(double x);
 static WWINLINE float  Tanf(float x);
+
+// ── FLOAT OVERLOADS FOR DETERMINISTIC MATH ──
+// Prevent automatic compiler promotion of float arguments to double-precision variants.
+// Single-precision math in GameMath (gm_*f) is guaranteed to be cross-platform bit-identical,
+// whereas double-precision math (gm_*) can diverge by 1 ULP due to FPU precision differences (x87 vs NEON).
+// Example fact: at Frame 1 on Akas Magic, Object 312 ROTATE dy=446C04C6 dx=C3A4DDB0 had:
+// WWMath::Atan2(float, float) -> resolved to double Atan2 -> gm_atan2(double, double)
+// resulting in Mac: 3FF4128C vs Win: 3FF4128B (1 ULP mismatch).
+static WWINLINE float  Sin(float val);
+static WWINLINE float  Cos(float val);
+static WWINLINE float  Tan(float x);
+static WWINLINE float  Atan(float x);
+static WWINLINE float  Atan2(float x, float y);
+static WWINLINE float  Asin(float x);
+static WWINLINE float  Acos(float x);
+static WWINLINE float  Sqrt(float x);
+static WWINLINE float  Sqrt(int x);
+static WWINLINE float  Fabs(float x);
 
 static WWINLINE double Cosh(double x);
 static WWINLINE float  Coshf(float x);
@@ -481,6 +500,99 @@ WWINLINE float WWMath::Atan2f(float x, float y)
 	return gm_atan2f(x, y);
 #else
 	return atan2f(x, y);
+#endif
+}
+
+// ── FLOAT OVERLOADS FOR DETERMINISTIC MATH ──
+// Inline implementations routing float calls directly to Single-precision GameMath functions.
+
+WWINLINE float WWMath::Sin(float val)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_sinf(val);
+#else
+	return (float)Sin((double)val);
+#endif
+}
+
+WWINLINE float WWMath::Cos(float val)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_cosf(val);
+#else
+	return (float)Cos((double)val);
+#endif
+}
+
+WWINLINE float WWMath::Tan(float x)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_tanf(x);
+#else
+	return (float)Tan((double)x);
+#endif
+}
+
+WWINLINE float WWMath::Atan(float x)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_atanf(x);
+#else
+	return (float)Atan((double)x);
+#endif
+}
+
+WWINLINE float WWMath::Atan2(float x, float y)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_atan2f(x, y);
+#else
+	return (float)Atan2((double)x, (double)y);
+#endif
+}
+
+WWINLINE float WWMath::Asin(float x)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_asinf(x);
+#else
+	return (float)Asin((double)x);
+#endif
+}
+
+WWINLINE float WWMath::Acos(float x)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_acosf(x);
+#else
+	return (float)Acos((double)x);
+#endif
+}
+
+WWINLINE float WWMath::Sqrt(float x)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_sqrtf(x);
+#else
+	return (float)Sqrt((double)x);
+#endif
+}
+
+WWINLINE float WWMath::Sqrt(int x)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_sqrtf((float)x);
+#else
+	return (float)Sqrt((double)x);
+#endif
+}
+
+WWINLINE float WWMath::Fabs(float x)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_fabsf(x);
+#else
+	return (float)Fabs((double)x);
 #endif
 }
 
