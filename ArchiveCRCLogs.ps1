@@ -86,6 +86,14 @@ foreach ($file in $filesToProcess) {
     $foundCount++
 }
 
+# 4. Copy the last replay (00000000.rep)
+$LastReplayPath = Join-Path $DocsDir "Replays\00000000.rep"
+if (Test-Path $LastReplayPath) {
+    Write-Host "Copying last replay: 00000000.rep" -ForegroundColor Green
+    Copy-Item -Path $LastReplayPath -Destination (Join-Path $ArchiveDir "00000000.rep") -Force
+    $foundCount++
+}
+
 if ($foundCount -gt 0) {
     Write-Host "`nFound and copied $foundCount files." -ForegroundColor Green
     
