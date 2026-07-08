@@ -262,6 +262,19 @@ Real GetGameClientRandomValueReal( Real lo, Real hi, const char *file, int line 
 	return rval;
 }
 
+static FILE* g_rndDiagFile = NULL;
+static bool g_rndDiagTried = false;
+static void logRandomValueDiag(const char* type, int frame, float r, float lo, float hi, const char* file, int line) {
+	if (!g_rndDiagTried && TheGameLogic && frame > 0) {
+		g_rndDiagTried = true;
+		g_rndDiagFile = fopen("RandomDiag.txt", "w");
+	}
+	if (g_rndDiagFile) {
+		fprintf(g_rndDiagFile, "RND %s f%d r=%f lo=%f hi=%f file=%s line=%d\n", type, frame, r, lo, hi, file, line);
+		fflush(g_rndDiagFile);
+	}
+}
+
 //
 // Integer random value
 //
@@ -282,8 +295,11 @@ Int GetGameLogicRandomValue( int lo, int hi, const char *file, int line )
 
 #ifdef DEBUG_RANDOM_LOGIC
 	DEBUG_LOG(( "%d: GetGameLogicRandomValue = %d (%d - %d), %s line %d",
-		TheGameLogic->getFrame(), rval, lo, hi, file, line ));
+		TheGameLogic ? TheGameLogic->getFrame() : 0, rval, lo, hi, file, line ));
 #endif
+	if (TheGameLogic) {
+		logRandomValueDiag("I", TheGameLogic->getFrame(), (float)rval, (float)lo, (float)hi, file, line);
+	}
 
 	DEBUG_ASSERTCRASH(rval >= lo && rval <= hi, ("Bad random val"));
 	return rval;
@@ -309,8 +325,11 @@ Real GetGameLogicRandomValueReal( Real lo, Real hi, const char *file, int line )
 
 #ifdef DEBUG_RANDOM_LOGIC
 	DEBUG_LOG(( "%d: GetGameLogicRandomValueReal = %f, %s line %d",
-		TheGameLogic->getFrame(), rval, file, line ));
+		TheGameLogic ? TheGameLogic->getFrame() : 0, rval, file, line ));
 #endif
+	if (TheGameLogic) {
+		logRandomValueDiag("R", TheGameLogic->getFrame(), (float)rval, (float)lo, (float)hi, file, line);
+	}
 
 	DEBUG_ASSERTCRASH(rval >= lo && rval <= hi, ("Bad random val"));
 	return rval;

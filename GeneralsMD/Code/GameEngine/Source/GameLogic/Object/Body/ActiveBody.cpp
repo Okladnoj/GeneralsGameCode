@@ -1219,25 +1219,11 @@ void ActiveBody::updateBodyParticleSystems()
 //-------------------------------------------------------------------------------------------------
 void ActiveBody::internalChangeHealth( Real delta )
 {
-	static FILE* s_hlthFile = NULL;
-	static bool s_hlthTried = false;
-	if (!s_hlthTried && TheGameLogic && TheGameLogic->getFrame() > 0) { // Using getFrame > 0 to avoid early shell/init spam
-		s_hlthTried = true;
-		s_hlthFile = fopen("HealthDiag.txt", "w");
-	}
-
 	// save the current health as the previous health
 	m_prevHealth = m_currentHealth;
 
 	// change the health by the delta, it can be positive or negative
 	m_currentHealth += delta;
-
-	if (s_hlthFile) {
-		fprintf(s_hlthFile, "HLTH f%d obj=%d cur=%08X delta=%08X new=%08X\n",
-			TheGameLogic->getFrame(), getObject() ? getObject()->getID() : 0,
-			*(UnsignedInt*)&m_prevHealth, *(UnsignedInt*)&delta, *(UnsignedInt*)&m_currentHealth);
-		fflush(s_hlthFile);
-	}
 
 	// high end cap
 	Real maxHealth = m_maxHealth;
