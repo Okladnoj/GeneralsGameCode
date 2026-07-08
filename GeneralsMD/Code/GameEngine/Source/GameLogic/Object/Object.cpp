@@ -302,7 +302,7 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 			g_objDiagFile = fopen("ObjDiag.txt", "w");
 		}
 		if (g_objDiagFile) {
-			fprintf(g_objDiagFile, "OBJ_CREATE id=%d name=%s\n", m_id, tt ? tt->getName() : "NULL");
+			fprintf(g_objDiagFile, "OBJ_CREATE id=%d name=%s\n", m_id, tt ? tt->getName().str() : "NULL");
 			fflush(g_objDiagFile);
 		}
 	}
