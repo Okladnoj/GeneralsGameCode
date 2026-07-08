@@ -293,7 +293,6 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 	// assign unique object id
 	setID( TheGameLogic->allocateObjectID() );
 
-#if !defined(NDEBUG) || defined(_DEBUG)
 	if (TheGameLogic && m_id != INVALID_ID)
 	{
 		static bool g_objDiagTried = false;
@@ -307,7 +306,6 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 			fflush(g_objDiagFile);
 		}
 	}
-#endif
 
 	//
 	// allocate any modules we need to, we should keep
