@@ -293,6 +293,22 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 	// assign unique object id
 	setID( TheGameLogic->allocateObjectID() );
 
+#if !defined(NDEBUG) || defined(_DEBUG)
+	if (TheGameLogic && m_id != INVALID_ID)
+	{
+		static bool g_objDiagTried = false;
+		static FILE* g_objDiagFile = nullptr;
+		if (!g_objDiagTried) {
+			g_objDiagTried = true;
+			g_objDiagFile = fopen("ObjDiag.txt", "w");
+		}
+		if (g_objDiagFile) {
+			fprintf(g_objDiagFile, "OBJ_CREATE id=%d name=%s\n", m_id, tt ? tt->getName() : "NULL");
+			fflush(g_objDiagFile);
+		}
+	}
+#endif
+
 	//
 	// allocate any modules we need to, we should keep
 	// this at or near the end of the drawable construction so that we have
