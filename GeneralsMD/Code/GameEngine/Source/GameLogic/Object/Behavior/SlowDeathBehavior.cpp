@@ -175,12 +175,18 @@ SlowDeathBehavior::~SlowDeathBehavior()
 //-------------------------------------------------------------------------------------------------
 Int SlowDeathBehavior::getProbabilityModifier( const DamageInfo *damageInfo ) const
 {
-	// Calculating how far past dead we were allows us to pick more spectacular deaths when
-	// severely killed, and more sedate ones when only slightly killed.
-	// eg ( 200 hp max, had 10 left, took 50 damage, 40 overkill, (40/200) * 100 = 20 overkill %)
+	// TheSuperHackers @bugfix bobtista 10/06/2026 Guard against a zero max health. Dividing by it
+	// gave 0/0 = NaN, and (Int)NaN is undefined behavior that differs across architectures (arm64
+	// yields 0, x86 yields INT_MIN), which flipped the probability total and made one machine roll
+	// the GameLogic RNG while the other did not - a cross-platform lockstep desync.
 	Int overkillDamage = damageInfo->out.m_actualDamageDealt - damageInfo->out.m_actualDamageClipped;
-	Real overkillPercent = (float)overkillDamage / (float)getObject()->getBodyModule()->getMaxHealth();
-	Int overkillModifier = overkillPercent * getSlowDeathBehaviorModuleData()->m_modifierBonusPerOverkillPercent;
+	Int overkillModifier = 0;
+	const Real maxHealth = getObject()->getBodyModule()->getMaxHealth();
+	if (maxHealth > 0.0f)
+	{
+		Real overkillPercent = (float)overkillDamage / maxHealth;
+		overkillModifier = overkillPercent * getSlowDeathBehaviorModuleData()->m_modifierBonusPerOverkillPercent;
+	}
 
 	return max( getSlowDeathBehaviorModuleData()->m_probabilityModifier + overkillModifier, 1 );
 }
