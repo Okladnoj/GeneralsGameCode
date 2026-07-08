@@ -27,6 +27,7 @@
 
 #include "Common/ArchiveFileSystem.h"
 #include "Common/CommandLine.h"
+#include "Common/Diagnostic/SimulationMathCrc.h"
 #include "Common/CRCDebug.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/Recorder.h"
@@ -1122,10 +1123,35 @@ Int parseClearDebugLevel(char *args[], int num)
 }
 #endif
 
+Int parseMathCrcCheck(char *args[], int)
+{
+	UnsignedInt crc = SimulationMathCrc::calculate();
+	UnsignedInt crcDouble = 0; // Not calculated by default in this port
+
+	printf("SimulationMathCrc = %08X\n", crc);
+	printf("SimulationMathCrcDouble = %08X\n", crcDouble);
+	fflush(stdout);
+	DEBUG_LOG(("SimulationMathCrc = %08X", crc));
+	DEBUG_LOG(("SimulationMathCrcDouble = %08X", crcDouble));
+	
+	// Write the result to a plain file so the parity probe is machine-readable
+	FILE *crcFile = fopen("SimulationMathCrc.txt", "wt");
+	if (crcFile != nullptr)
+	{
+		fprintf(crcFile, "SimulationMathCrc = %08X\n", crc);
+		fprintf(crcFile, "SimulationMathCrcDouble = %08X\n", crcDouble);
+		fclose(crcFile);
+	}
+
+	exit(0);
+	return 2;
+}
+
 // Initial Params are parsed before Windows Creation.
 // Note that except for TheGlobalData, no other global objects exist yet when these are parsed.
 static CommandLineParam paramsForStartup[] =
 {
+	{ "-mathCrcCheck", parseMathCrcCheck },
 	{ "-win", parseWin },
 	{ "-fullscreen", parseNoWin },
 

@@ -752,7 +752,8 @@ void BattlePlanUpdate::setBattlePlan( BattlePlanStatus plan )
 				player->changeBattlePlan( PLANSTATUS_HOLDTHELINE, -1, m_bonuses );
 
 				//Remove building health bonuses
-				if( data->m_strategyCenterHoldTheLineMaxHealthScalar != 1.0f )
+				// TheSuperHackers @bugfix bobtista-style Guard divisor to prevent Inf/NaN desync
+				if( data->m_strategyCenterHoldTheLineMaxHealthScalar != 1.0f && data->m_strategyCenterHoldTheLineMaxHealthScalar > 0.0f )
 				{
 					BodyModuleInterface *body = obj->getBodyModule();
 					body->setMaxHealth( body->getMaxHealth() * 1.0f / data->m_strategyCenterHoldTheLineMaxHealthScalar, data->m_strategyCenterHoldTheLineMaxHealthChangeType );
@@ -765,7 +766,8 @@ void BattlePlanUpdate::setBattlePlan( BattlePlanStatus plan )
 				player->changeBattlePlan( PLANSTATUS_SEARCHANDDESTROY, -1, m_bonuses );
 
 				//Remove sight range bonus
-				if( data->m_strategyCenterSearchAndDestroySightRangeScalar != 1.0f )
+				// TheSuperHackers @bugfix bobtista-style Guard divisor to prevent Inf/NaN desync
+				if( data->m_strategyCenterSearchAndDestroySightRangeScalar != 1.0f && data->m_strategyCenterSearchAndDestroySightRangeScalar > 0.0f )
 				{
 					obj->setVisionRange( obj->getVisionRange() * 1.0f / data->m_strategyCenterSearchAndDestroySightRangeScalar );
 					obj->setShroudClearingRange( obj->getShroudClearingRange() * 1.0f / data->m_strategyCenterSearchAndDestroySightRangeScalar );
