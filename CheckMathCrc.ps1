@@ -29,7 +29,7 @@ Push-Location $GameDir
 
 # Run the game with the special flag and wait for it to finish
 Write-Host "Executing: $ExePath -mathCrcCheck"
-Start-Process -FilePath $ExePath -ArgumentList "-mathCrcCheck" -Wait
+Start-Process -FilePath $ExePath -ArgumentList "-mathCrcCheck" -WorkingDirectory $GameDir -Wait
 
 Write-Host "Reading CRC results from SimulationMathCrc.txt..." -ForegroundColor Cyan
 
