@@ -27,8 +27,9 @@ if (-not (Test-Path $ExePath)) {
 # Change directory to the game directory to ensure files are written there
 Push-Location $GameDir
 
-# Run the game with the special flag
-& $ExePath -mathCrcCheck
+# Run the game with the special flag and wait for it to finish
+Write-Host "Executing: $ExePath -mathCrcCheck"
+Start-Process -FilePath $ExePath -ArgumentList "-mathCrcCheck" -Wait
 
 Write-Host "Reading CRC results from SimulationMathCrc.txt..." -ForegroundColor Cyan
 
