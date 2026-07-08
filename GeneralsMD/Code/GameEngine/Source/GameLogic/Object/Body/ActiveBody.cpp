@@ -1234,7 +1234,7 @@ void ActiveBody::internalChangeHealth( Real delta )
 
 	if (s_hlthFile) {
 		fprintf(s_hlthFile, "HLTH f%d obj=%d cur=%08X delta=%08X new=%08X\n",
-			TheGameLogic->getFrame(), m_owner ? m_owner->getID() : 0,
+			TheGameLogic->getFrame(), getObject() ? getObject()->getID() : 0,
 			*(UnsignedInt*)&m_prevHealth, *(UnsignedInt*)&delta, *(UnsignedInt*)&m_currentHealth);
 		fflush(s_hlthFile);
 	}
