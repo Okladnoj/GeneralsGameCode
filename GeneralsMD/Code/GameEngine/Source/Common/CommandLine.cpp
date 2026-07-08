@@ -1134,14 +1134,20 @@ Int parseMathCrcCheck(char *args[], int)
 	DEBUG_LOG(("SimulationMathCrc = %08X", crc));
 	DEBUG_LOG(("SimulationMathCrcDouble = %08X", crcDouble));
 	
+	// Format the result into a string
+	char msg[256];
+	sprintf(msg, "SimulationMathCrc = %08X\nSimulationMathCrcDouble = %08X\n", crc, crcDouble);
+	
 	// Write the result to a plain file so the parity probe is machine-readable
 	FILE *crcFile = fopen("SimulationMathCrc.txt", "wt");
 	if (crcFile != nullptr)
 	{
-		fprintf(crcFile, "SimulationMathCrc = %08X\n", crc);
-		fprintf(crcFile, "SimulationMathCrcDouble = %08X\n", crcDouble);
+		fprintf(crcFile, "%s", msg);
 		fclose(crcFile);
 	}
+
+	// Show message box so we can see it even if file write fails!
+	MessageBoxA(NULL, msg, "Math CRC Result", MB_OK | MB_ICONINFORMATION);
 
 	exit(0);
 	return 2;
