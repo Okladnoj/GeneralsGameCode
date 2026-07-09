@@ -42,4 +42,10 @@ if (Test-Path $ResultFile) {
     Write-Host "Error: Result file $ResultFile was not generated. The game might have crashed or the flag wasn't recognized." -ForegroundColor Red
 }
 
+$DiagFile = "SimulationMathCrcDoubleDiag.txt"
+if (Test-Path $DiagFile) {
+    Write-Host "Copying $DiagFile to project root..." -ForegroundColor Cyan
+    Copy-Item -Path $DiagFile -Destination "D:\OKJI\dev\GeneralsGameCode\" -Force
+}
+
 Pop-Location

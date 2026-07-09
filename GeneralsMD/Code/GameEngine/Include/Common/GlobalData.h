@@ -569,6 +569,9 @@ public:
 	AsciiString m_modDir;
 	AsciiString m_modBIG;
 
+	Bool m_exportStats;
+	AsciiString m_statsUrl;
+
 	//-allAdvice feature
 	//Bool m_allAdvice;
 

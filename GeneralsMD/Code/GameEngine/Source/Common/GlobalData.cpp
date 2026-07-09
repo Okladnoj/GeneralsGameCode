@@ -566,6 +566,8 @@ GlobalData::GlobalData()
 	m_specialPowerUsesDelay = TRUE;
 #endif
   m_TiVOFastMode = FALSE;
+  m_exportStats = FALSE;
+  m_statsUrl = "";
 
 #if defined(RTS_DEBUG) || ENABLE_CONFIGURABLE_SHROUD
 	m_shroudOn = TRUE;
