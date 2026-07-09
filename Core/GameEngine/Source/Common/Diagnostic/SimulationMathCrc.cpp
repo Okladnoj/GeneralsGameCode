@@ -169,7 +169,6 @@ UnsignedInt SimulationMathCrc::calculate()
     setFPMode();
 
     appendSimulationMathCrc_Deterministic(xfer);
-    appendSimulationMathCrcDouble(xfer);
 
 #ifndef __APPLE__
     _fpreset();
