@@ -1,5 +1,10 @@
 $ErrorActionPreference = "Continue"
 
+$RunReplayDef = $false
+if ($args -contains "--rep_def" -or $args -contains "-ReplayDef") {
+    $RunReplayDef = $true
+}
+
 # Configure the path to your gen-context repo here
 $GenContextRepo = "D:\OKJI\dev\GeneralOnlineGameClient-Context"
 $GameDir = "D:\SteamLibrary\steamapps\common\Command & Conquer Generals - Zero Hour"
@@ -8,6 +13,19 @@ $DocsDir = "$env:USERPROFILE\Documents\Command and Conquer Generals Zero Hour Da
 $ArchiveDir = "$GenContextRepo\windows_crc_logs"
 
 Write-Host "Archiving CRC logs to: $ArchiveDir" -ForegroundColor Cyan
+
+if ($RunReplayDef) {
+    $exePath = "build\generalszh.exe"
+    if (-not (Test-Path $exePath)) { $exePath = "Generals.exe" }
+    
+    if (Test-Path $exePath) {
+        Write-Host "Running headless replay playback (--rep_def)..." -ForegroundColor Cyan
+        Start-Process -FilePath $exePath -ArgumentList "-headless -replay 00000000.rep" -Wait -NoNewWindow
+    } else {
+        Write-Host "Error: Could not find generalszh.exe to run replay!" -ForegroundColor Red
+        exit 1
+    }
+}
 
 # Check if the repository exists
 if (-not (Test-Path $GenContextRepo)) {
