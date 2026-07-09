@@ -17,7 +17,7 @@ Write-Host "Running game with -mathCrcCheck flag..." -ForegroundColor Cyan
 
 # Path to the installed game executable
 $GameDir = "D:\SteamLibrary\steamapps\common\Command & Conquer Generals - Zero Hour"
-$ExePath = "$GameDir\generals.exe"
+$ExePath = "$GameDir\generalszh.exe"
 
 if (-not (Test-Path $ExePath)) {
     Write-Host "Error: Game executable not found at $ExePath" -ForegroundColor Red
