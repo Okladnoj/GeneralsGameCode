@@ -1123,11 +1123,13 @@ Int parseClearDebugLevel(char *args[], int num)
 }
 #endif
 
+// TheSuperHackers @feature bobtista 09/06/2026 Print the deterministic simulation-math CRC
+// for cross-platform parity testing. Run on each machine with -mathCrcCheck and compare the
+// printed value; identical CRCs confirm the deterministic math path matches across architectures.
 Int parseMathCrcCheck(char *args[], int)
 {
-	UnsignedInt crc = SimulationMathCrc::calculate();
-	UnsignedInt crcDouble = 0; // Not calculated by default in this port
-
+	const UnsignedInt crc = SimulationMathCrc::calculate();
+	const UnsignedInt crcDouble = SimulationMathCrc::calculateDouble();
 	printf("SimulationMathCrc = %08X\n", crc);
 	printf("SimulationMathCrcDouble = %08X\n", crcDouble);
 	fflush(stdout);
@@ -1147,10 +1149,14 @@ Int parseMathCrcCheck(char *args[], int)
 	}
 
 	// Show message box so we can see it even if file write fails!
-	MessageBoxA(NULL, msg, "Math CRC Result", MB_OK | MB_ICONINFORMATION);
+#ifdef _WIN32
+	::MessageBox(NULL, msg, "SimulationMathCrc Result", MB_OK | MB_ICONINFORMATION);
+#endif
 
+	// Pure math parity check - print and exit before launching the game so it can be run
+	// instantly on each machine and the value compared.
 	exit(0);
-	return 2;
+	return 1;
 }
 
 // Initial Params are parsed before Windows Creation.

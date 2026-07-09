@@ -28,6 +28,35 @@
 #include <stdio.h>
 #include <time.h>
 
+// TheSuperHackers @info bobtista 10/06/2026 Hash the exact bits of a double so a 1-ULP
+// cross-platform divergence in a double-precision transcendental is caught by the CRC.
+static void xferDoubleBits(XferCRC &xfer, double value)
+{
+    Int64 bits;
+    memcpy(&bits, &value, sizeof(bits));
+    xfer.xferInt64(&bits);
+}
+
+// TheSuperHackers @info bobtista 10/06/2026 The single-precision probe below never exercises
+// the double-precision WWMath overloads (e.g. WWMath::Atan2(double,double) -> gm_atan2), which
+// is the path the train track-follow code actually uses. Sweep them here over movement-like
+// inputs so -mathCrcCheck reveals any clang/MSVC double-precision divergence directly.
+static const double s_probeY[] = { 0.4, 1.3, -2.7, 187.66, -1116.46, 0.000123, 3.5, -0.841933 };
+static const double s_probeX[] = { 1.3, 0.4, 11.9, -59.13, 1412.47, 9999.5, -3.5, 2.121793 };
+static const Int s_probeCount = sizeof(s_probeY) / sizeof(s_probeY[0]);
+
+static void appendSimulationMathCrcDouble(XferCRC &xfer)
+{
+    for (Int i = 0; i < s_probeCount; ++i)
+    {
+        xferDoubleBits(xfer, WWMath::Atan2(s_probeY[i], s_probeX[i]));
+        xferDoubleBits(xfer, WWMath::Atan(s_probeY[i] / s_probeX[i]));
+        xferDoubleBits(xfer, WWMath::Sin(s_probeY[i]));
+        xferDoubleBits(xfer, WWMath::Cos(s_probeY[i]));
+        xferDoubleBits(xfer, WWMath::Sqrt(WWMath::Fabs(s_probeX[i])));
+    }
+}
+
 static void appendSimulationMathCrc_Deterministic(XferCRC &xfer)
 {
     Matrix3D matrix;
@@ -140,10 +169,25 @@ UnsignedInt SimulationMathCrc::calculate()
     setFPMode();
 
     appendSimulationMathCrc_Deterministic(xfer);
+    appendSimulationMathCrcDouble(xfer);
 
-#ifdef _WIN32
     _fpreset();
-#endif
+
+    xfer.close();
+
+    return xfer.getCRC();
+}
+
+UnsignedInt SimulationMathCrc::calculateDouble()
+{
+    XferCRC xfer;
+    xfer.open("SimulationMathCrcDouble");
+
+    setFPMode();
+
+    appendSimulationMathCrcDouble(xfer);
+
+    _fpreset();
 
     xfer.close();
 
@@ -156,7 +200,6 @@ void SimulationMathCrc::runBenchmark(int iterations)
     clock_t startDet = clock();
     UnsignedInt crcDet = 0;
     
-
     setFPMode();
 
     for (i = 0; i < iterations; ++i)
@@ -168,9 +211,7 @@ void SimulationMathCrc::runBenchmark(int iterations)
 		if (i == 0)
 			crcDet = xfer.getCRC();
     }
-#ifndef __APPLE__
     _fpreset();
-#endif
     clock_t endDet = clock();
     double timeDetMs = (double)(endDet - startDet) / CLOCKS_PER_SEC * 1000.0;
 
@@ -188,9 +229,7 @@ void SimulationMathCrc::runBenchmark(int iterations)
 		if (i == 0)
 			crcNat = xfer.getCRC();
     }
-#ifndef __APPLE__
     _fpreset();
-#endif
     clock_t endNat = clock();
     double timeNatMs = (double)(endNat - startNat) / CLOCKS_PER_SEC * 1000.0;
 
