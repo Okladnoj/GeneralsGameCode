@@ -15,12 +15,12 @@ $ArchiveDir = "$GenContextRepo\windows_crc_logs"
 Write-Host "Archiving CRC logs to: $ArchiveDir" -ForegroundColor Cyan
 
 if ($RunReplayDef) {
-    $exePath = "build\generalszh.exe"
-    if (-not (Test-Path $exePath)) { $exePath = "Generals.exe" }
+    $exePath = "$GameDir\generalszh.exe"
+    if (-not (Test-Path $exePath)) { $exePath = "$GameDir\generals.exe" }
     
     if (Test-Path $exePath) {
         Write-Host "Running headless replay playback (--rep_def)..." -ForegroundColor Cyan
-        Start-Process -FilePath $exePath -ArgumentList "-headless -replay 00000000.rep" -Wait -NoNewWindow
+        Start-Process -FilePath $exePath -ArgumentList "-headless -replay 00000000.rep -saveDebugCRCPerFrame .\CRCLogs -keepCRCSave -logObjectCRCs -logRandom" -WorkingDirectory $GameDir -Wait
     } else {
         Write-Host "Error: Could not find generalszh.exe to run replay!" -ForegroundColor Red
         exit 1
@@ -124,6 +124,9 @@ if ($foundCount -gt 0) {
     # Push to Git
     Write-Host "Committing to gen-context repo..." -ForegroundColor Cyan
     Push-Location $GenContextRepo
+    
+    Write-Host "Syncing with remote repo..." -ForegroundColor Cyan
+    git pull --rebase --autostash
     
     git add windows_crc_logs.zip
     git commit -m "Update CRC logs"
