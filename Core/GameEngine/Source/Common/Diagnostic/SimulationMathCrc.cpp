@@ -197,6 +197,61 @@ UnsignedInt SimulationMathCrc::calculateDouble()
     return xfer.getCRC();
 }
 
+static void printDoubleBits(FILE *f, const char *label, double value)
+{
+    Int64 bits;
+    memcpy(&bits, &value, sizeof(bits));
+    fprintf(f, "  %-28s %016llX  (%.15g)\n", label, (unsigned long long)bits, value);
+}
+
+void SimulationMathCrc::dumpDoubleProbe()
+{
+    FILE *f = fopen("SimulationMathCrcDoubleDiag.txt", "wt");
+    if (f == nullptr)
+        return;
+
+    setFPMode();
+
+    fprintf(f, "================ DOUBLE PRECISION DIAGNOSTIC ================\n");
+    fprintf(f, "Each line: function(args) -> hex bits of double result (value)\n");
+    fprintf(f, "Compare this file between platforms to find the exact divergence.\n\n");
+
+    const char *funcNames[] = { "Atan2", "Atan", "Sin", "Cos", "Sqrt(Fabs)" };
+
+    for (Int i = 0; i < s_probeCount; ++i)
+    {
+        fprintf(f, "Probe[%d]  y=%.15g  x=%.15g\n", i, s_probeY[i], s_probeX[i]);
+
+        char buf[64];
+
+        sprintf(buf, "Atan2(y, x)");
+        printDoubleBits(f, buf, WWMath::Atan2(s_probeY[i], s_probeX[i]));
+
+        sprintf(buf, "Atan(y/x)");
+        printDoubleBits(f, buf, WWMath::Atan(s_probeY[i] / s_probeX[i]));
+
+        sprintf(buf, "Sin(y)");
+        printDoubleBits(f, buf, WWMath::Sin(s_probeY[i]));
+
+        sprintf(buf, "Cos(y)");
+        printDoubleBits(f, buf, WWMath::Cos(s_probeY[i]));
+
+        sprintf(buf, "Sqrt(Fabs(x))");
+        printDoubleBits(f, buf, WWMath::Sqrt(WWMath::Fabs(s_probeX[i])));
+
+        fprintf(f, "\n");
+    }
+
+    fprintf(f, "==============================================================\n");
+
+#ifndef __APPLE__
+    _fpreset();
+#endif
+
+    fclose(f);
+    printf("Double precision diagnostic written to SimulationMathCrcDoubleDiag.txt\n");
+}
+
 void SimulationMathCrc::runBenchmark(int iterations)
 {
     int i;

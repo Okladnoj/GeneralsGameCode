@@ -27,11 +27,11 @@
 
 #include "Common/ArchiveFileSystem.h"
 #include "Common/CommandLine.h"
-#include "Common/Diagnostic/SimulationMathCrc.h"
 #include "Common/CRCDebug.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/Recorder.h"
 #include "Common/version.h"
+#include "Common/Diagnostic/SimulationMathCrc.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/TerrainVisual.h" // for TERRAIN_LOD_MIN definition
 #include "GameClient/GameText.h"
@@ -315,7 +315,7 @@ Int parseLogObjectCRCs(char *args[], int argc)
 //=============================================================================
 Int parseNetCRCInterval(char *args[], int argc)
 {
-#if defined(DEBUG_CRC) && !RETAIL_COMPATIBLE_NETWORKING
+#ifdef DEBUG_CRC
 	if (argc > 1)
 	{
 		NET_CRC_INTERVAL = atoi(args[1]);
@@ -422,6 +422,22 @@ Int parseHeadless(char *args[], int num)
 	extern bool DX8Wrapper_IsWindowed;
 	DX8Wrapper_IsWindowed = false;
 
+	return 1;
+}
+
+Int parseExportStats(char *args[], int num)
+{
+	TheWritableGlobalData->m_exportStats = TRUE;
+	return 1;
+}
+
+Int parseStatsUrl(char *args[], int num)
+{
+	if (num > 1)
+	{
+		TheWritableGlobalData->m_statsUrl = args[1];
+		return 2;
+	}
 	return 1;
 }
 
@@ -776,6 +792,10 @@ Int parseSync(char *args[], int)
 
 Int parseNoShellMap(char *args[], int)
 {
+#if defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
+	return 1;
+#endif
+
 	TheWritableGlobalData->m_shellMapOn = FALSE;
 
 	return 1;
@@ -788,10 +808,23 @@ Int parseNoShaders(char *args[], int)
 	return 1;
 }
 
+#if defined(RTS_DEBUG) || !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 Int parseNoLogo(char *args[], int)
 {
 	TheWritableGlobalData->m_playIntro = FALSE;
 	TheWritableGlobalData->m_afterIntro = TRUE;
+	TheWritableGlobalData->m_playSizzle = FALSE;
+
+	return 1;
+}
+#endif
+
+Int parseNoSizzle( char *args[], int )
+{
+#if defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
+	return 1;
+#endif
+
 	TheWritableGlobalData->m_playSizzle = FALSE;
 
 	return 1;
@@ -822,7 +855,17 @@ Int parseWinCursors(char *args[], int num)
 
 Int parseQuickStart( char *args[], int num )
 {
-	parseNoLogo( args, num );
+#if defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
+	return 1;
+#endif
+
+#if defined(RTS_DEBUG) || !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
+  parseNoLogo( args, num );
+#else
+	//Kris: Patch 1.01 -- Allow release builds to skip the sizzle video, but still force the EA logo to show up.
+	//This is for legal reasons.
+	parseNoSizzle( args, num );
+#endif
 	parseNoShellMap( args, num );
 	parseNoWindowAnimation( args, num );
 	return 1;
@@ -1148,6 +1191,8 @@ Int parseMathCrcCheck(char *args[], int)
 		fclose(crcFile);
 	}
 
+	SimulationMathCrc::dumpDoubleProbe();
+
 	// Show message box so we can see it even if file write fails!
 #ifdef _WIN32
 	::MessageBox(NULL, msg, "SimulationMathCrc Result", MB_OK | MB_ICONINFORMATION);
@@ -1182,12 +1227,20 @@ static CommandLineParam paramsForStartup[] =
 	// (If you have 4 cores, call it with -jobs 4)
 	// If you do not call this, all replays will be simulated in sequence in the same process.
 	{ "-jobs", parseJobs },
+
+	// Export game stats as JSON alongside replay file.
+	{ "-exportStats", parseExportStats },
+
+	// URL to POST compressed stats JSON after export.
+	{ "-statsUrl", parseStatsUrl },
 };
 
 // These Params are parsed during Engine Init before INI data is loaded
 static CommandLineParam paramsForEngineInit[] =
 {
+#if defined(RTS_DEBUG) || !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 	{ "-nologo", parseNoLogo }, // TheSuperHackers @tweak Is now available in Release builds.
+#endif
 	{ "-noshellmap", parseNoShellMap },
 	{ "-noShellAnim", parseNoWindowAnimation }, // TheSuperHackers @tweak Is now available in Release builds.
 	{ "-xres", parseXRes },

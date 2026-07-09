@@ -211,7 +211,13 @@ void setFPMode()
 	UnsignedInt newVal = curVal;
 	newVal = (newVal & ~_MCW_RC) | (_RC_NEAR & _MCW_RC);
 	//newVal = (newVal & ~_MCW_RC) | (_RC_CHOP & _MCW_RC);
-	newVal = (newVal & ~_MCW_PC) | (_PC_24   & _MCW_PC);
+#if defined(_M_IX86)
+	// TheSuperHackers @info bobtista 10/06/2026 Keep the x87 control word at _PC_24 (24-bit/single).
+	// On 32-bit x86 the x87 FPU has a single global precision; the macOS/arm64 build computes float
+	// at 24-bit and double at 53-bit natively. _PC_24 makes x87 float math match arm64; the cost is
+	// that double math is clamped to 24-bit.
+	newVal = (newVal & ~_MCW_PC) | (_PC_24 & _MCW_PC);
+#endif
 
 	_controlfp(newVal, _MCW_PC | _MCW_RC);
 }
