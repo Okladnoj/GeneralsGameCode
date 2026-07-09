@@ -11,4 +11,4 @@
 # Captured: macOS arm64, build macos-generalsmd-sdl3-bgfx (Release), 14/06/2026.
 
 SimulationMathCrc = 5C8FD5AB
-SimulationMathCrcDouble = FBAC7656
+SimulationMathCrcDouble = 4E2B6D2C
