@@ -36,7 +36,7 @@ if (-not (Test-Path $GenContextRepo)) {
 
 New-Item -ItemType Directory -Path $ArchiveDir -Force | Out-Null
 
-$LogPatterns = @("crcDebug*.txt", "DebugFrame_*.txt", "sync*.txt", "*dbgview*.log", "*debugview*.txt", "*debugview*.log", "ReleaseCrashLog.txt", "DiagLog.txt", "MathPrecisionDiag.txt", "MtxDiag.txt", "LocoDiag.txt", "SlowDeathDiag.txt", "ValidateCachedBonesDiag.txt", "RocketDetachLog.txt", "HCAnimDiag.txt", "HRawAnimDiag.txt", "AnimUpdateDiag.txt", "USODiag.txt", "AnimLoadDiag.txt", "ValidateBonesDiag2.txt", "GetBoneTransformDiag.txt", "RandomDiag.txt", "ObjDiag.txt", "StateDiag.txt", "RepulsorDiag.txt")
+$LogPatterns = @("crcDebug*.txt", "DebugFrame_*.txt", "sync*.txt", "*dbgview*.log", "*debugview*.txt", "*debugview*.log", "ReleaseCrashLog.txt", "DiagLog.txt", "MathPrecisionDiag.txt", "MtxDiag.txt", "LocoDiag.txt", "SlowDeathDiag.txt", "ValidateCachedBonesDiag.txt", "RocketDetachLog.txt", "HCAnimDiag.txt", "HRawAnimDiag.txt", "AnimUpdateDiag.txt", "USODiag.txt", "AnimLoadDiag.txt", "ValidateBonesDiag2.txt", "GetBoneTransformDiag.txt", "RandomDiag.txt", "ObjDiag.txt", "StateDiag.txt", "RepulsorDiag.txt", "TurretDiag.txt")
 $SearchDirs = @($GameDir, "$GameDir\CRCLogs", $DocsDir, "D:\OKJI\dev\GeneralsGameCode")
 
 $foundCount = 0

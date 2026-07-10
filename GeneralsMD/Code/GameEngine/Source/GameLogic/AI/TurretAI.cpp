@@ -648,10 +648,29 @@ Bool TurretAI::isTurretInNaturalPosition() const
   if( this->getOwner()->testStatus( OBJECT_STATUS_UNDER_CONSTRUCTION))
     return true;//ML so that under-construction base-defenses do not re-center while under construction
 
+	Real natAng = getNaturalTurretAngle();
+	Real turAng = getTurretAngle();
+	Real natPitch = getNaturalTurretPitch();
+	Real turPitch = getTurretPitch();
 
+	static FILE* s_turLog = NULL;
+	static bool s_turLogTried = false;
+	if (!s_turLogTried && TheGameLogic && TheGameLogic->getGameMode() != 2) {
+		s_turLogTried = true;
+		s_turLog = fopen("TurretDiag.txt", "w");
+	}
+	if (s_turLog && this->getOwner() && this->getOwner()->getID() == 826) {
+		unsigned int natAngHex, turAngHex, natPitchHex, turPitchHex;
+		memcpy(&natAngHex, &natAng, 4); memcpy(&turAngHex, &turAng, 4);
+		memcpy(&natPitchHex, &natPitch, 4); memcpy(&turPitchHex, &turPitch, 4);
+		fprintf(s_turLog, "f%d turAng=%f (%08X) natAng=%f (%08X) turPitch=%f (%08X) natPitch=%f (%08X)\n", 
+			TheGameLogic->getFrame(), 
+			(float)turAng, turAngHex, (float)natAng, natAngHex,
+			(float)turPitch, turPitchHex, (float)natPitch, natPitchHex);
+		fflush(s_turLog);
+	}
 
-	if( getNaturalTurretAngle() == getTurretAngle() &&
-			getNaturalTurretPitch() == getTurretPitch() )
+	if( natAng == turAng && natPitch == turPitch )
 	{
 		return true;
 	}
