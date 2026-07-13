@@ -1506,7 +1506,7 @@ void makeAlignToNormalMatrix( Real angle, const Coord3D& pos, const Coord3D& nor
 
 	DEBUG_ASSERTCRASH(WWMath::Fabs(x.x*z.x + x.y*z.y + x.z*z.z)<0.0001,("dot is not zero (%f)",WWMath::Fabs(x.x*z.x + x.y*z.y + x.z*z.z)));
 
-	y.crossProduct( &z, &x, &y );
+	y.crossProduct( z, x, y );
 	y.normalize();
 
 	if (s_alignFile) {
