@@ -207,6 +207,16 @@ static void calcRandomForce(Real minMag, Real maxMag, Real minPitch, Real maxPit
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
+static FILE* s_slowDiag = NULL;
+static bool s_slowDiagTried = false;
+static FILE* getSlowDiag() {
+	if (!s_slowDiagTried) {
+		s_slowDiagTried = true;
+		s_slowDiag = fopen("SlowDiag.txt", "w");
+	}
+	return s_slowDiag;
+}
+
 void SlowDeathBehavior::beginSlowDeath(const DamageInfo *damageInfo)
 {
 	if (!isSlowDeathActivated())
@@ -262,6 +272,16 @@ void SlowDeathBehavior::beginSlowDeath(const DamageInfo *damageInfo)
 		}
 
 		UnsignedInt now = TheGameLogic->getFrame();
+
+		{
+			FILE* f = getSlowDiag();
+			if (f) {
+				UnsignedInt tsHex; memcpy(&tsHex, &timeScale, 4);
+				fprintf(f, "BEGINDEATH f%d obj=%d sink=%d mid=%d dest=%d timeScale=%08X\n",
+					now, obj->getID(), m_sinkFrame, m_midpointFrame, m_destructionFrame, tsHex);
+				fflush(f);
+			}
+		}
 
 		if (d->m_flingForce > 0)
 		{
@@ -338,6 +358,16 @@ void SlowDeathBehavior::doPhaseStuff(SlowDeathPhaseType sdphase)
 
 	if (!d->m_maskOfLoadedEffects)
 		return;	//has no ocl, fx, or weapons.
+
+	{
+		FILE* f = getSlowDiag();
+		if (f) {
+			fprintf(f, "PHASE f%d obj=%d phase=%d fxN=%d oclN=%d wpnN=%d\n",
+				TheGameLogic->getFrame(), getObject()->getID(), (int)sdphase,
+				(int)d->m_fx[sdphase].size(), (int)d->m_ocls[sdphase].size(), (int)d->m_weapons[sdphase].size());
+			fflush(f);
+		}
+	}
 
 	listSize = d->m_fx[sdphase].size();
 	if (listSize > 0)
@@ -458,12 +488,26 @@ UpdateSleepTime SlowDeathBehavior::update()
 
 	if( now >= m_midpointFrame && (m_flags & (1<<MIDPOINT_EXECUTED)) == 0 )
 	{
+		{
+			FILE* f = getSlowDiag();
+			if (f) {
+				fprintf(f, "MIDPOINT f%d obj=%d midF=%d\n", now, obj->getID(), m_midpointFrame);
+				fflush(f);
+			}
+		}
 		doPhaseStuff(SDPHASE_MIDPOINT);
 		m_flags |= (1<<MIDPOINT_EXECUTED);
 	}
 
 	if (now >= m_destructionFrame)
 	{
+		{
+			FILE* f = getSlowDiag();
+			if (f) {
+				fprintf(f, "DESTROY f%d obj=%d destF=%d\n", now, obj->getID(), m_destructionFrame);
+				fflush(f);
+			}
+		}
 		doPhaseStuff(SDPHASE_FINAL);
 		TheGameLogic->destroyObject(obj);
 	}
@@ -506,6 +550,16 @@ void SlowDeathBehavior::onDie( const DamageInfo *damageInfo )
 
 	// this returns a value from 1...total, inclusive
 	Int roll = GameLogicRandomValue(1, total);
+
+	{
+		FILE* f = getSlowDiag();
+		if (f) {
+			fprintf(f, "ONDIE f%d obj=%d total=%d roll=%d dtype=%d\n",
+				TheGameLogic->getFrame(), obj->getID(), total, roll,
+				(int)damageInfo->in.m_damageType);
+			fflush(f);
+		}
+	}
 
 	for (/* UpdateModuleInterface** */ update = obj->getBehaviorModules(); *update; ++update)
 	{
