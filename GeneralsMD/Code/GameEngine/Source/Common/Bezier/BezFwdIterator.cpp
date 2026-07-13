@@ -24,6 +24,7 @@
 
 #include "PreRTS.h"
 #include "Common/BezFwdIterator.h"
+#include "GameLogic/GameLogic.h"
 
 //-------------------------------------------------------------------------------------------------
 BezFwdIterator::BezFwdIterator(): mStep(0), mStepsDesired(0)
@@ -93,6 +94,20 @@ void BezFwdIterator::start()
 		(*pD) = a * d3 + b * d2 + c * d;
 		(*pDD) = 6 * a * d3 + 2 * b * d2;
 		(*pDDD) = 6 * a * d3;
+	}
+
+	{
+		FILE* ff = fopen("FlightDiag.txt", "a");
+		if (ff) {
+			Real cp0x = mBezSeg.m_controlPoints[0].x;
+			UnsignedInt kh,c0x,c0y,c0z,c0w,dqx,ddqx,dddqx;
+			memcpy(&kh,&cp0x,4);
+			memcpy(&c0x,&cVec[0].x,4); memcpy(&c0y,&cVec[0].y,4); memcpy(&c0z,&cVec[0].z,4); memcpy(&c0w,&cVec[0].w,4);
+			memcpy(&dqx,&mDq.x,4); memcpy(&ddqx,&mDDq.x,4); memcpy(&dddqx,&mDDDq.x,4);
+			fprintf(ff, "CVEC f%d cp0x=%08X cVec0=%08X,%08X,%08X,%08X dqX=%08X ddqX=%08X dddqX=%08X\n",
+				TheGameLogic->getFrame(), kh, c0x,c0y,c0z,c0w, dqx,ddqx,dddqx);
+			fclose(ff);
+		}
 	}
 }
 
