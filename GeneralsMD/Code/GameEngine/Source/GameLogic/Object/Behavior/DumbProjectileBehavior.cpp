@@ -452,6 +452,26 @@ Bool DumbProjectileBehavior::calcFlightPath(Bool recalcNumSegments)
 	flightCurve.getSegmentPoints(m_flightPathSegments, &m_flightPath);
 	DEBUG_ASSERTCRASH(m_flightPathSegments == m_flightPath.size(), ("m_flightPathSegments mismatch"));
 
+	{
+		FILE* ff = fopen("FlightDiag.txt", "a");
+		if (ff) {
+			UnsignedInt h[14];
+			memcpy(&h[0],&controlPoints[0].x,4); memcpy(&h[1],&controlPoints[0].y,4); memcpy(&h[2],&controlPoints[0].z,4);
+			memcpy(&h[3],&controlPoints[3].x,4); memcpy(&h[4],&controlPoints[3].y,4); memcpy(&h[5],&controlPoints[3].z,4);
+			memcpy(&h[6],&targetDistance,4);
+			memcpy(&h[7],&targetVector.X,4); memcpy(&h[8],&targetVector.Y,4); memcpy(&h[9],&targetVector.Z,4);
+			memcpy(&h[10],&controlPoints[1].x,4); memcpy(&h[11],&controlPoints[1].y,4);
+			memcpy(&h[12],&controlPoints[2].x,4); memcpy(&h[13],&controlPoints[2].y,4);
+			Int np = (Int)m_flightPath.size();
+			UnsignedInt p0x=0,p0y=0,pLx=0,pLy=0;
+			if (np > 0) { memcpy(&p0x,&m_flightPath[0].x,4); memcpy(&p0y,&m_flightPath[0].y,4); memcpy(&pLx,&m_flightPath[np-1].x,4); memcpy(&pLy,&m_flightPath[np-1].y,4); }
+			fprintf(ff, "FCALC f%d obj=%d cp0=%08X,%08X,%08X cp3=%08X,%08X,%08X tDist=%08X tvN=%08X,%08X,%08X cp1=%08X,%08X cp2=%08X,%08X segs=%d path0=%08X,%08X pathL=%08X,%08X\n",
+				TheGameLogic->getFrame(), getObject()->getID(),
+				h[0],h[1],h[2], h[3],h[4],h[5], h[6], h[7],h[8],h[9], h[10],h[11], h[12],h[13], np, p0x,p0y, pLx,pLy);
+			fclose(ff);
+		}
+	}
+
 #if defined(RTS_DEBUG)
 	if( TheGlobalData->m_debugProjectilePath )
 		displayFlightPath();
@@ -615,9 +635,25 @@ UpdateSleepTime DumbProjectileBehavior::update()
 				if (distVictimMoved > d->m_flightPathAdjustDistPerFrame)
 					distVictimMoved = d->m_flightPathAdjustDistPerFrame;
 				delta.normalize();
+				Coord3D fpEndBefore = m_flightPathEnd;
 				m_flightPathEnd.x += distVictimMoved * delta.x;
 				m_flightPathEnd.y += distVictimMoved * delta.y;
 				m_flightPathEnd.z += distVictimMoved * delta.z;
+				{
+					FILE* ff = fopen("FlightDiag.txt", "a");
+					if (ff) {
+						UnsignedInt h[14];
+						memcpy(&h[0],&newVictimPos.x,4); memcpy(&h[1],&newVictimPos.y,4); memcpy(&h[2],&newVictimPos.z,4);
+						memcpy(&h[3],&distVictimMovedSqr,4); memcpy(&h[4],&distVictimMoved,4);
+						memcpy(&h[5],&delta.x,4); memcpy(&h[6],&delta.y,4); memcpy(&h[7],&delta.z,4);
+						memcpy(&h[8],&fpEndBefore.x,4); memcpy(&h[9],&fpEndBefore.y,4); memcpy(&h[10],&fpEndBefore.z,4);
+						memcpy(&h[11],&m_flightPathEnd.x,4); memcpy(&h[12],&m_flightPathEnd.y,4); memcpy(&h[13],&m_flightPathEnd.z,4);
+						fprintf(ff, "FADJ f%d obj=%d victim=%08X,%08X,%08X distSqr=%08X distMoved=%08X deltaN=%08X,%08X,%08X endBefore=%08X,%08X,%08X endAfter=%08X,%08X,%08X\n",
+							TheGameLogic->getFrame(), getObject()->getID(),
+							h[0],h[1],h[2], h[3],h[4], h[5],h[6],h[7], h[8],h[9],h[10], h[11],h[12],h[13]);
+						fclose(ff);
+					}
+				}
 				if (!calcFlightPath(false))
 				{
 					DEBUG_CRASH(("Hmm, recalc of flight path returned false... should this happen?"));
@@ -630,6 +666,20 @@ UpdateSleepTime DumbProjectileBehavior::update()
 
 	//Otherwise, continue to force the flight path
 	Coord3D flightStep = m_flightPath[m_currentFlightPathStep];
+
+	{
+		FILE* ff = fopen("FlightDiag.txt", "a");
+		if (ff) {
+			UnsignedInt h[6];
+			const Coord3D* op = getObject()->getPosition();
+			memcpy(&h[0],&flightStep.x,4); memcpy(&h[1],&flightStep.y,4); memcpy(&h[2],&flightStep.z,4);
+			memcpy(&h[3],&op->x,4); memcpy(&h[4],&op->y,4); memcpy(&h[5],&op->z,4);
+			fprintf(ff, "FSTEP f%d obj=%d step=%d fStep=%08X,%08X,%08X pos=%08X,%08X,%08X\n",
+				TheGameLogic->getFrame(), getObject()->getID(), m_currentFlightPathStep,
+				h[0],h[1],h[2], h[3],h[4],h[5]);
+			fclose(ff);
+		}
+	}
 
 	if (d->m_orientToFlightPath && (!d->m_tumbleRandomly) )
   {
