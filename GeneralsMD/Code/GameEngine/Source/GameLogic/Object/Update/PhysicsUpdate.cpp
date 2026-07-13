@@ -680,6 +680,22 @@ UpdateSleepTime PhysicsBehavior::update()
 			mtx.Adjust_Z_Translation(m_vel.z);
 		}
 
+		if (obj->isKindOf(KINDOF_PROJECTILE)) {
+			FILE* pf = fopen("ProjDiag.txt", "a");
+			if (pf) {
+				Real npx = mtx.Get_X_Translation(), npy = mtx.Get_Y_Translation(), npz = mtx.Get_Z_Translation();
+				UnsignedInt ppxH,ppyH,ppzH,axH,ayH,azH,vxH,vyH,vzH,npxH,npyH,npzH;
+				memcpy(&ppxH,&prevPos.x,4); memcpy(&ppyH,&prevPos.y,4); memcpy(&ppzH,&prevPos.z,4);
+				memcpy(&axH,&m_accel.x,4); memcpy(&ayH,&m_accel.y,4); memcpy(&azH,&m_accel.z,4);
+				memcpy(&vxH,&m_vel.x,4); memcpy(&vyH,&m_vel.y,4); memcpy(&vzH,&m_vel.z,4);
+				memcpy(&npxH,&npx,4); memcpy(&npyH,&npy,4); memcpy(&npzH,&npz,4);
+				fprintf(pf, "PROJ f%d obj=%d name=%s prevPos=%08X,%08X,%08X accel=%08X,%08X,%08X vel=%08X,%08X,%08X newPos=%08X,%08X,%08X\n",
+					TheGameLogic->getFrame(), obj->getID(), obj->getTemplate()->getName().str(),
+					ppxH,ppyH,ppzH, axH,ayH,azH, vxH,vyH,vzH, npxH,npyH,npzH);
+				fclose(pf);
+			}
+		}
+
 		if (_isnan(mtx.Get_X_Translation()) || _isnan(mtx.Get_Y_Translation()) ||
 			_isnan(mtx.Get_Z_Translation())) {
 			DEBUG_CRASH(("Object position is NAN, deleting."));

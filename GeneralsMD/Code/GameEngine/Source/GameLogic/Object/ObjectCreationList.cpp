@@ -980,14 +980,16 @@ protected:
 				memcpy(&cxH,&chunkPos.x,4); memcpy(&cyH,&chunkPos.y,4); memcpy(&czH,&chunkPos.z,4);
 				memcpy(&angH,&orientation,4);
 				Int srcID = sourceObj ? (Int)sourceObj->getID() : -1;
+				const char* srcName = sourceObj ? sourceObj->getTemplate()->getName().str() : "none";
+				Int srcProj = sourceObj ? (Int)sourceObj->isKindOf(KINDOF_PROJECTILE) : 0;
 				if (sourceObj) {
 					const Coord3D* sp = sourceObj->getPosition();
 					memcpy(&sxH,&sp->x,4); memcpy(&syH,&sp->y,4); memcpy(&szH,&sp->z,4);
 				}
-				fprintf(f, "OCL f%d obj=%d mtx_in=%d pos=%08X,%08X,%08X offset=%08X,%08X,%08X chunkPos=%08X,%08X,%08X angle=%08X src=%d srcPos=%08X,%08X,%08X\n",
+				fprintf(f, "OCL f%d obj=%d mtx_in=%d pos=%08X,%08X,%08X offset=%08X,%08X,%08X chunkPos=%08X,%08X,%08X angle=%08X src=%d srcName=%s srcProj=%d srcPos=%08X,%08X,%08X\n",
 					TheGameLogic->getFrame(), obj->getID(), (mtx!=nullptr),
 					pxH,pyH,pzH, oxH,oyH,ozH, cxH,cyH,czH, angH,
-					srcID, sxH,syH,szH);
+					srcID, srcName, srcProj, sxH,syH,szH);
 				fclose(f);
 			}
 		}
