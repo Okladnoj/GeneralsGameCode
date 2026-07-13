@@ -540,6 +540,26 @@ void ActiveBody::attemptDamage( DamageInfo *damageInfo )
 			internalChangeHealth( -amount );
 		}
 
+		{
+			static FILE* s_dmgFile = NULL;
+			static bool s_dmgTried = false;
+			if (!s_dmgTried && TheGameLogic->getFrame() > 0) {
+				s_dmgTried = true;
+				s_dmgFile = fopen("DmgDiag.txt", "w");
+			}
+			if (s_dmgFile) {
+				UnsignedInt prevHex, curHex, amtHex, maxHex;
+				memcpy(&prevHex, &m_prevHealth, 4);
+				memcpy(&curHex, &m_currentHealth, 4);
+				memcpy(&amtHex, &amount, 4);
+				memcpy(&maxHex, &m_maxHealth, 4);
+				Bool died = (m_currentHealth <= 0 && m_prevHealth > 0);
+				fprintf(s_dmgFile, "DMG f%d obj=%d prev=%08X amt=%08X cur=%08X max=%08X died=%d dtype=%d\n",
+					TheGameLogic->getFrame(), obj->getID(), prevHex, amtHex, curHex, maxHex, (int)died, (int)damageInfo->in.m_damageType);
+				fflush(s_dmgFile);
+			}
+		}
+
 #ifdef ALLOW_SURRENDER
 //*****************************************************************************************
 //*****************************************************************************************
