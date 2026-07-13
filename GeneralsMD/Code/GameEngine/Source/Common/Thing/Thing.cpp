@@ -45,6 +45,7 @@
 #include "Common/Team.h"
 #include "Lib/trig.h"
 #include "GameLogic/TerrainLogic.h"
+#include "GameLogic/GameLogic.h"
 
 
 static constexpr const Real InitialThingPosX = 0.0f;
@@ -241,6 +242,24 @@ void Thing::setOrientation( Real angle )
 											x.z, y.z, z.z, pos.z );
 	}
 
+	if (strstr(m_template->getName().str(), "Radiation")) {
+		FILE* f = fopen("RadDiag.txt", "a");
+		if (f) {
+			UnsignedInt angH, cosH, sinH, mH[12];
+			Real cosv = Cos(angle), sinv = Sin(angle);
+			memcpy(&angH, &angle, 4);
+			memcpy(&cosH, &cosv, 4);
+			memcpy(&sinH, &sinv, 4);
+			for (int r = 0; r < 3; r++)
+				for (int c = 0; c < 4; c++)
+					memcpy(&mH[r*4+c], &m_transform[r][c], 4);
+			fprintf(f, "SETORI f%d name=%s angle=%08X cos=%08X sin=%08X m=%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X\n",
+				TheGameLogic->getFrame(), m_template->getName().str(), angH, cosH, sinH,
+				mH[0],mH[1],mH[2],mH[3],mH[4],mH[5],mH[6],mH[7],mH[8],mH[9],mH[10],mH[11]);
+			fclose(f);
+		}
+	}
+
 	//DEBUG_ASSERTCRASH(-PI <= angle && angle <= PI, ("Please pass only normalized (-PI..PI) angles to setOrientation (%f).", angle));
 	m_cachedAngle = normalizeAngle(angle);
 	m_cachedPos = pos;
@@ -266,6 +285,25 @@ void Thing::setTransformMatrix( const Matrix3D *mx )
 	m_cachedPos.z = m_transform.Get_Z_Translation();
 	m_cachedAngle = m_transform.Get_Z_Rotation();
 	m_cacheFlags = 0;
+
+	if (strstr(m_template->getName().str(), "Radiation")) {
+		FILE* f = fopen("RadDiag.txt", "a");
+		if (f) {
+			UnsignedInt cAngH, cxH, cyH, czH, mH[12];
+			memcpy(&cAngH, &m_cachedAngle, 4);
+			memcpy(&cxH, &m_cachedPos.x, 4);
+			memcpy(&cyH, &m_cachedPos.y, 4);
+			memcpy(&czH, &m_cachedPos.z, 4);
+			for (int r = 0; r < 3; r++)
+				for (int c = 0; c < 4; c++)
+					memcpy(&mH[r*4+c], &m_transform[r][c], 4);
+			fprintf(f, "SETMTX f%d name=%s m=%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X cAng=%08X cPos=%08X,%08X,%08X\n",
+				TheGameLogic->getFrame(), m_template->getName().str(),
+				mH[0],mH[1],mH[2],mH[3],mH[4],mH[5],mH[6],mH[7],mH[8],mH[9],mH[10],mH[11],
+				cAngH, cxH, cyH, czH);
+			fclose(f);
+		}
+	}
 
 	reactToTransformChange(&oldMtx, &oldPos, oldAngle);
 	DEBUG_ASSERTCRASH(!(_isnan(getPosition()->x) || _isnan(getPosition()->y) || _isnan(getPosition()->z)), ("Drawable/Object position NAN! '%s'", m_template->getName().str() ));

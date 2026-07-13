@@ -971,6 +971,21 @@ protected:
 		chunkPos.y = pos->y + offset.y;
 		chunkPos.z = pos->z + offset.z;
 
+		if (strstr(modelName.str(), "Radiation")) {
+			FILE* f = fopen("RadDiag.txt", "a");
+			if (f) {
+				UnsignedInt pxH,pyH,pzH,oxH,oyH,ozH,cxH,cyH,czH,angH;
+				memcpy(&pxH,&pos->x,4); memcpy(&pyH,&pos->y,4); memcpy(&pzH,&pos->z,4);
+				memcpy(&oxH,&offset.x,4); memcpy(&oyH,&offset.y,4); memcpy(&ozH,&offset.z,4);
+				memcpy(&cxH,&chunkPos.x,4); memcpy(&cyH,&chunkPos.y,4); memcpy(&czH,&chunkPos.z,4);
+				memcpy(&angH,&orientation,4);
+				fprintf(f, "OCL f%d obj=%d mtx_in=%d pos=%08X,%08X,%08X offset=%08X,%08X,%08X chunkPos=%08X,%08X,%08X angle=%08X\n",
+					TheGameLogic->getFrame(), obj->getID(), (mtx!=nullptr),
+					pxH,pyH,pzH, oxH,oyH,ozH, cxH,cyH,czH, angH);
+				fclose(f);
+			}
+		}
+
 		if (!m_particleSysName.isEmpty())
 		{
 			const ParticleSystemTemplate *tmp = TheParticleSystemManager->findTemplate(m_particleSysName);
