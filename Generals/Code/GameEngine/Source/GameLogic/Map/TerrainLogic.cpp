@@ -48,6 +48,7 @@
 #include "GameLogic/Object.h"
 #include "GameLogic/PartitionManager.h"
 #include "GameLogic/PolygonTrigger.h"
+#include <cstring>
 #include "GameLogic/Scripts.h"
 #include "GameLogic/SidesList.h"
 #include "GameLogic/TerrainLogic.h"
@@ -1461,39 +1462,59 @@ Bool TerrainLogic::isCliffCell( Real x, Real y) const
 //-------------------------------------------------------------------------------------------------
 void makeAlignToNormalMatrix( Real angle, const Coord3D& pos, const Coord3D& normal, Matrix3D& mtx)
 {
+	static FILE* s_alignFile = NULL;
+	static bool s_alignTried = false;
+	if (!s_alignTried && TheGameLogic && TheGameLogic->getFrame() > 0) {
+		s_alignTried = true;
+		s_alignFile = fopen("AlignDiag.txt", "w");
+	}
+
 	Coord3D x, y, z;
 
 	z = normal;
 
-	/*
-		It is extremely important that the resulting matrix is such that
-		the xvector points in the angle we specified; specifically,
-		that WWMath::Atan2(xvec.y, xvec.x) == angle. So we must construct
-		the matrix carefully to ensure this!
-	*/
 	x.x = Cos( angle );
 	x.y = Sin( angle );
 	x.z = 0.0f;
-//x.normalize();	-- redundant; is normalized by definition
 
-	// dot of two unit vectors is cos of angle between them;
-	// we want there to be a 90-deg angle between the x and z
-	// vectors, so calc x.z to satisfy this (ie, cos==0)
-	/*
-		xx*zx + xy*zy + xz*zz = 0
-		xz = (-xx*zz - xy*zy)/zz
-	*/
+	if (s_alignFile) {
+		UnsignedInt aH, zxH, zyH, zzH, xxH, xyH;
+		memcpy(&aH, &angle, 4);
+		memcpy(&zxH, &z.x, 4); memcpy(&zyH, &z.y, 4); memcpy(&zzH, &z.z, 4);
+		memcpy(&xxH, &x.x, 4); memcpy(&xyH, &x.y, 4);
+		fprintf(s_alignFile, "ALIGN f%d angle=%08X zx=%08X zy=%08X zz=%08X cos=%08X sin=%08X\n",
+			TheGameLogic->getFrame(), aH, zxH, zyH, zzH, xxH, xyH);
+	}
+
 	if (z.z != 0.0f)
 	{
 		x.z = -(x.x*z.x + x.y*z.y) / z.z;
+
+		if (s_alignFile) {
+			UnsignedInt xzH; memcpy(&xzH, &x.z, 4);
+			fprintf(s_alignFile, "  DIV xz=%08X\n", xzH);
+		}
+
 		x.normalize();
+
+		if (s_alignFile) {
+			UnsignedInt nxH, nyH, nzH;
+			memcpy(&nxH, &x.x, 4); memcpy(&nyH, &x.y, 4); memcpy(&nzH, &x.z, 4);
+			fprintf(s_alignFile, "  NORM xx=%08X xy=%08X xz=%08X\n", nxH, nyH, nzH);
+		}
 	}
 
 	DEBUG_ASSERTCRASH(WWMath::Fabs(x.x*z.x + x.y*z.y + x.z*z.z)<0.0001,("dot is not zero (%f)",WWMath::Fabs(x.x*z.x + x.y*z.y + x.z*z.z)));
 
-	// now computing the y vector is trivial.
-	y.crossProduct( z, x, y );
+	y.crossProduct( &z, &x, &y );
 	y.normalize();
+
+	if (s_alignFile) {
+		UnsignedInt yxH, yyH, yzH;
+		memcpy(&yxH, &y.x, 4); memcpy(&yyH, &y.y, 4); memcpy(&yzH, &y.z, 4);
+		fprintf(s_alignFile, "  CROSS yx=%08X yy=%08X yz=%08X\n", yxH, yyH, yzH);
+		fflush(s_alignFile);
+	}
 
 	mtx.Set(  x.x, y.x, z.x, pos.x,
 							x.y, y.y, z.y, pos.y,
