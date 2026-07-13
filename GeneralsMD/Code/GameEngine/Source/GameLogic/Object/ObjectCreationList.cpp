@@ -974,14 +974,20 @@ protected:
 		if (strstr(modelName.str(), "Radiation")) {
 			FILE* f = fopen("RadDiag.txt", "a");
 			if (f) {
-				UnsignedInt pxH,pyH,pzH,oxH,oyH,ozH,cxH,cyH,czH,angH;
+				UnsignedInt pxH,pyH,pzH,oxH,oyH,ozH,cxH,cyH,czH,angH,sxH=0,syH=0,szH=0;
 				memcpy(&pxH,&pos->x,4); memcpy(&pyH,&pos->y,4); memcpy(&pzH,&pos->z,4);
 				memcpy(&oxH,&offset.x,4); memcpy(&oyH,&offset.y,4); memcpy(&ozH,&offset.z,4);
 				memcpy(&cxH,&chunkPos.x,4); memcpy(&cyH,&chunkPos.y,4); memcpy(&czH,&chunkPos.z,4);
 				memcpy(&angH,&orientation,4);
-				fprintf(f, "OCL f%d obj=%d mtx_in=%d pos=%08X,%08X,%08X offset=%08X,%08X,%08X chunkPos=%08X,%08X,%08X angle=%08X\n",
+				Int srcID = sourceObj ? (Int)sourceObj->getID() : -1;
+				if (sourceObj) {
+					const Coord3D* sp = sourceObj->getPosition();
+					memcpy(&sxH,&sp->x,4); memcpy(&syH,&sp->y,4); memcpy(&szH,&sp->z,4);
+				}
+				fprintf(f, "OCL f%d obj=%d mtx_in=%d pos=%08X,%08X,%08X offset=%08X,%08X,%08X chunkPos=%08X,%08X,%08X angle=%08X src=%d srcPos=%08X,%08X,%08X\n",
 					TheGameLogic->getFrame(), obj->getID(), (mtx!=nullptr),
-					pxH,pyH,pzH, oxH,oyH,ozH, cxH,cyH,czH, angH);
+					pxH,pyH,pzH, oxH,oyH,ozH, cxH,cyH,czH, angH,
+					srcID, sxH,syH,szH);
 				fclose(f);
 			}
 		}
