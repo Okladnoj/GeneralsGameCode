@@ -46,8 +46,15 @@ Select-String -Path $ParityFile -Pattern "SimulationMathCrc.*=" | Select-Object 
 Write-Host "Committing to gen-context repo..." -ForegroundColor Cyan
 Push-Location $GenContextRepo
 git pull --rebase --autostash
-git add "temp_win_math/SimulationMathCrc.txt"
+# temp_* is gitignored in the context repo, so force-add this one tracked file.
+git add -f "temp_win_math/SimulationMathCrc.txt"
 git commit -m "Update math parity log"
+$pushOk = $true
 git push
+if ($LASTEXITCODE -ne 0) { $pushOk = $false }
 Pop-Location
-Write-Host "Done! Math parity log pushed to repository." -ForegroundColor Green
+if ($pushOk) {
+    Write-Host "Done! Math parity log pushed to repository." -ForegroundColor Green
+} else {
+    Write-Host "WARNING: git push failed - check the output above." -ForegroundColor Yellow
+}
