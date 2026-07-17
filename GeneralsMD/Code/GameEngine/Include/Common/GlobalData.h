@@ -121,6 +121,9 @@ public:
 	// Run game without graphics, input or audio.
 	Bool m_headless;
 
+	// Write the deterministic simulation-math parity log after engine init, then exit.
+	Bool m_mathCrcCheck;
+
 	Bool m_windowed;
 	Int m_xResolution;
 	Int m_yResolution;
