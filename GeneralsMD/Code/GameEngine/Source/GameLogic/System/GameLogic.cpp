@@ -211,7 +211,7 @@ void setFPMode()
 	UnsignedInt newVal = curVal;
 	newVal = (newVal & ~_MCW_RC) | (_RC_NEAR & _MCW_RC);
 	//newVal = (newVal & ~_MCW_RC) | (_RC_CHOP & _MCW_RC);
-	newVal = (newVal & ~_MCW_PC) | (_PC_24   & _MCW_PC);
+	newVal = (newVal & ~_MCW_PC) | (_PC_53   & _MCW_PC);
 
 	_controlfp(newVal, _MCW_PC | _MCW_RC);
 }
