@@ -85,7 +85,7 @@ void		WWMath::Shutdown()
 	LookupTableMgrClass::Shutdown();
 }
 
-float		WWMath::Random_Float()
+float WWMATH_CALL WWMath::Random_Float()
 {
 	return ((float)(rand() & 0xFFF)) / (float)(0xFFF);
 }

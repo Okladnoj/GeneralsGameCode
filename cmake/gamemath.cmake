@@ -5,8 +5,8 @@ set(GM_ENABLE_TESTS OFF CACHE BOOL "Disable GameMath tests" FORCE)
 
 FetchContent_Declare(
     gamemath
-    GIT_REPOSITORY https://github.com/TheSuperHackers/GameMath.git
-    GIT_TAG        59f7ccd494f7e7c916a784ac26ef266f9f09d78d
+    GIT_REPOSITORY https://github.com/stephanmeesters/GameMath.git # testing
+    GIT_TAG        ed81432980a5533ad374dda4de5da7b837026630
 )
 
 FetchContent_MakeAvailable(gamemath)
