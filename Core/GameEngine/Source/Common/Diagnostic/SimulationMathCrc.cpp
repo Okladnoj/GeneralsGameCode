@@ -189,6 +189,21 @@ static const UnsignedInt s_powPairs[][4] = {
 };
 static const Int s_powCount = sizeof(s_powPairs) / sizeof(s_powPairs[0]);
 
+// Non-finite float encodings as raw bits. The regular sweeps skip these, but the bit-twiddle in
+// Fabsf_Legacy and the promotion path through double are only distinguishable here: promotion can
+// quiet a signaling NaN, raise FE_INVALID, or alter the sign that a plain sign-bit mask preserves.
+static const UnsignedInt s_nonFiniteBits[] = {
+	0x7F800000u,  // +Inf
+	0xFF800000u,  // -Inf
+	0x7FC00000u,  // +qNaN
+	0xFFC00000u,  // -qNaN
+	0x7FA00000u,  // +sNaN
+	0xFFA00000u,  // -sNaN
+	0x7F800001u,  // +sNaN min payload
+	0xFF800001u   // -sNaN min payload
+};
+static const Int s_nonFiniteCount = sizeof(s_nonFiniteBits) / sizeof(s_nonFiniteBits[0]);
+
 static double doubleFromWords(UnsignedInt hi, UnsignedInt lo)
 {
 	UnsignedInt words[2];
@@ -197,6 +212,20 @@ static double doubleFromWords(UnsignedInt hi, UnsignedInt lo)
 	double value;
 	memcpy(&value, words, sizeof(value));
 	return value;
+}
+
+static float floatFromBits(UnsignedInt bits)
+{
+	float value;
+	memcpy(&value, &bits, sizeof(value));
+	return value;
+}
+
+static UnsignedInt floatToBits(float value)
+{
+	UnsignedInt bits;
+	memcpy(&bits, &value, sizeof(bits));
+	return bits;
 }
 
 static Bool isNanOrInf(double value)
@@ -407,6 +436,248 @@ static void sweepDoubleNative(FILE *out, XferCRC &xfer)
 	sweepFn2(out, xfer, "Pow", (DoubleFn2)&WWMath::Pow, DOMAIN_POSITIVE, s_powPairs, s_powCount);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Legacy wrapper parity.
+//
+// The _Legacy wrappers carry retail behaviour: under RETAIL_COMPATIBLE_CRC=1 the engine undefines
+// USE_DETERMINISTIC_MATH, and each wrapper then expands to x87 inline assembly or a bit twiddle
+// while its modern sibling expands to a promoted-double or single-precision CRT call. Whether a
+// wrapper is redundant is therefore a question about two functions inside one process, not about
+// two machines: this battery calls each _Legacy next to its float overload (promoted path) and its
+// *f sibling (genuine single-precision path) on identical input and reports where the bits differ.
+//
+// Build once with RETAIL_COMPATIBLE_CRC=1 and once with 0 to cover both compile-time branches; the
+// x87 precision control is applied by the caller, since fsqrt/fsin/fcos obey it.
+// ---------------------------------------------------------------------------------------------
+
+enum { LEGACY_STAT_MAX = 16 };
+
+struct LegacyStat
+{
+	const char *name;
+	Int total;
+	Int diffPromoted;   // _Legacy vs the float overload that promotes through double
+	Int diffSingle;     // _Legacy vs the *f sibling
+	Bool hasPromoted;   // FALSE when no promoted overload exists for this family
+};
+
+static LegacyStat s_legacyStats[LEGACY_STAT_MAX];
+static Int s_legacyStatCount = 0;
+
+static void resetLegacyStats()
+{
+	s_legacyStatCount = 0;
+}
+
+static LegacyStat *legacyStat(const char *name, Bool hasPromoted)
+{
+	Int i;
+	for (i = 0; i < s_legacyStatCount; ++i)
+	{
+		if (strcmp(s_legacyStats[i].name, name) == 0)
+			return &s_legacyStats[i];
+	}
+
+	if (s_legacyStatCount >= LEGACY_STAT_MAX)
+		return &s_legacyStats[LEGACY_STAT_MAX - 1];
+
+	LegacyStat *stat = &s_legacyStats[s_legacyStatCount++];
+	stat->name = name;
+	stat->total = 0;
+	stat->diffPromoted = 0;
+	stat->diffSingle = 0;
+	stat->hasPromoted = hasPromoted;
+	return stat;
+}
+
+// Fold all three results into the CRC and, when logging, print one line per input so the log
+// localizes the exact function and argument where a wrapper stops being interchangeable.
+static void emitLegacy(FILE *out, XferCRC &xfer, const char *fn, const char *arg,
+	float legacy, float promoted, float single, Bool hasPromoted)
+{
+	UnsignedInt bitsLegacy = floatToBits(legacy);
+	UnsignedInt bitsPromoted = floatToBits(promoted);
+	UnsignedInt bitsSingle = floatToBits(single);
+
+	LegacyStat *stat = legacyStat(fn, hasPromoted);
+	++stat->total;
+
+	Bool promotedDiffers = hasPromoted && (bitsLegacy != bitsPromoted);
+	Bool singleDiffers = (bitsLegacy != bitsSingle);
+
+	if (promotedDiffers)
+		++stat->diffPromoted;
+	if (singleDiffers)
+		++stat->diffSingle;
+
+	if (out != NULL)
+	{
+		const char *verdict = (promotedDiffers || singleDiffers) ? "DIFF" : "ok  ";
+		if (hasPromoted)
+		{
+			fprintf(out, "  %s %-16s(%-16s) legacy=%08X promoted=%08X single=%08X\n",
+				verdict, fn, arg, bitsLegacy, bitsPromoted, bitsSingle);
+		}
+		else
+		{
+			fprintf(out, "  %s %-16s(%-16s) legacy=%08X promoted=--------  single=%08X\n",
+				verdict, fn, arg, bitsLegacy, bitsSingle);
+		}
+	}
+
+	xfer.xferUnsignedInt(&bitsLegacy);
+	if (hasPromoted)
+		xfer.xferUnsignedInt(&bitsPromoted);
+	xfer.xferUnsignedInt(&bitsSingle);
+}
+
+static void probeLegacy1(FILE *out, XferCRC &xfer, const char *fn, float in,
+	float legacy, float promoted, float single)
+{
+	char arg[24];
+	snprintf(arg, sizeof(arg), "%.9g", (double)in);
+	emitLegacy(out, xfer, fn, arg, legacy, promoted, single, TRUE);
+}
+
+static void probeLegacy1NoPromoted(FILE *out, XferCRC &xfer, const char *fn, float in,
+	float legacy, float single)
+{
+	char arg[24];
+	snprintf(arg, sizeof(arg), "%.9g", (double)in);
+	emitLegacy(out, xfer, fn, arg, legacy, single, single, FALSE);
+}
+
+static void probeLegacy2(FILE *out, XferCRC &xfer, const char *fn, float a, float b,
+	float legacy, float promoted, float single)
+{
+	char arg[24];
+	snprintf(arg, sizeof(arg), "%.6g,%.6g", (double)a, (double)b);
+	emitLegacy(out, xfer, fn, arg, legacy, promoted, single, TRUE);
+}
+
+// Inverse trigonometry and the square roots, over the shared finite edge table.
+static void sweepLegacyUnary(FILE *out, XferCRC &xfer)
+{
+	Int i;
+	for (i = 0; i < s_edgeCount; ++i)
+	{
+		float v = s_edge[i];
+		float c = clampUnit(v);
+		float p = WWMath::Fabsf(v);
+		float q = p + FLT_MIN;
+
+		probeLegacy1(out, xfer, "Acos_Legacy", c,
+			WWMath::Acos_Legacy(c), WWMath::Acos(c), WWMath::Acosf(c));
+		probeLegacy1(out, xfer, "Asin_Legacy", c,
+			WWMath::Asin_Legacy(c), WWMath::Asin(c), WWMath::Asinf(c));
+		probeLegacy1(out, xfer, "Atan_Legacy", v,
+			WWMath::Atan_Legacy(v), WWMath::Atan(v), WWMath::Atanf(v));
+		probeLegacy1(out, xfer, "Sqrt_Legacy", p,
+			WWMath::Sqrt_Legacy(p), WWMath::Sqrt(p), WWMath::Sqrtf(p));
+		probeLegacy1NoPromoted(out, xfer, "Inv_Sqrt_Legacy", q,
+			WWMath::Inv_Sqrt_Legacy(q), WWMath::Inv_Sqrtf(q));
+		probeLegacy1(out, xfer, "Sinf_Legacy", v,
+			WWMath::Sinf_Legacy(v), WWMath::Sin(v), WWMath::Sinf(v));
+		probeLegacy1(out, xfer, "Cosf_Legacy", v,
+			WWMath::Cosf_Legacy(v), WWMath::Cos(v), WWMath::Cosf(v));
+		probeLegacy1(out, xfer, "Fabsf_Legacy", v,
+			WWMath::Fabsf_Legacy(v), WWMath::Fabs(v), WWMath::Fabsf(v));
+	}
+}
+
+// Atan2 over the quadrant/axis pairs, narrowed to float so every variant sees identical input.
+static void sweepLegacyBinary(FILE *out, XferCRC &xfer)
+{
+	Int i;
+	for (i = 0; i < s_pairCount; ++i)
+	{
+		float y = (float)s_pairY[i];
+		float x = (float)s_pairX[i];
+		probeLegacy2(out, xfer, "Atan2_Legacy", y, x,
+			WWMath::Atan2_Legacy(y, x), WWMath::Atan2(y, x), WWMath::Atan2f(y, x));
+	}
+}
+
+// Fabsf on Inf and on both NaN classes: the one place where a sign-bit mask and a promotion
+// through double are allowed to disagree, and the substance of the Fabsf_Legacy question.
+static void sweepLegacyNonFinite(FILE *out, XferCRC &xfer)
+{
+	Int i;
+	for (i = 0; i < s_nonFiniteCount; ++i)
+	{
+		float v = floatFromBits(s_nonFiniteBits[i]);
+		char arg[24];
+		snprintf(arg, sizeof(arg), "bits=%08X", s_nonFiniteBits[i]);
+		emitLegacy(out, xfer, "Fabsf_Legacy", arg,
+			WWMath::Fabsf_Legacy(v), WWMath::Fabs(v), WWMath::Fabsf(v), TRUE);
+	}
+}
+
+static void sweepLegacyPairs(FILE *out, XferCRC &xfer)
+{
+	sweepLegacyUnary(out, xfer);
+	sweepLegacyBinary(out, xfer);
+	sweepLegacyNonFinite(out, xfer);
+}
+
+static void printLegacySummary(FILE *out, Int mode)
+{
+	const char *build =
+#if USE_DETERMINISTIC_MATH
+		"USE_DETERMINISTIC_MATH=1 (all wrappers route to gm_*)";
+#else
+		"USE_DETERMINISTIC_MATH=0 (retail branch: x87 asm / CRT)";
+#endif
+
+	Int i;
+	FILE *sinks[2];
+	Int sinkCount = 0;
+	sinks[sinkCount++] = stdout;
+	if (out != NULL)
+		sinks[sinkCount++] = out;
+
+	for (i = 0; i < sinkCount; ++i)
+	{
+		FILE *dst = sinks[i];
+		Int k;
+		fprintf(dst, "\n===== LEGACY WRAPPER PARITY, PC%d =====\n", (int)mode);
+		fprintf(dst, "%s\n", build);
+		fprintf(dst, "%-18s %8s %14s %14s\n", "wrapper", "inputs", "vs promoted", "vs single");
+		for (k = 0; k < s_legacyStatCount; ++k)
+		{
+			const LegacyStat *stat = &s_legacyStats[k];
+			if (stat->hasPromoted)
+			{
+				fprintf(dst, "%-18s %8d %14d %14d\n",
+					stat->name, stat->total, stat->diffPromoted, stat->diffSingle);
+			}
+			else
+			{
+				fprintf(dst, "%-18s %8d %14s %14d\n",
+					stat->name, stat->total, "n/a", stat->diffSingle);
+			}
+		}
+		fprintf(dst, "======================================\n");
+	}
+}
+
+// Run the legacy battery under one x87 precision mode; the wrappers built on fsqrt/fsin/fcos obey
+// the control word, so a wrapper can be interchangeable in one mode and not in the other.
+static void writeLegacySection(FILE *out, Int mode, UnsignedInt *crcLegacy)
+{
+	setFpuMantissa(mode);
+	resetLegacyStats();
+
+	XferCRC xfLegacy;
+	xfLegacy.open("legacy");
+	if (out != NULL) fprintf(out, "\n=== PC%d LEGACY PAIRS (legacy vs promoted vs single) ===\n", (int)mode);
+	sweepLegacyPairs(out, xfLegacy);
+	xfLegacy.close();
+	*crcLegacy = xfLegacy.getCRC();
+
+	printLegacySummary(out, mode);
+}
+
 static void appendSimulationMathCrc_Deterministic(XferCRC &xfer)
 {
 	Matrix3D matrix;
@@ -549,10 +820,13 @@ void SimulationMathCrc::writeParityLog(const char *path)
 	xfFloat.close();
 	UnsignedInt crcFloat = xfFloat.getCRC();
 
-	UnsignedInt crcDown[2], crcNo[2], crcNat[2];
+	UnsignedInt crcDown[2], crcNo[2], crcNat[2], crcLegacy[2];
 	const Int modes[2] = { 24, 53 };
 	for (Int m = 0; m < 2; ++m)
+	{
 		writeDoubleSections(out, modes[m], &crcDown[m], &crcNo[m], &crcNat[m]);
+		writeLegacySection(out, modes[m], &crcLegacy[m]);
+	}
 
 	setFpuMantissa(53);
 	_fpreset();
@@ -563,6 +837,7 @@ void SimulationMathCrc::writeParityLog(const char *path)
 	printf("DownCast       = %08X   %08X\n", crcDown[0], crcDown[1]);
 	printf("NoDownCast     = %08X   %08X\n", crcNo[0], crcNo[1]);
 	printf("Native         = %08X   %08X\n", crcNat[0], crcNat[1]);
+	printf("Legacy         = %08X   %08X\n", crcLegacy[0], crcLegacy[1]);
 	printf("=======================================================\n");
 	fflush(stdout);
 
@@ -574,6 +849,7 @@ void SimulationMathCrc::writeParityLog(const char *path)
 		fprintf(out, "DownCast       = %08X   %08X\n", crcDown[0], crcDown[1]);
 		fprintf(out, "NoDownCast     = %08X   %08X\n", crcNo[0], crcNo[1]);
 		fprintf(out, "Native         = %08X   %08X\n", crcNat[0], crcNat[1]);
+		fprintf(out, "Legacy         = %08X   %08X\n", crcLegacy[0], crcLegacy[1]);
 		fclose(out);
 	}
 }
