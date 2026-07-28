@@ -124,6 +124,9 @@ public:
 	// Write the deterministic simulation-math parity log after engine init, then exit.
 	Bool m_mathCrcCheck;
 
+	// Certify every _Legacy wrapper over its full float domain after engine init, then exit.
+	Bool m_mathCrcCertify;
+
 	Bool m_windowed;
 	Int m_xResolution;
 	Int m_yResolution;

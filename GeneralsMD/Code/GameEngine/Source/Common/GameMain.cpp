@@ -50,6 +50,10 @@ Int GameMain()
 	{
 		SimulationMathCrc::writeParityLog("SimulationMathCrc.txt");
 	}
+	else if (TheGlobalData->m_mathCrcCertify)
+	{
+		SimulationMathCrc::certifyLegacyExhaustive("SimulationMathCertify.txt");
+	}
 	else if (!TheGlobalData->m_simulateReplays.empty())
 	{
 		exitcode = ReplaySimulation::simulateReplays(TheGlobalData->m_simulateReplays, TheGlobalData->m_simulateReplayJobs);

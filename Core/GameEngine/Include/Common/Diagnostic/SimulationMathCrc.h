@@ -28,5 +28,9 @@ public:
 	static UnsignedInt calculateDouble();
 	static UnsignedInt calculateDoubleNoDownCast();
 	static void writeParityLog(const char *path);
+	// Walks the complete 2^32 float domain of every unary _Legacy wrapper (Atan2 by axis sweeps
+	// plus a fixed-seed sample), under both x87 precision modes. Runs for a long time; it is a
+	// certification pass, not a smoke test.
+	static void certifyLegacyExhaustive(const char *path);
 	static void runBenchmark(int iterations = 10000);
 };

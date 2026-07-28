@@ -407,6 +407,15 @@ Int parseMathCrcCheck(char *args[], int)
 	return 1;
 }
 
+// Arm the exhaustive _Legacy certification. Unlike the parity dump this walks the complete float
+// domain of every wrapper under both x87 precision modes, so it answers whether a wrapper can be
+// deleted rather than sampling a boundary table. Expect it to run for a long time.
+Int parseMathCrcCertify(char *args[], int)
+{
+	TheWritableGlobalData->m_mathCrcCertify = TRUE;
+	return 1;
+}
+
 Int parseMapName(char *args[], int num)
 {
 	if (num == 2)
@@ -1157,6 +1166,10 @@ static CommandLineParam paramsForStartup[] =
 	// Write the deterministic simulation-math parity log and exit. Diff SimulationMathCrc.txt
 	// between Windows and macOS to confirm cross-platform bit-identical math.
 	{ "-mathCrcCheck", parseMathCrcCheck },
+
+	// Certify every _Legacy wrapper over its full 2^32 float domain and exit. Build once with
+	// RETAIL_COMPATIBLE_CRC=1 and once with 0 to cover both compile-time math branches.
+	{ "-mathCrcCertify", parseMathCrcCertify },
 };
 
 // These Params are parsed during Engine Init before INI data is loaded

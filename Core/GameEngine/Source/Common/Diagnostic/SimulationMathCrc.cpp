@@ -678,6 +678,351 @@ static void writeLegacySection(FILE *out, Int mode, UnsignedInt *crcLegacy)
 	printLegacySummary(out, mode);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Exhaustive legacy certification.
+//
+// A boundary table proves nothing about a wrapper that diverges once in a billion inputs: the
+// simulation performs enough operations that such an input is reached within minutes of play, and
+// one differing bit is a desync. Every _Legacy wrapper except Atan2 is a unary float->float
+// function, so its domain is only 2^32 encodings and the question is decidable outright rather
+// than sampled. Each input is round-tripped through a volatile float so the x87 80-bit register
+// value is forced to memory before every call and before every comparison; otherwise a retained
+// register could hide exactly the extended-precision divergence being looked for.
+// ---------------------------------------------------------------------------------------------
+
+typedef void (*LegacyTripleFn)(float in, float *legacy, float *promoted, float *single);
+
+struct LegacyFamily
+{
+	const char *name;
+	LegacyTripleFn fn;
+	Bool hasPromoted;
+};
+
+struct ExhaustiveStat
+{
+	UnsignedInt diffPromoted;
+	UnsignedInt diffSingle;
+	UnsignedInt diffPromotedFinite;   // divergence on a real number, not on NaN/Inf
+	UnsignedInt diffSingleFinite;
+	UnsignedInt firstDiffFiniteBits;
+	Bool haveFirstDiffFinite;
+};
+
+static Bool isFiniteFloatBits(UnsignedInt bits)
+{
+	return ((bits >> 23) & 0xFFu) != 0xFFu;
+}
+
+// Each probe below must bind the float overload, so that the measured "promoted" column really is
+// the float wrapper delegating to its double sibling. Binding the double overload directly would
+// produce a numerically identical result here -- (float)acos((double)x) either way -- so the
+// mistake would be invisible at runtime and the column would silently describe the wrong call.
+// The overloads differ in return type, so sizeof over an unevaluated call pins the selection at
+// compile time: if resolution ever changes, the array size goes negative and the build stops.
+#define WWMATH_ASSERT_BINDS_FLOAT(tag, expr) \
+	typedef char OverloadBindsFloat_##tag[(sizeof(expr) == sizeof(float)) ? 1 : -1]
+
+WWMATH_ASSERT_BINDS_FLOAT(Acos,  WWMath::Acos(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Asin,  WWMath::Asin(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Atan,  WWMath::Atan(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Sqrt,  WWMath::Sqrt(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Sin,   WWMath::Sin(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Cos,   WWMath::Cos(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Fabs,  WWMath::Fabs(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Atan2, WWMath::Atan2(0.0f, 1.0f));
+
+// The single-precision siblings and the wrappers themselves are float-only; assert it anyway so a
+// later signature change cannot quietly turn a column into a duplicate of its neighbour.
+WWMATH_ASSERT_BINDS_FLOAT(Acosf,         WWMath::Acosf(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Asinf,         WWMath::Asinf(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Atanf,         WWMath::Atanf(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Sqrtf,         WWMath::Sqrtf(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(InvSqrtf,      WWMath::Inv_Sqrtf(1.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Sinf,          WWMath::Sinf(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Cosf,          WWMath::Cosf(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Fabsf,         WWMath::Fabsf(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Atan2f,        WWMath::Atan2f(0.0f, 1.0f));
+WWMATH_ASSERT_BINDS_FLOAT(AcosLegacy,    WWMath::Acos_Legacy(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(AsinLegacy,    WWMath::Asin_Legacy(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(AtanLegacy,    WWMath::Atan_Legacy(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(SqrtLegacy,    WWMath::Sqrt_Legacy(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(InvSqrtLegacy, WWMath::Inv_Sqrt_Legacy(1.0f));
+WWMATH_ASSERT_BINDS_FLOAT(SinfLegacy,    WWMath::Sinf_Legacy(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(CosfLegacy,    WWMath::Cosf_Legacy(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(FabsfLegacy,   WWMath::Fabsf_Legacy(0.0f));
+WWMATH_ASSERT_BINDS_FLOAT(Atan2Legacy,   WWMath::Atan2_Legacy(0.0f, 1.0f));
+
+static void tripleAcos(float v, float *l, float *p, float *s)
+{
+	volatile float in = v;
+	*l = WWMath::Acos_Legacy(in);
+	*p = WWMath::Acos((float)in);
+	*s = WWMath::Acosf(in);
+}
+
+static void tripleAsin(float v, float *l, float *p, float *s)
+{
+	volatile float in = v;
+	*l = WWMath::Asin_Legacy(in);
+	*p = WWMath::Asin((float)in);
+	*s = WWMath::Asinf(in);
+}
+
+static void tripleAtan(float v, float *l, float *p, float *s)
+{
+	volatile float in = v;
+	*l = WWMath::Atan_Legacy(in);
+	*p = WWMath::Atan((float)in);
+	*s = WWMath::Atanf(in);
+}
+
+static void tripleSqrt(float v, float *l, float *p, float *s)
+{
+	volatile float in = v;
+	*l = WWMath::Sqrt_Legacy(in);
+	*p = WWMath::Sqrt((float)in);
+	*s = WWMath::Sqrtf(in);
+}
+
+static void tripleInvSqrt(float v, float *l, float *p, float *s)
+{
+	volatile float in = v;
+	*l = WWMath::Inv_Sqrt_Legacy(in);
+	*s = WWMath::Inv_Sqrtf(in);
+	*p = *s;
+}
+
+static void tripleSin(float v, float *l, float *p, float *s)
+{
+	volatile float in = v;
+	*l = WWMath::Sinf_Legacy(in);
+	*p = WWMath::Sin((float)in);
+	*s = WWMath::Sinf(in);
+}
+
+static void tripleCos(float v, float *l, float *p, float *s)
+{
+	volatile float in = v;
+	*l = WWMath::Cosf_Legacy(in);
+	*p = WWMath::Cos((float)in);
+	*s = WWMath::Cosf(in);
+}
+
+static void tripleFabs(float v, float *l, float *p, float *s)
+{
+	volatile float in = v;
+	*l = WWMath::Fabsf_Legacy(in);
+	*p = WWMath::Fabs((float)in);
+	*s = WWMath::Fabsf(in);
+}
+
+static const LegacyFamily s_legacyFamilies[] = {
+	{ "Acos_Legacy",     tripleAcos,    TRUE  },
+	{ "Asin_Legacy",     tripleAsin,    TRUE  },
+	{ "Atan_Legacy",     tripleAtan,    TRUE  },
+	{ "Sqrt_Legacy",     tripleSqrt,    TRUE  },
+	{ "Inv_Sqrt_Legacy", tripleInvSqrt, FALSE },
+	{ "Sinf_Legacy",     tripleSin,     TRUE  },
+	{ "Cosf_Legacy",     tripleCos,     TRUE  },
+	{ "Fabsf_Legacy",    tripleFabs,    TRUE  }
+};
+static const Int s_legacyFamilyCount = sizeof(s_legacyFamilies) / sizeof(s_legacyFamilies[0]);
+
+// Walk the complete 2^32 float domain for one family. Nothing is skipped: denormals, both NaN
+// classes and both infinities are where the promoted path and the bit twiddle are most likely to
+// part company, and they are reachable from ordinary division results in the simulation.
+static void certifyFamily(const LegacyFamily &family, ExhaustiveStat *stat)
+{
+	stat->diffPromoted = 0;
+	stat->diffSingle = 0;
+	stat->diffPromotedFinite = 0;
+	stat->diffSingleFinite = 0;
+	stat->firstDiffFiniteBits = 0;
+	stat->haveFirstDiffFinite = FALSE;
+
+	UnsignedInt bits = 0;
+	for (;;)
+	{
+		float legacy, promoted, single;
+		family.fn(floatFromBits(bits), &legacy, &promoted, &single);
+
+		UnsignedInt bitsLegacy = floatToBits(legacy);
+		Bool promotedDiffers = family.hasPromoted && (bitsLegacy != floatToBits(promoted));
+		Bool singleDiffers = (bitsLegacy != floatToBits(single));
+
+		if (promotedDiffers || singleDiffers)
+		{
+			Bool finite = isFiniteFloatBits(bits);
+			if (promotedDiffers)
+			{
+				++stat->diffPromoted;
+				if (finite)
+					++stat->diffPromotedFinite;
+			}
+			if (singleDiffers)
+			{
+				++stat->diffSingle;
+				if (finite)
+					++stat->diffSingleFinite;
+			}
+			if (finite && !stat->haveFirstDiffFinite)
+			{
+				stat->firstDiffFiniteBits = bits;
+				stat->haveFirstDiffFinite = TRUE;
+			}
+		}
+
+		if (bits == 0xFFFFFFFFu)
+			break;
+		++bits;
+	}
+}
+
+static void reportFamily(FILE *out, const LegacyFamily &family, Int mode, const ExhaustiveStat &stat)
+{
+	char firstDiff[24];
+	if (stat.haveFirstDiffFinite)
+		snprintf(firstDiff, sizeof(firstDiff), "%08X", stat.firstDiffFiniteBits);
+	else
+		strcpy(firstDiff, "none");
+
+	FILE *sinks[2];
+	Int sinkCount = 0;
+	sinks[sinkCount++] = stdout;
+	if (out != NULL)
+		sinks[sinkCount++] = out;
+
+	Int i;
+	for (i = 0; i < sinkCount; ++i)
+	{
+		if (family.hasPromoted)
+		{
+			fprintf(sinks[i], "%-16s PC%d  promoted=%10u (finite %10u)  single=%10u (finite %10u)  firstFinite=%s\n",
+				family.name, (int)mode,
+				stat.diffPromoted, stat.diffPromotedFinite,
+				stat.diffSingle, stat.diffSingleFinite, firstDiff);
+		}
+		else
+		{
+			fprintf(sinks[i], "%-16s PC%d  promoted=%10s  %10s   single=%10u (finite %10u)  firstFinite=%s\n",
+				family.name, (int)mode, "n/a", "",
+				stat.diffSingle, stat.diffSingleFinite, firstDiff);
+		}
+		fflush(sinks[i]);
+	}
+}
+
+// Atan2 is the one binary wrapper, so its 2^64 domain cannot be exhausted. Instead each argument
+// is swept completely against a fixed partner (which covers every encoding at least once, including
+// the quadrant and signed-zero axes), and a fixed-seed LCG then walks 2^32 pairs so the interior of
+// the domain is sampled reproducibly rather than left untouched.
+static void certifyAtan2(FILE *out, Int mode)
+{
+	UnsignedInt diffPromoted = 0, diffSingle = 0;
+	UnsignedInt firstDiffY = 0, firstDiffX = 0;
+	Bool haveFirstDiff = FALSE;
+	UnsignedInt lcg = 0x12345678u;
+
+	UnsignedInt pass;
+	for (pass = 0; pass < 3; ++pass)
+	{
+		UnsignedInt bits = 0;
+		for (;;)
+		{
+			volatile float y, x;
+			if (pass == 0) { y = floatFromBits(bits); x = 1.0f; }
+			else if (pass == 1) { y = 1.0f; x = floatFromBits(bits); }
+			else
+			{
+				lcg = lcg * 1664525u + 1013904223u;
+				y = floatFromBits(lcg);
+				lcg = lcg * 1664525u + 1013904223u;
+				x = floatFromBits(lcg);
+			}
+
+			float legacy = WWMath::Atan2_Legacy(y, x);
+			float promoted = WWMath::Atan2((float)y, (float)x);
+			float single = WWMath::Atan2f(y, x);
+
+			UnsignedInt bitsLegacy = floatToBits(legacy);
+			Bool promotedDiffers = (bitsLegacy != floatToBits(promoted));
+			Bool singleDiffers = (bitsLegacy != floatToBits(single));
+
+			if (promotedDiffers)
+				++diffPromoted;
+			if (singleDiffers)
+				++diffSingle;
+			if ((promotedDiffers || singleDiffers) && !haveFirstDiff)
+			{
+				firstDiffY = floatToBits((float)y);
+				firstDiffX = floatToBits((float)x);
+				haveFirstDiff = TRUE;
+			}
+
+			if (bits == 0xFFFFFFFFu)
+				break;
+			++bits;
+		}
+	}
+
+	FILE *sinks[2];
+	Int sinkCount = 0;
+	sinks[sinkCount++] = stdout;
+	if (out != NULL)
+		sinks[sinkCount++] = out;
+
+	Int i;
+	for (i = 0; i < sinkCount; ++i)
+	{
+		fprintf(sinks[i], "%-16s PC%d  promoted=%10u                  single=%10u                   first=(%08X,%08X)\n",
+			"Atan2_Legacy", (int)mode, diffPromoted, diffSingle, firstDiffY, firstDiffX);
+		fflush(sinks[i]);
+	}
+}
+
+void SimulationMathCrc::certifyLegacyExhaustive(const char *path)
+{
+	FILE *out = (path != NULL) ? fopen(path, "wt") : NULL;
+
+	const char *build =
+#if USE_DETERMINISTIC_MATH
+		"USE_DETERMINISTIC_MATH=1 (all wrappers route to gm_*)";
+#else
+		"USE_DETERMINISTIC_MATH=0 (retail branch: x87 asm / CRT)";
+#endif
+
+	printf("\n===== EXHAUSTIVE LEGACY CERTIFICATION (2^32 inputs per family) =====\n");
+	printf("%s\n", build);
+	fflush(stdout);
+	if (out != NULL)
+	{
+		fprintf(out, "===== EXHAUSTIVE LEGACY CERTIFICATION (2^32 inputs per family) =====\n");
+		fprintf(out, "%s\n", build);
+	}
+
+	const Int modes[2] = { 24, 53 };
+	Int m;
+	for (m = 0; m < 2; ++m)
+	{
+		setFpuMantissa(modes[m]);
+		Int f;
+		for (f = 0; f < s_legacyFamilyCount; ++f)
+		{
+			ExhaustiveStat stat;
+			certifyFamily(s_legacyFamilies[f], &stat);
+			reportFamily(out, s_legacyFamilies[f], modes[m], stat);
+		}
+		certifyAtan2(out, modes[m]);
+	}
+
+	setFpuMantissa(53);
+	_fpreset();
+
+	if (out != NULL)
+		fclose(out);
+}
+
 static void appendSimulationMathCrc_Deterministic(XferCRC &xfer)
 {
 	Matrix3D matrix;

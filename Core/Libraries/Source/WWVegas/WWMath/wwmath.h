@@ -93,6 +93,34 @@ extern float _FastInvSinTable[SIN_TABLE_SIZE];
 ** in order to get matrices, quaternions, etc.
 */
 // TheSuperHackers @todo The Legacy functions can be removed when retail compatibility is abandoned.
+// Opt-in audit of the true-double overloads. Under _PC_24 the x87 mantissa is clamped to 24 bits
+// while these run gm_* at full double, so every call site that binds one of them is a candidate
+// cross-platform divergence. Which sites those are cannot be answered by reading the code: the
+// argument types come from long expression chains, and only the compiler actually performs the
+// overload resolution. Building with WWMATH_AUDIT_DOUBLE_CALLS=1 makes it report each one.
+//
+//   1. build with -DWWMATH_AUDIT_DOUBLE_CALLS=1
+//   2. collect the warnings tagged WWMATH-AUDIT
+//   3. discard hits inside wwmath.h itself -- those are the wrappers delegating internally
+//
+// Overloads that downcast to single precision (Atan, Atan2, Div_FixNaN) and the exact operations
+// (Fabs, Ceil, Floor) are deliberately not tagged: they are mode-independent.
+#ifndef WWMATH_AUDIT_DOUBLE_CALLS
+#define WWMATH_AUDIT_DOUBLE_CALLS (0)
+#endif
+
+#if WWMATH_AUDIT_DOUBLE_CALLS
+	#if defined(_MSC_VER)
+		#define WWMATH_AUDIT_DOUBLE __declspec(deprecated("WWMATH-AUDIT: binds true-double overload"))
+	#elif defined(__GNUC__) || defined(__clang__)
+		#define WWMATH_AUDIT_DOUBLE __attribute__((deprecated("WWMATH-AUDIT: binds true-double overload")))
+	#else
+		#define WWMATH_AUDIT_DOUBLE
+	#endif
+#else
+	#define WWMATH_AUDIT_DOUBLE
+#endif
+
 class WWMath
 {
 public:
@@ -102,26 +130,26 @@ public:
 static void			Init();
 static void			Shutdown();
 
-static WWINLINE double Pow(double x, double y);
+WWMATH_AUDIT_DOUBLE static WWINLINE double Pow(double x, double y);
 static WWINLINE float  Powf(float x, float y);
 static WWINLINE float  Sqrt_Legacy(float val);
 static WWINLINE float  Sqrt(float x);
 	static WWINLINE float  Sqrt(int x);
-	static WWINLINE double Sqrt(double x);
+	WWMATH_AUDIT_DOUBLE static WWINLINE double Sqrt(double x);
 static WWINLINE float  Sqrtf(float x);
 static WWINLINE float  Inv_Sqrt_Legacy(float a);
-static WWINLINE double Inv_Sqrt(double x);
+WWMATH_AUDIT_DOUBLE static WWINLINE double Inv_Sqrt(double x);
 static WWINLINE float  Inv_Sqrtf(float x);
 
 static WWINLINE float  Fast_Acos(float val);
 static WWINLINE float  Fast_Asin(float val);
 static WWINLINE float  Acos_Legacy(float val);
 static WWINLINE float  Acos(float x);
-	static WWINLINE double Acos(double x);
+	WWMATH_AUDIT_DOUBLE static WWINLINE double Acos(double x);
 static WWINLINE float  Acosf(float x);
 static WWINLINE float  Asin_Legacy(float val);
 static WWINLINE float  Asin(float x);
-	static WWINLINE double Asin(double x);
+	WWMATH_AUDIT_DOUBLE static WWINLINE double Asin(double x);
 static WWINLINE float  Asinf(float x);
 static WWINLINE float  Atan_Legacy(float x);
 static WWINLINE float  Atan(float x);
@@ -137,25 +165,25 @@ static WWINLINE float  Fast_Inv_Cos(float val);
 static WWINLINE float  Fast_Sin(float val);
 static WWINLINE float  Fast_Inv_Sin(float val);
 static WWINLINE float  Cos(float val);
-	static WWINLINE double Cos(double val);
+	WWMATH_AUDIT_DOUBLE static WWINLINE double Cos(double val);
 static WWINLINE float  Cosf(float val);
 static WWINLINE float  Cosf_Legacy(float val);
 // Prevent automatic compiler promotion of float arguments to double-precision variants.
 	// Single-precision math in GameMath (gm_*f) is guaranteed to be cross-platform bit-identical,
 	// whereas double-precision math (gm_*) can diverge by 1 ULP due to FPU precision differences (x87 vs NEON).
 	static WWINLINE float  Sin(float val);
-	static WWINLINE double Sin(double val);
+	WWMATH_AUDIT_DOUBLE static WWINLINE double Sin(double val);
 static WWINLINE float  Sinf(float val);
 static WWINLINE float  Sinf_Legacy(float val);
 static WWINLINE float  Tan(float x);
-	static WWINLINE double Tan(double x);
+	WWMATH_AUDIT_DOUBLE static WWINLINE double Tan(double x);
 static WWINLINE float  Tanf(float x);
 
-static WWINLINE double Cosh(double x);
+WWMATH_AUDIT_DOUBLE static WWINLINE double Cosh(double x);
 static WWINLINE float  Coshf(float x);
-static WWINLINE double Sinh(double x);
+WWMATH_AUDIT_DOUBLE static WWINLINE double Sinh(double x);
 static WWINLINE float  Sinhf(float x);
-static WWINLINE double Tanh(double x);
+WWMATH_AUDIT_DOUBLE static WWINLINE double Tanh(double x);
 static WWINLINE float  Tanhf(float x);
 
 static WWINLINE float  Fabs(float x);
@@ -170,11 +198,11 @@ static WWINLINE float  Floorf(float x);
 static WWINLINE double Round(double x) { return Floor(x + 0.5); }
 static WWINLINE float  Roundf(float x) { return Floorf(x + 0.5f); }
 
-static WWINLINE double Exp(double x);
+WWMATH_AUDIT_DOUBLE static WWINLINE double Exp(double x);
 static WWINLINE float  Expf(float x);
-static WWINLINE double Log10(double x);
+WWMATH_AUDIT_DOUBLE static WWINLINE double Log10(double x);
 static WWINLINE float  Log10f(float x);
-static WWINLINE double Log(double x);
+WWMATH_AUDIT_DOUBLE static WWINLINE double Log(double x);
 static WWINLINE float  Logf(float x);
 
 static WWINLINE bool		Fast_Is_Float_Positive(const float & val);
