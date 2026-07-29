@@ -839,17 +839,14 @@ private:
 
 // TheSuperHackers @feature bobtista 31/01/2026
 // ParticleSystemManager that does nothing. Used for Headless Mode.
-// Generally does not load particle system templates. Certainly does not create particle systems.
+// Does not render or update particles. Loads particle system templates.
 class ParticleSystemManagerDummy : public ParticleSystemManager
 {
 public:
-#if RETAIL_COMPATIBLE_CRC
-	// Must not overload init to keep loading the particle system templates,
-	// which are unfortunately needed to preserve the correct logic crc.
-#else
-	virtual void init() override {}
-	virtual void reset() override {}
-#endif
+	// TheSuperHackers @bugfix Okladnoj 29/07/2026 Must not overload init and reset, to keep loading the
+	// particle system templates. Game logic branches on template pointers, for example the gattling
+	// aim position in SpectreGunshipUpdate, so a headless client that skips them diverges in logic crc
+	// from a regular client. This applies with retail compatibility both enabled and disabled.
 	virtual void update() override {}
 
 	virtual Bool isDummy() const override { return true; }
