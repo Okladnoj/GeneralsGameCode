@@ -1664,6 +1664,10 @@ WeaponTemplate *WeaponStore::newWeaponTemplate(AsciiString name)
 	wt->m_name = name;
 	wt->m_nameKey = TheNameKeyGenerator->nameToKey( name );
 
+#if USE_DETERMINISTIC_MATH
+	// TheSuperHackers @bugfix Okladnoj 31/07/2026 Guard under USE_DETERMINISTIC_MATH so retail CRC is
+	// preserved: forcing this flag changes weapon behaviour and desyncs the retail 1.04 replays. It is
+	// only needed for cross-platform determinism, where retail compatibility is already abandoned.
 	if (strcmp(name.str(), "SupW_AuroraFuelBombWeapon") == 0)
 	{
 		// Note: m_dieOnDetonate is set to true to fix the Alpha Aurora second explosion inconsistency when targeting structures.
@@ -1674,6 +1678,7 @@ WeaponTemplate *WeaponStore::newWeaponTemplate(AsciiString name)
 		wt->m_dieOnDetonate = TRUE;
 		DEBUG_LOG(("WeaponStore::newWeaponTemplate() - forcing MissileCallsOnDie for %s", name.str()));
 	}
+#endif
 
 	m_weaponTemplateVector.push_back(wt);
 	m_weaponTemplateHashMap[wt->m_nameKey] = wt;
