@@ -567,7 +567,7 @@ void W3DMouse::draw()
 				{
 					offset = TheInGameUI->getScrollAmount();
 					offset.normalize();
-					Real theta = atan2(-offset.y, offset.x);
+					Real theta = WWMath::Atan2(-offset.y, offset.x);
 					theta -= (Real)WWMATH_HALF_PI;
 					tm.Rotate_Z(theta);
 				}
