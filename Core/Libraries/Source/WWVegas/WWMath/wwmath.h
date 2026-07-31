@@ -106,7 +106,6 @@ static WWINLINE double Pow(double x, double y);
 static WWINLINE float  Powf(float x, float y);
 static WWINLINE double Sqr(float x);
 static WWINLINE float  Sqrt(float x);
-	static WWINLINE float  Sqrt(int x);
 	static WWINLINE double Sqrt(double x);
 static WWINLINE float  Sqrtf(float x);
 static WWINLINE float  Inv_Sqrt_Legacy(float a);
@@ -246,15 +245,6 @@ WWINLINE float WWMath::Sqrt(float x)
 {
 #if USE_DETERMINISTIC_MATH
 	return gm_sqrtf(x);
-#else
-	return (float)Sqrt((double)x);
-#endif
-}
-
-WWINLINE float WWMath::Sqrt(int x)
-{
-#if USE_DETERMINISTIC_MATH
-	return gm_sqrtf((float)x);
 #else
 	return (float)Sqrt((double)x);
 #endif
