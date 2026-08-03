@@ -52,12 +52,12 @@
 #define WWMATH_EPSILON		0.0001f
 #define WWMATH_EPSILON2		WWMATH_EPSILON * WWMATH_EPSILON
 #define WWMATH_HALF_PI		1.570796327f
-#define WWMATH_PI					3.141592654f
-#define WWMATH_TWO_PI			6.283185308f
+#define WWMATH_PI			3.141592654f
+#define WWMATH_TWO_PI		6.283185308f
 #define WWMATH_FLOAT_MAX	(FLT_MAX)
 #define WWMATH_FLOAT_MIN	(FLT_MIN)
-#define WWMATH_SQRT2			1.414213562f
-#define WWMATH_SQRT3			1.732050808f
+#define WWMATH_SQRT2		1.414213562f
+#define WWMATH_SQRT3		1.732050808f
 #define WWMATH_OOSQRT2		0.707106781f
 #define WWMATH_OOSQRT3		0.577350269f
 
@@ -99,14 +99,14 @@ public:
 
 // Initialization and Shutdown.  Other math sub-systems which require initialization and
 // shutdown processing will be handled in these functions
-static void			Init();
-static void			Shutdown();
+static void				Init();
+static void				Shutdown();
 
 static WWINLINE double Pow(double x, double y);
 static WWINLINE float  Powf(float x, float y);
 static WWINLINE double Sqr(float x);
 static WWINLINE float  Sqrt(float x);
-	static WWINLINE double Sqrt(double x);
+static WWINLINE double Sqrt(double x);
 static WWINLINE float  Sqrtf(float x);
 static WWINLINE float  Inv_Sqrt_Legacy(float a);
 static WWINLINE double Inv_Sqrt(double x);
@@ -115,16 +115,16 @@ static WWINLINE float  Inv_Sqrtf(float x);
 static WWINLINE float  Fast_Acos(float val);
 static WWINLINE float  Fast_Asin(float val);
 static WWINLINE float  Acos(float x);
-	static WWINLINE double Acos(double x);
+static WWINLINE double Acos(double x);
 static WWINLINE float  Acosf(float x);
 static WWINLINE float  Asin(float x);
-	static WWINLINE double Asin(double x);
+static WWINLINE double Asin(double x);
 static WWINLINE float  Asinf(float x);
 static WWINLINE float  Atan(float x);
-	static WWINLINE double Atan(double x);
+static WWINLINE double Atan(double x);
 static WWINLINE float  Atanf(float x);
 static WWINLINE float  Atan2(float x, float y);
-	static WWINLINE double Atan2(double x, double y);
+static WWINLINE double Atan2(double x, double y);
 static WWINLINE float  Atan2f(float x, float y);
 
 static WWINLINE float  Fast_Cos(float val);
@@ -132,18 +132,18 @@ static WWINLINE float  Fast_Inv_Cos(float val);
 static WWINLINE float  Fast_Sin(float val);
 static WWINLINE float  Fast_Inv_Sin(float val);
 static WWINLINE float  Cos(float val);
-	static WWINLINE double Cos(double val);
+static WWINLINE double Cos(double val);
 static WWINLINE float  Cosf(float val);
 static WWINLINE float  Cosf_Legacy(float val);
 // Prevent automatic compiler promotion of float arguments to double-precision variants.
-	// Single-precision math in GameMath (gm_*f) is guaranteed to be cross-platform bit-identical,
-	// whereas double-precision math (gm_*) can diverge by 1 ULP due to FPU precision differences (x87 vs NEON).
-	static WWINLINE float  Sin(float val);
-	static WWINLINE double Sin(double val);
+// Single-precision math in GameMath (gm_*f) is guaranteed to be cross-platform bit-identical,
+// whereas double-precision math (gm_*) can diverge by 1 ULP due to FPU precision differences (x87 vs NEON).
+static WWINLINE float  Sin(float val);
+static WWINLINE double Sin(double val);
 static WWINLINE float  Sinf(float val);
 static WWINLINE float  Sinf_Legacy(float val);
 static WWINLINE float  Tan(float x);
-	static WWINLINE double Tan(double x);
+static WWINLINE double Tan(double x);
 static WWINLINE float  Tanf(float x);
 
 static WWINLINE double Cosh(double x);
@@ -154,7 +154,7 @@ static WWINLINE double Tanh(double x);
 static WWINLINE float  Tanhf(float x);
 
 static WWINLINE float  Fabs(float x);
-	static WWINLINE double Fabs(double x);
+static WWINLINE double Fabs(double x);
 static WWINLINE float  Fabsf(float x);
 static WWINLINE float  Fabsf_Legacy(float val);
 
@@ -172,45 +172,45 @@ static WWINLINE float  Log10f(float x);
 static WWINLINE double Log(double x);
 static WWINLINE float  Logf(float x);
 
-static WWINLINE bool		Fast_Is_Float_Positive(const float & val);
-static WWINLINE bool		Is_Power_Of_2(const unsigned int val);
+static WWINLINE bool	Fast_Is_Float_Positive(const float & val);
+static WWINLINE bool	Is_Power_Of_2(const unsigned int val);
 
-static float		Random_Float();
+static float			Random_Float();
 
-static WWINLINE float		Random_Float(float min,float max);
-static WWINLINE float		Clamp(float val, float min = 0.0f, float max = 1.0f);
+static WWINLINE float	Random_Float(float min,float max);
+static WWINLINE float	Clamp(float val, float min = 0.0f, float max = 1.0f);
 static WWINLINE double	Clamp(double val, double min = 0.0f, double max = 1.0f);
-static WWINLINE int			Clamp_Int(int val, int min_val, int max_val);
-static WWINLINE float		Wrap(float val, float min = 0.0f, float max = 1.0f);
+static WWINLINE int		Clamp_Int(int val, int min_val, int max_val);
+static WWINLINE float	Wrap(float val, float min = 0.0f, float max = 1.0f);
 static WWINLINE double	Wrap(double val, double min = 0.0f, double max = 1.0f);
-static WWINLINE float		Min(float a, float b);
-static WWINLINE float		Max(float a, float b);
+static WWINLINE float	Min(float a, float b);
+static WWINLINE float	Max(float a, float b);
 
 // Linearly interpolates between a and b using parameter t in [0, 1].
 // t = 0 returns a, t = 1 returns b, values in between return a proportionate blend.
-static WWINLINE float		Lerp(float a, float b, float t);
+static WWINLINE float	Lerp(float a, float b, float t);
 static WWINLINE double	Lerp(double a, double b, float t);
 
 // Computes the interpolation parameter t such that v = Lerp(a, b, t).
 // Returns where v lies between a and b as a ratio, typically in [0, 1].
-static WWINLINE float		Inverse_Lerp(float a, float b, float v);
+static WWINLINE float	Inverse_Lerp(float a, float b, float v);
 static WWINLINE double	Inverse_Lerp(double a, double b, float v);
 
-static WWINLINE bool			Is_Valid_Float(float x);
-static WWINLINE bool			Is_Valid_Double(double x);
+static WWINLINE bool	Is_Valid_Float(float x);
+static WWINLINE bool	Is_Valid_Double(double x);
 
-static WWINLINE int Float_To_Int_Chop(float f);
-static WWINLINE int Float_To_Int_Floor(float f);
-static WWINLINE long Float_To_Long(float f);
-static WWINLINE long Float_To_Long(double f);
-static WWINLINE int Float_As_Int(const float f) { return *((int*)&f); }
-static WWINLINE unsigned char Unit_Float_To_Byte(float f) { return (unsigned char)(f*255.0f); }
-static WWINLINE float Byte_To_Unit_Float(unsigned char byte) { return ((float)byte) / 255.0f; }
+static WWINLINE int		Float_To_Int_Chop(float f);
+static WWINLINE int		Float_To_Int_Floor(float f);
+static WWINLINE long	Float_To_Long(float f);
+static WWINLINE long	Float_To_Long(double f);
+static WWINLINE int		Float_As_Int(const float f) { return *((int*)&f); }
+static WWINLINE unsigned char	Unit_Float_To_Byte(float f) { return (unsigned char)(f*255.0f); }
+static WWINLINE float	Byte_To_Unit_Float(unsigned char byte) { return ((float)byte) / 255.0f; }
 
-static WWINLINE float Normalize_Angle(float angle); // Normalizes the angle to the range -PI..PI
+static WWINLINE float	Normalize_Angle(float angle); // Normalizes the angle to the range -PI..PI
 
-static WWINLINE float Div_Safe(float dividend, float divisor, float fallback = 0.0f);
-static WWINLINE double Div_Safe(double dividend, double divisor, double fallback = 0.0);
+static WWINLINE float	Div_Safe(float dividend, float divisor, float fallback = 0.0f);
+static WWINLINE double	Div_Safe(double dividend, double divisor, double fallback = 0.0);
 
 };
 
