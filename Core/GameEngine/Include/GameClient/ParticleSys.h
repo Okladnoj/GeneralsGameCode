@@ -763,7 +763,11 @@ public:
 	ParticleSystemTemplate *newTemplate( const AsciiString &name );
 
 	/// given a template, instantiate a particle system
-	ParticleSystem *createParticleSystem( const ParticleSystemTemplate *sysTemplate, Bool createSlaves = TRUE );
+#if RETAIL_COMPATIBLE_CRC
+	virtual ParticleSystem *createParticleSystem( const ParticleSystemTemplate *sysTemplate, Bool createSlaves = TRUE );
+#else
+	ParticleSystem* createParticleSystem(const ParticleSystemTemplate* sysTemplate, Bool createSlaves = TRUE);
+#endif
 
 	/** given a template, instantiate a particle system.
 		if attachTo is not null, attach the particle system to the given object.
@@ -839,7 +843,7 @@ private:
 
 // TheSuperHackers @feature bobtista 31/01/2026
 // ParticleSystemManager that does nothing. Used for Headless Mode.
-// Does not render or update particles. Loads particle system templates.
+// Does not render, update, or create particles, but loads particle system templates.
 class ParticleSystemManagerDummy : public ParticleSystemManager
 {
 public:
@@ -847,6 +851,10 @@ public:
 	// particle system templates. Game logic branches on template pointers, for example the gattling
 	// aim position in SpectreGunshipUpdate, so a headless client that skips them diverges in logic crc
 	// from a regular client. This applies with retail compatibility both enabled and disabled.
+
+	// TheSuperHackers @bugfix Caball009 23/07/2026 Prevent accumulation of particle systems: the no-op
+	// update never destroys them, so creation must return nullptr. (#3006)
+	virtual ParticleSystem* createParticleSystem(const ParticleSystemTemplate* sysTemplate, Bool createSlaves = TRUE) override { return nullptr; }
 	virtual void update() override {}
 
 	virtual Bool isDummy() const override { return true; }
