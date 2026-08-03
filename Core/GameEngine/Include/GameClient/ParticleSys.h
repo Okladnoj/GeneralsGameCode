@@ -763,11 +763,10 @@ public:
 	ParticleSystemTemplate *newTemplate( const AsciiString &name );
 
 	/// given a template, instantiate a particle system
-#if RETAIL_COMPATIBLE_CRC
+	// TheSuperHackers @bugfix Okladnoj 03/08/2026 Must stay virtual with retail compatibility disabled too,
+	// because ParticleSystemManagerDummy now loads the particle system templates in both modes and therefore
+	// has to block the creation of particle systems by overriding this function.
 	virtual ParticleSystem *createParticleSystem( const ParticleSystemTemplate *sysTemplate, Bool createSlaves = TRUE );
-#else
-	ParticleSystem* createParticleSystem(const ParticleSystemTemplate* sysTemplate, Bool createSlaves = TRUE);
-#endif
 
 	/** given a template, instantiate a particle system.
 		if attachTo is not null, attach the particle system to the given object.
