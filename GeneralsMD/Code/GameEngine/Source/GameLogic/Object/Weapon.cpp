@@ -30,6 +30,8 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#include <string.h>
+
 #define DEFINE_DEATH_NAMES
 #define DEFINE_WEAPONBONUSCONDITION_NAMES
 #define DEFINE_WEAPONBONUSFIELD_NAMES
@@ -1672,6 +1674,20 @@ WeaponTemplate *WeaponStore::newWeaponTemplate(AsciiString name)
 	WeaponTemplate *wt = newInstance(WeaponTemplate);
 	wt->m_name = name;
 	wt->m_nameKey = TheNameKeyGenerator->nameToKey( name );
+
+#if !RETAIL_COMPATIBLE_CRC && !PRESERVE_MISSING_AURORA_SECOND_EXPLOSION
+	// TheSuperHackers @bugfix Okladnoj 03/08/2026 SupW_AuroraFuelBombWeapon does not specify
+	// MissileCallsOnDie in INI, so getDieOnDetonate() returns false and MissileAIUpdate::detonate()
+	// skips the attemptDamage() call that runs the die modules of the projectile. The second explosion
+	// then never happens when the target is a structure. The fix belongs in the game data
+	// (MissileCallsOnDie = Yes), which does not live in this repository, so force the flag here.
+	if (strcmp(name.str(), "SupW_AuroraFuelBombWeapon") == 0)
+	{
+		wt->m_dieOnDetonate = TRUE;
+		DEBUG_LOG(("WeaponStore::newWeaponTemplate() - forcing MissileCallsOnDie for %s", name.str()));
+	}
+#endif
+
 	m_weaponTemplateVector.push_back(wt);
 	m_weaponTemplateHashMap[wt->m_nameKey] = wt;
 
