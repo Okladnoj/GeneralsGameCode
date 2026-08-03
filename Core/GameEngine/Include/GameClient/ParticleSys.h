@@ -763,11 +763,10 @@ public:
 	ParticleSystemTemplate *newTemplate( const AsciiString &name );
 
 	/// given a template, instantiate a particle system
-#if RETAIL_COMPATIBLE_CRC
+	// TheSuperHackers @bugfix Okladnoj 03/08/2026 Must stay virtual with retail compatibility disabled too,
+	// because ParticleSystemManagerDummy now loads the particle system templates in both modes and therefore
+	// has to block the creation of particle systems by overriding this function.
 	virtual ParticleSystem *createParticleSystem( const ParticleSystemTemplate *sysTemplate, Bool createSlaves = TRUE );
-#else
-	ParticleSystem* createParticleSystem(const ParticleSystemTemplate* sysTemplate, Bool createSlaves = TRUE);
-#endif
 
 	/** given a template, instantiate a particle system.
 		if attachTo is not null, attach the particle system to the given object.
@@ -843,21 +842,18 @@ private:
 
 // TheSuperHackers @feature bobtista 31/01/2026
 // ParticleSystemManager that does nothing. Used for Headless Mode.
-// Does not load particle system templates and does not create particle systems.
+// Does not render, update, or create particles, but loads particle system templates.
 class ParticleSystemManagerDummy : public ParticleSystemManager
 {
 public:
-#if RETAIL_COMPATIBLE_CRC
+	// TheSuperHackers @bugfix Okladnoj 03/08/2026 Must not overload init and reset, to keep loading the
+	// particle system templates. Game logic branches on template pointers, for example the gattling
+	// aim position in SpectreGunshipUpdate, so a headless client that skips them diverges in logic crc
+	// from a regular client. This applies with retail compatibility both enabled and disabled.
+
 	// The creation of particle systems needs to be handled explicitly,
 	// because they're not destroyed in the update function anymore.
 	virtual ParticleSystem* createParticleSystem(const ParticleSystemTemplate* sysTemplate, Bool createSlaves = TRUE) override { return nullptr; }
-
-	// Must not overload init to keep loading the particle system templates,
-	// which are unfortunately needed to preserve the correct logic crc.
-#else
-	virtual void init() override {}
-	virtual void reset() override {}
-#endif
 	virtual void update() override {}
 
 	virtual Bool isDummy() const override { return true; }
