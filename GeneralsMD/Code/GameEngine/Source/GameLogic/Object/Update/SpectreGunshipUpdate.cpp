@@ -615,8 +615,7 @@ UpdateSleepTime SpectreGunshipUpdate::update()
 
 
           // GATTLING TARGETING LOGIC------------------------------------------
-				  const ParticleSystemTemplate *tmp = data->m_gattlingStrafeFXParticleSystem;
-				  if (tmp && gattling && gattling->testStatus( OBJECT_STATUS_IS_FIRING_WEAPON) )
+				  if (gattling && gattling->testStatus( OBJECT_STATUS_IS_FIRING_WEAPON) )
 				  {
 
 
@@ -642,10 +641,12 @@ UpdateSleepTime SpectreGunshipUpdate::update()
             }
 
 
+			// TheSuperHackers @fix The particle system is now decoupled from the logic crc
+			const ParticleSystemTemplate *tmp = data->m_gattlingStrafeFXParticleSystem;
 			const Player *localPlayer = rts::getObservedOrLocalPlayer();
 
 			//Make sure the gunship is visible to the player before drawing effects.
-			if ( gunship->getShroudedStatus( localPlayer->getPlayerIndex() ) <= OBJECTSHROUD_PARTIAL_CLEAR )
+			if ( tmp && gunship->getShroudedStatus( localPlayer->getPlayerIndex() ) <= OBJECTSHROUD_PARTIAL_CLEAR )
 			{
 
 				// This makes the client smoke effects of the gattling cannon strafing the ground toward the attack position
