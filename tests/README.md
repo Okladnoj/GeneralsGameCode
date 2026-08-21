@@ -17,17 +17,21 @@ One argument functions:
 
 Two argument functions also vary each argument independently, since in real code
 a value may arrive as a full double or as one that has already been through a
-float:
+float. Every argument combination is recorded with the result kept as double and
+with it narrowed to float:
 
 | Row | Meaning |
 | :--- | :--- |
 | `.dd` | `gm_f(x, y)` |
+| `.dd2f` | `(float)gm_f(x, y)` |
 | `.df` | `gm_f(x, (double)(float)y)` |
+| `.df2f` | `(float)gm_f(x, (double)(float)y)` |
 | `.fd` | `gm_f((double)(float)x, y)` |
+| `.fd2f` | `(float)gm_f((double)(float)x, y)` |
 | `.ff` | `gm_f((double)(float)x, (double)(float)y)` |
+| `.ff2f` | `(float)gm_f((double)(float)x, (double)(float)y)` |
 | `.f` | `gm_ff((float)x, (float)y)` |
 | `.f2d` | `(double)gm_ff((float)x, (float)y)` |
-| `.d2f` | `(float)gm_f(x, y)` |
 
 The `.f2d` row is what the `WWMath` wrappers do, so it is the one that matters
 for the game.

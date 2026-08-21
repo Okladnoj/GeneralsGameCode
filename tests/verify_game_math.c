@@ -113,15 +113,20 @@ static const double v_pair[][2] = {
 /* ---------- two arguments ----------
  *
  * An argument may reach the call as a full double or as a value that has
- * already been through a float, so both arguments are varied independently:
+ * already been through a float, so both arguments are varied independently,
+ * and every combination is recorded with the result kept as double and with
+ * the result narrowed to float:
  *
- *   .dd    gm_f(x, y)
- *   .df    gm_f(x, (double)(float)y)
- *   .fd    gm_f((double)(float)x, y)
- *   .ff    gm_f((double)(float)x, (double)(float)y)
- *   .f     gm_ff((float)x, (float)y)
- *   .f2d   (double)gm_ff((float)x, (float)y)
- *   .d2f   (float)gm_f(x, y)
+ *   .dd     gm_f(x, y)
+ *   .dd2f   (float)gm_f(x, y)
+ *   .df     gm_f(x, (double)(float)y)
+ *   .df2f   (float)gm_f(x, (double)(float)y)
+ *   .fd     gm_f((double)(float)x, y)
+ *   .fd2f   (float)gm_f((double)(float)x, y)
+ *   .ff     gm_f((double)(float)x, (double)(float)y)
+ *   .ff2f   (float)gm_f((double)(float)x, (double)(float)y)
+ *   .f      gm_ff((float)x, (float)y)
+ *   .f2d    (double)gm_ff((float)x, (float)y)
  */
 
 #define MATRIX2(base)                                                       \
@@ -133,13 +138,16 @@ static const double v_pair[][2] = {
             double xd = (double)xf, yd = (double)yf;                        \
             char a[64];                                                     \
             snprintf(a, sizeof a, "%.17g, %.17g", x, y);                    \
-            put_d(#base ".dd",  a, gm_##base(x, y));                        \
-            put_d(#base ".df",  a, gm_##base(x, yd));                       \
-            put_d(#base ".fd",  a, gm_##base(xd, y));                       \
-            put_d(#base ".ff",  a, gm_##base(xd, yd));                      \
-            put_f(#base ".f",   a, gm_##base##f(xf, yf));                   \
-            put_d(#base ".f2d", a, (double)gm_##base##f(xf, yf));           \
-            put_f(#base ".d2f", a, (float)gm_##base(x, y));                 \
+            put_d(#base ".dd",   a, gm_##base(x, y));                       \
+            put_f(#base ".dd2f", a, (float)gm_##base(x, y));                \
+            put_d(#base ".df",   a, gm_##base(x, yd));                      \
+            put_f(#base ".df2f", a, (float)gm_##base(x, yd));               \
+            put_d(#base ".fd",   a, gm_##base(xd, y));                      \
+            put_f(#base ".fd2f", a, (float)gm_##base(xd, y));               \
+            put_d(#base ".ff",   a, gm_##base(xd, yd));                     \
+            put_f(#base ".ff2f", a, (float)gm_##base(xd, yd));              \
+            put_f(#base ".f",    a, gm_##base##f(xf, yf));                  \
+            put_d(#base ".f2d",  a, (double)gm_##base##f(xf, yf));          \
         }                                                                   \
     } while (0)
 
