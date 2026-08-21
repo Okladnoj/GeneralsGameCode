@@ -1,5 +1,5 @@
 GameMath cross-platform comparison
-generated 2026-08-21 19:12 UTC
+generated 2026-08-21 19:18 UTC
 
 Each function is called on the same value several ways. The suffix on
 the row name says which way, so a difference can be traced to the
@@ -11,18 +11,23 @@ function itself or to a conversion around it.
   .d2f   double function, result narrowed      (float)gm_f(x)
 
 Two argument functions vary each argument on its own, since a value can
-arrive as a full double or as one that already went through a float:
+arrive as a full double or as one that already went through a float,
+and each combination is recorded both ways round:
 
-  .dd    gm_f(x, y)
-  .df    gm_f(x, (double)(float)y)
-  .fd    gm_f((double)(float)x, y)
-  .ff    gm_f((double)(float)x, (double)(float)y)
+  .dd     gm_f(x, y)
+  .dd2f   (float)gm_f(x, y)
+  .df     gm_f(x, (double)(float)y)
+  .df2f   (float)gm_f(x, (double)(float)y)
+  .fd     gm_f((double)(float)x, y)
+  .fd2f   (float)gm_f((double)(float)x, y)
+  .ff     gm_f((double)(float)x, (double)(float)y)
+  .ff2f   (float)gm_f((double)(float)x, (double)(float)y)
 
 The .f2d row is what the WWMath wrappers do, so it is the one that
 matters for the game.
 
 ================ macOS vs win32 _PC_24 ================
-differing lines: 107
+differing lines: 109
 
 row                  arguments                                      macOS              win32 _PC_24
 -------------------- ---------------------------------------------- ------------------ ------------------
@@ -41,10 +46,12 @@ atan2.df             2.7000000000000002, 11.9                       3FCC8EFA955E
 atan2.fd             2.7000000000000002, 11.9                       3FCC8EFA8EB3105D   3FCC8EFA80000000
 atan2.ff             2.7000000000000002, 11.9                       3FCC8EFA9D8DD31A   3FCC8EFAA0000000
 atan2.dd             187.66, -59.130000000000003                    3FFE0442913C85A9   3FFE044280000000
+atan2.dd2f           187.66, -59.130000000000003                    3FF02215           3FF02214
 atan2.df             187.66, -59.130000000000003                    3FFE044292A054C5   3FFE044280000000
+atan2.df2f           187.66, -59.130000000000003                    3FF02215           3FF02214
 atan2.fd             187.66, -59.130000000000003                    3FFE04428FBC2320   3FFE044280000000
 atan2.ff             187.66, -59.130000000000003                    3FFE0442911FF23C   3FFE044280000000
-atan2.d2f            187.66, -59.130000000000003                    3FF02215           3FF02214
+atan2.ff2f           187.66, -59.130000000000003                    3FF02215           3FF02214
 atan2.dd             0.00012300000000000001, 9999.5                 3E4A6A55AA26BFD1   3E4A6A55A0000000
 atan2.df             0.00012300000000000001, 9999.5                 3E4A6A55AA26BFD1   3E4A6A55A0000000
 atan2.fd             0.00012300000000000001, 9999.5                 3E4A6A55BD1A9641   3E4A6A55C0000000
