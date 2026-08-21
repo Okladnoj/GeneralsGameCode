@@ -1,11 +1,23 @@
 # GameMath cross-platform check
 
-`verify_game_math.c` calls every function the built GameMath library exports over
-a fixed input set and writes the raw bits of each result to a file. Comparing the
-files from two platforms shows exactly which calls disagree.
+`verify_game_math.c` runs each GameMath function on the same input value four
+different ways and writes the raw bits of every result to a file. Comparing the
+files from two platforms shows which calls disagree, and the four rows show
+whether the disagreement comes from the function itself or from a conversion
+around it.
 
-On Windows the whole set runs twice, once with the x87 precision control set to
-`_PC_24` and once with `_PC_53`, since the 32-bit game build sets `_PC_24` in
+| Row | Meaning |
+| :--- | :--- |
+| `.d` | double function, double result — `gm_f(x)` |
+| `.f` | float function, float result — `gm_ff((float)x)` |
+| `.f2d` | float function, result widened — `(double)gm_ff((float)x)` |
+| `.d2f` | double function, result narrowed — `(float)gm_f(x)` |
+
+The `.f2d` row is what the `WWMath` wrappers do, so it is the one that matters
+for the game.
+
+On Windows the whole matrix runs twice, once with the x87 precision control set
+to `_PC_24` and once with `_PC_53`, since the 32-bit game build sets `_PC_24` in
 `setFPMode()`. On macOS there is no x87 precision control, so it runs once.
 
 ## Build and run
@@ -45,9 +57,9 @@ Files are written to the working directory:
 | `math-win-PC24.txt` | win32 x86 under `_PC_24` |
 | `math-win-PC53.txt` | win32 x86 under `_PC_53` |
 
-Each line is `function`, `arguments`, `result bits`. Doubles print as 16 hex
-digits, floats as 8, integer results as decimal. Functions with out parameters
-print both the return value and the parameter.
+Each line is `function.row`, `arguments`, `result bits`. Doubles print as 16 hex
+digits, floats as 8. The argument column is padded to a fixed width but never
+truncated, so a long argument list simply pushes the result column right.
 
 Compare with a plain diff. Windows writes CRLF, so normalise first:
 
@@ -64,8 +76,14 @@ trigonometric functions, and `>= 1` for `acosh`.
 
 ## Not covered
 
-These 16 functions are declared in `gmath.h` but are missing from the built
-library, so they are skipped:
+Only functions that exist in both a double and a float form are in the matrix,
+since the whole point is comparing the conversions. That leaves out the integer
+returning ones (`lrint`, `lround`, `llrint`, `ilogb`), the ones with out
+parameters (`frexp`, `modf`, `remquo`) and the ones taking an integer argument
+(`ldexp`, `scalbn`, `jn`, `yn`).
+
+These 16 are declared in `gmath.h` but are missing from the built library
+altogether:
 
 `gm_fdim`, `gm_fdimf`, `gm_j1`, `gm_jn`, `gm_ldexp`, `gm_ldexpf`, `gm_llround`,
 `gm_nearbyint`, `gm_nearbyintf`, `gm_nextafterf`, `gm_remquof`, `gm_scalbln`,
