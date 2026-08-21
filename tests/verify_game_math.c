@@ -110,7 +110,19 @@ static const double v_pair[][2] = {
         }                                                                   \
     } while (0)
 
-/* ---------- two arguments ---------- */
+/* ---------- two arguments ----------
+ *
+ * An argument may reach the call as a full double or as a value that has
+ * already been through a float, so both arguments are varied independently:
+ *
+ *   .dd    gm_f(x, y)
+ *   .df    gm_f(x, (double)(float)y)
+ *   .fd    gm_f((double)(float)x, y)
+ *   .ff    gm_f((double)(float)x, (double)(float)y)
+ *   .f     gm_ff((float)x, (float)y)
+ *   .f2d   (double)gm_ff((float)x, (float)y)
+ *   .d2f   (float)gm_f(x, y)
+ */
 
 #define MATRIX2(base)                                                       \
     do {                                                                    \
@@ -118,9 +130,13 @@ static const double v_pair[][2] = {
         for (i = 0; i < NV; ++i) {                                          \
             double x = v_pair[i][0], y = v_pair[i][1];                      \
             float  xf = (float)x, yf = (float)y;                            \
+            double xd = (double)xf, yd = (double)yf;                        \
             char a[64];                                                     \
             snprintf(a, sizeof a, "%.17g, %.17g", x, y);                    \
-            put_d(#base ".d",   a, gm_##base(x, y));                        \
+            put_d(#base ".dd",  a, gm_##base(x, y));                        \
+            put_d(#base ".df",  a, gm_##base(x, yd));                       \
+            put_d(#base ".fd",  a, gm_##base(xd, y));                       \
+            put_d(#base ".ff",  a, gm_##base(xd, yd));                      \
             put_f(#base ".f",   a, gm_##base##f(xf, yf));                   \
             put_d(#base ".f2d", a, (double)gm_##base##f(xf, yf));           \
             put_f(#base ".d2f", a, (float)gm_##base(x, y));                 \

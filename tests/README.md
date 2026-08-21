@@ -6,6 +6,8 @@ files from two platforms shows which calls disagree, and the four rows show
 whether the disagreement comes from the function itself or from a conversion
 around it.
 
+One argument functions:
+
 | Row | Meaning |
 | :--- | :--- |
 | `.d` | double function, double result — `gm_f(x)` |
@@ -13,8 +15,26 @@ around it.
 | `.f2d` | float function, result widened — `(double)gm_ff((float)x)` |
 | `.d2f` | double function, result narrowed — `(float)gm_f(x)` |
 
+Two argument functions also vary each argument independently, since in real code
+a value may arrive as a full double or as one that has already been through a
+float:
+
+| Row | Meaning |
+| :--- | :--- |
+| `.dd` | `gm_f(x, y)` |
+| `.df` | `gm_f(x, (double)(float)y)` |
+| `.fd` | `gm_f((double)(float)x, y)` |
+| `.ff` | `gm_f((double)(float)x, (double)(float)y)` |
+| `.f` | `gm_ff((float)x, (float)y)` |
+| `.f2d` | `(double)gm_ff((float)x, (float)y)` |
+| `.d2f` | `(float)gm_f(x, y)` |
+
 The `.f2d` row is what the `WWMath` wrappers do, so it is the one that matters
 for the game.
+
+These rows are not interchangeable even on a single platform. On macOS ARM64,
+`atan2(187.66, -59.13)` gives four different doubles depending on which argument
+went through a float, and `.f` and `.d2f` differ by one ULP.
 
 On Windows the whole matrix runs twice, once with the x87 precision control set
 to `_PC_24` and once with `_PC_53`, since the 32-bit game build sets `_PC_24` in
