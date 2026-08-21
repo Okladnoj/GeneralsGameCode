@@ -1,0 +1,755 @@
+================ win32 x86, _PC_53 ================
+---- double, trigonometric ----
+gm_sin           0.5                                3FDEAEE8744B05F0
+gm_sin           -0.5                               BFDEAEE8744B05F0
+gm_sin           2.7000000000000002                 3FDB5A312424A70C
+gm_sin           187.66                             BFE7BBC6596262AE
+gm_sin           0.00012300000000000001             3F201F31F3C039BE
+gm_sin           100.5                              BF9FB3F833470FF1
+gm_cos           0.5                                3FEC1528065B7D50
+gm_cos           -0.5                               3FEC1528065B7D50
+gm_cos           2.7000000000000002                 BFECEE28B36603A6
+gm_cos           187.66                             3FE576E4096F1DE4
+gm_cos           0.00012300000000000001             3FEFFFFFFBF057D1
+gm_cos           100.5                              3FEFFC12ADAECEC2
+gm_tan           0.5                                3FE17B4F5BF3474A
+gm_tan           -0.5                               BFE17B4F5BF3474A
+gm_tan           2.7000000000000002                 BFDE412B62BA7143
+gm_tan           187.66                             BFF1B1009E8D90B0
+gm_tan           0.00012300000000000001             3F201F31F5CC0357
+gm_tan           100.5                              BF9FB7DCAB49130D
+gm_asin          -0.90000000000000002               BFF1EA93705FA172
+gm_asin          -0.5                               BFE0C152382D7366
+gm_asin          0                                  0000000000000000
+gm_asin          0.25                               3FD02BE9CE0B87CD
+gm_asin          0.5                                3FE0C152382D7366
+gm_asin          0.90000000000000002                3FF1EA93705FA172
+gm_acos          -0.90000000000000002               400586476251E745
+gm_acos          -0.5                               4000C152382D7366
+gm_acos          0                                  3FF921FB54442D18
+gm_acos          0.25                               3FF51700E0C14B25
+gm_acos          0.5                                3FF0C152382D7366
+gm_acos          0.90000000000000002                3FDCDD9F8F922E98
+gm_atan          0.5                                3FDDAC670561BB4F
+gm_atan          -0.5                               BFDDAC670561BB4F
+gm_atan          2.7000000000000002                 3FF3751B7ED2AEC1
+gm_atan          187.66                             3FF90C27BEADA1E0
+gm_atan          0.00012300000000000001             3F201F31F311A135
+gm_atan          100.5                              3FF8F93A14D937BD
+gm_atan2         0.40000000000000002, 1.3           3FD31A9B43436DE1
+gm_atan2         2.7000000000000002, 11.9           3FCC8EFA8684064B
+gm_atan2         187.66, -59.130000000000003        3FFE0442913C85A9
+gm_atan2         0.00012300000000000001, 9999.5     3E4A6A55AA26BFD1
+gm_atan2         1, -1                              4002D97C7F3321D2
+gm_atan2         -3.5, 2                            BFF0D38F2C5BA09F
+---- double, hyperbolic ----
+gm_sinh          0.5                                3FE0ACD00FE63B97
+gm_sinh          -0.5                               BFE0ACD00FE63B97
+gm_sinh          2.7000000000000002                 401DA0036F88823C
+gm_sinh          187.66                             50CAA6D0A0D36780
+gm_sinh          0.00012300000000000001             3F201F31F51D6ACE
+gm_sinh          100.5                              48EFCC37A76F9E76
+gm_cosh          0.5                                3FF20AC1862AE8D0
+gm_cosh          -0.5                               3FF20AC1862AE8D0
+gm_cosh          2.7000000000000002                 401DE4D4F525D240
+gm_cosh          187.66                             50CAA6D0A0D36780
+gm_cosh          0.00012300000000000001             3FF000000207D417
+gm_cosh          100.5                              48EFCC37A76F9E76
+gm_tanh          0.5                                3FDD9353D7568AF3
+gm_tanh          -0.5                               BFDD9353D7568AF3
+gm_tanh          2.7000000000000002                 3FEFB655437478D5
+gm_tanh          187.66                             3FF0000000000000
+gm_tanh          0.00012300000000000001             3F201F31F311A135
+gm_tanh          100.5                              3FF0000000000000
+gm_asinh         0.5                                3FDECC2CAEC5160A
+gm_asinh         -0.5                               BFDECC2CAEC5160A
+gm_asinh         2.7000000000000002                 3FFB813C8391212E
+gm_asinh         187.66                             4017B60D8ED36FD7
+gm_asinh         0.00012300000000000001             3F201F31F3C039BE
+gm_asinh         100.5                              4015369C0CD54B4A
+gm_acosh         1                                  0000000000000000
+gm_acosh         1.5                                3FEECC2CAEC5160A
+gm_acosh         2.7000000000000002                 3FFA673140935C8B
+gm_acosh         10                                 4007F21ED1CE05D4
+gm_acosh         187.66                             4017B609D603FC82
+gm_acosh         1000                               401E6752E8A84ED4
+gm_atanh         -0.90000000000000002               BFF78E360604B32D
+gm_atanh         -0.5                               BFE193EA7AAD030A
+gm_atanh         0                                  0000000000000000
+gm_atanh         0.25                               3FD058AEFA811452
+gm_atanh         0.5                                3FE193EA7AAD030A
+gm_atanh         0.90000000000000002                3FF78E360604B32D
+---- double, exponential and logarithmic ----
+gm_exp           0.5                                3FFA61298E1E069C
+gm_exp           -0.5                               3FE368B2FC6F960A
+gm_exp           2.7000000000000002                 402DC26C32572A3E
+gm_exp           187.66                             50DAA6D0A0D36780
+gm_exp           0.00012300000000000001             3FF00080FB977D03
+gm_exp           100.5                              48FFCC37A76F9E76
+gm_exp2          0.5                                3FF6A09E667F3BCD
+gm_exp2          -0.5                               3FE6A09E667F3BCD
+gm_exp2          2.7000000000000002                 4019FDF8BCCE533E
+gm_exp2          187.66                             4BA94804B79E25F6
+gm_exp2          0.00012300000000000001             3FF00059670147E2
+gm_exp2          100.5                              4636A09E667F3BCD
+gm_expm1         0.5                                3FE4C2531C3C0D38
+gm_expm1         -0.5                               BFD92E9A0720D3EC
+gm_expm1         2.7000000000000002                 402BC26C32572A3E
+gm_expm1         187.66                             50DAA6D0A0D36780
+gm_expm1         0.00012300000000000001             3F201F72EFA05861
+gm_expm1         100.5                              48FFCC37A76F9E76
+gm_log           0.5                                BFE62E42FEFA39EF
+gm_log           1                                  0000000000000000
+gm_log           2.7000000000000002                 3FEFC8B7F138BDEA
+gm_log           187.66                             4014F043528DBB65
+gm_log           0.00012300000000000001             C02201B3F8D6B42B
+gm_log           100.5                              401270CD2FF40AB2
+gm_log10         0.5                                BFD34413509F79FF
+gm_log10         1                                  0000000000000000
+gm_log10         2.7000000000000002                 3FDB9B76C2EF81F8
+gm_log10         187.66                             40022FDD82152DEA
+gm_log10         0.00012300000000000001             C00F47DFD434FF14
+gm_log10         100.5                              4000046FA3E33E17
+gm_log1p         0.5                                3FD9F323ECBF984C
+gm_log1p         1                                  3FE62E42FEFA39EF
+gm_log1p         2.7000000000000002                 3FF4EEEE650AE550
+gm_log1p         187.66                             4014F5B485E58382
+gm_log1p         0.00012300000000000001             3F201EF0FB490EE5
+gm_log1p         100.5                              40127AF0B1944E67
+gm_logb          0.5                                BFF0000000000000
+gm_logb          1                                  0000000000000000
+gm_logb          2.7000000000000002                 3FF0000000000000
+gm_logb          187.66                             401C000000000000
+gm_logb          0.00012300000000000001             C02A000000000000
+gm_logb          100.5                              4018000000000000
+gm_pow           0.40000000000000002, 1.3           3FD3727E49ADFAD4
+gm_pow           2.7000000000000002, 11.9           410096F75FA58808
+gm_pow           187.66, -59.130000000000003        2405E16D4F560B15
+gm_pow           0.00012300000000000001, 9999.5     0000000000000000
+gm_pow           1, -1                              3FF0000000000000
+gm_pow           -3.5, 2                            4028800000000000
+---- double, roots ----
+gm_sqrt          0.5                                3FE6A09E667F3BCD
+gm_sqrt          1                                  3FF0000000000000
+gm_sqrt          2.7000000000000002                 3FFA4A6A2F74C6AC
+gm_sqrt          187.66                             402B65D6E280ACC1
+gm_sqrt          0.00012300000000000001             3F86B6A29CB8922B
+gm_sqrt          100.5                              40240CC8B6D657C2
+gm_cbrt          0.5                                3FE965FEA53D6E3D
+gm_cbrt          -0.5                               BFE965FEA53D6E3D
+gm_cbrt          2.7000000000000002                 3FF647959888DBF6
+gm_cbrt          187.66                             4016E69A82D51801
+gm_cbrt          0.00012300000000000001             3FA9767599D052F4
+gm_cbrt          100.5                              401298E53BD7A9D4
+gm_hypot         0.40000000000000002, 1.3           3FF5C3298DD40B25
+gm_hypot         2.7000000000000002, 11.9           402867A8ACFC116A
+gm_hypot         187.66, -59.130000000000003        4068982B17E27815
+gm_hypot         0.00012300000000000001, 9999.5     40C387C000000000
+gm_hypot         1, -1                              3FF6A09E667F3BCD
+gm_hypot         -3.5, 2                            40101FE03F61BAD0
+---- double, rounding ----
+gm_ceil          0.5                                3FF0000000000000
+gm_ceil          -0.5                               8000000000000000
+gm_ceil          2.7000000000000002                 4008000000000000
+gm_ceil          187.66                             4067800000000000
+gm_ceil          0.00012300000000000001             3FF0000000000000
+gm_ceil          100.5                              4059400000000000
+gm_floor         0.5                                0000000000000000
+gm_floor         -0.5                               BFF0000000000000
+gm_floor         2.7000000000000002                 4000000000000000
+gm_floor         187.66                             4067600000000000
+gm_floor         0.00012300000000000001             0000000000000000
+gm_floor         100.5                              4059000000000000
+gm_trunc         0.5                                0000000000000000
+gm_trunc         -0.5                               8000000000000000
+gm_trunc         2.7000000000000002                 4000000000000000
+gm_trunc         187.66                             4067600000000000
+gm_trunc         0.00012300000000000001             0000000000000000
+gm_trunc         100.5                              4059000000000000
+gm_round         0.5                                3FF0000000000000
+gm_round         -0.5                               BFF0000000000000
+gm_round         2.7000000000000002                 4008000000000000
+gm_round         187.66                             4067800000000000
+gm_round         0.00012300000000000001             0000000000000000
+gm_round         100.5                              4059400000000000
+gm_rint          0.5                                0000000000000000
+gm_rint          -0.5                               8000000000000000
+gm_rint          2.7000000000000002                 4008000000000000
+gm_rint          187.66                             4067800000000000
+gm_rint          0.00012300000000000001             0000000000000000
+gm_rint          100.5                              4059000000000000
+gm_lrint         0.5                                0
+gm_lrint         -0.5                               0
+gm_lrint         2.7000000000000002                 3
+gm_lrint         187.66                             188
+gm_lrint         0.00012300000000000001             0
+gm_lrint         100.5                              100
+gm_lround        0.5                                1
+gm_lround        -0.5                               -1
+gm_lround        2.7000000000000002                 3
+gm_lround        187.66                             188
+gm_lround        0.00012300000000000001             0
+gm_lround        100.5                              101
+gm_llrint        0.5                                0
+gm_llrint        -0.5                               0
+gm_llrint        2.7000000000000002                 3
+gm_llrint        187.66                             188
+gm_llrint        0.00012300000000000001             0
+gm_llrint        100.5                              100
+---- double, sign and remainder ----
+gm_fabs          0.5                                3FE0000000000000
+gm_fabs          -0.5                               3FE0000000000000
+gm_fabs          2.7000000000000002                 400599999999999A
+gm_fabs          187.66                             4067751EB851EB85
+gm_fabs          0.00012300000000000001             3F201F31F46ED246
+gm_fabs          100.5                              4059200000000000
+gm_fmod          0.40000000000000002, 1.3           3FD999999999999A
+gm_fmod          2.7000000000000002, 11.9           400599999999999A
+gm_fmod          187.66, -59.130000000000003        40248A3D70A3D704
+gm_fmod          0.00012300000000000001, 9999.5     3F201F31F46ED246
+gm_fmod          1, -1                              0000000000000000
+gm_fmod          -3.5, 2                            BFF8000000000000
+gm_remainder     0.40000000000000002, 1.3           3FD999999999999A
+gm_remainder     2.7000000000000002, 11.9           400599999999999A
+gm_remainder     187.66, -59.130000000000003        40248A3D70A3D704
+gm_remainder     0.00012300000000000001, 9999.5     3F201F31F46ED246
+gm_remainder     1, -1                              0000000000000000
+gm_remainder     -3.5, 2                            3FE0000000000000
+gm_drem          0.40000000000000002, 1.3           3FD999999999999A
+gm_drem          2.7000000000000002, 11.9           400599999999999A
+gm_drem          187.66, -59.130000000000003        40248A3D70A3D704
+gm_drem          0.00012300000000000001, 9999.5     3F201F31F46ED246
+gm_drem          1, -1                              0000000000000000
+gm_drem          -3.5, 2                            3FE0000000000000
+gm_copysign      0.40000000000000002, 1.3           3FD999999999999A
+gm_copysign      2.7000000000000002, 11.9           400599999999999A
+gm_copysign      187.66, -59.130000000000003        C067751EB851EB85
+gm_copysign      0.00012300000000000001, 9999.5     3F201F31F46ED246
+gm_copysign      1, -1                              BFF0000000000000
+gm_copysign      -3.5, 2                            400C000000000000
+gm_fmax          0.40000000000000002, 1.3           3FF4CCCCCCCCCCCD
+gm_fmax          2.7000000000000002, 11.9           4027CCCCCCCCCCCD
+gm_fmax          187.66, -59.130000000000003        4067751EB851EB85
+gm_fmax          0.00012300000000000001, 9999.5     40C387C000000000
+gm_fmax          1, -1                              3FF0000000000000
+gm_fmax          -3.5, 2                            4000000000000000
+gm_fmin          0.40000000000000002, 1.3           3FD999999999999A
+gm_fmin          2.7000000000000002, 11.9           400599999999999A
+gm_fmin          187.66, -59.130000000000003        C04D90A3D70A3D71
+gm_fmin          0.00012300000000000001, 9999.5     3F201F31F46ED246
+gm_fmin          1, -1                              BFF0000000000000
+gm_fmin          -3.5, 2                            C00C000000000000
+gm_nextafter     0.40000000000000002, 1.3           3FD999999999999B
+gm_nextafter     2.7000000000000002, 11.9           400599999999999B
+gm_nextafter     187.66, -59.130000000000003        4067751EB851EB84
+gm_nextafter     0.00012300000000000001, 9999.5     3F201F31F46ED247
+gm_nextafter     1, -1                              3FEFFFFFFFFFFFFF
+gm_nextafter     -3.5, 2                            C00BFFFFFFFFFFFF
+---- double, special ----
+gm_erf           -0.90000000000000002               BFE98045A6C8A2E6
+gm_erf           -0.5                               BFE0A7EF5C18EDD2
+gm_erf           0                                  0000000000000000
+gm_erf           0.25                               3FD1AF54E232D609
+gm_erf           0.5                                3FE0A7EF5C18EDD2
+gm_erf           0.90000000000000002                3FE98045A6C8A2E6
+gm_erfc          -0.90000000000000002               3FFCC022D3645173
+gm_erfc          -0.5                               3FF853F7AE0C76E9
+gm_erfc          0                                  3FF0000000000000
+gm_erfc          0.25                               3FE728558EE694FC
+gm_erfc          0.5                                3FDEB02147CE245C
+gm_erfc          0.90000000000000002                3FC9FEE964DD7469
+gm_lgamma        0.5                                3FE250D048E7A1BD
+gm_lgamma        1                                  0000000000000000
+gm_lgamma        2.7000000000000002                 3FDBD4199664F248
+gm_lgamma        187.66                             4088C7C8DA88582A
+gm_lgamma        0.00012300000000000001             402201AAAAF978B9
+gm_lgamma        100.5                              407696F7F9481308
+gm_gamma         0.5                                3FE250D048E7A1BD
+gm_gamma         1                                  0000000000000000
+gm_gamma         2.7000000000000002                 3FDBD4199664F248
+gm_gamma         187.66                             4088C7C8DA88582A
+gm_gamma         0.00012300000000000001             402201AAAAF978B9
+gm_gamma         100.5                              407696F7F9481308
+gm_significand   0.5                                3FF0000000000000
+gm_significand   1                                  3FF0000000000000
+gm_significand   2.7000000000000002                 3FF599999999999A
+gm_significand   187.66                             3FF7751EB851EB85
+gm_significand   0.00012300000000000001             3FF01F31F46ED246
+gm_significand   100.5                              3FF9200000000000
+gm_j0            0.5                                3FEE07F1D54C3F34
+gm_j0            1                                  3FE87C7FDBD7B8F0
+gm_j0            2.7000000000000002                 BFC23BC7ECD77A69
+gm_j0            187.66                             BF683DB7B7637733
+gm_j0            0.00012300000000000001             3FEFFFFFFDF82BE9
+gm_j0            100.5                              3FABDF1C507A77F0
+gm_y0            0.5                                BFDC72FEB3B7B8A2
+gm_y0            1                                  3FB6980226F358E0
+gm_y0            2.7000000000000002                 3FDD78E3E0BE20CC
+gm_y0            187.66                             BFADC85687B75072
+gm_y0            0.00012300000000000001             C01738D4ED110D63
+gm_y0            100.5                              BFADBA3383291BF7
+gm_ilogb         0.5                                -1
+gm_ilogb         1                                  0
+gm_ilogb         2.7000000000000002                 1
+gm_ilogb         187.66                             7
+gm_ilogb         0.00012300000000000001             -13
+gm_ilogb         100.5                              6
+gm_isfinite      0.5                                1
+gm_isfinite      -0.5                               1
+gm_isfinite      2.7000000000000002                 1
+gm_isfinite      187.66                             1
+gm_isfinite      0.00012300000000000001             1
+gm_isfinite      100.5                              1
+gm_isnormal      0.5                                1
+gm_isnormal      -0.5                               1
+gm_isnormal      2.7000000000000002                 1
+gm_isnormal      187.66                             1
+gm_isnormal      0.00012300000000000001             1
+gm_isnormal      100.5                              1
+gm_finite        0.5                                1
+gm_finite        -0.5                               1
+gm_finite        2.7000000000000002                 1
+gm_finite        187.66                             1
+gm_finite        0.00012300000000000001             1
+gm_finite        100.5                              1
+---- double, out parameters and integer arguments ----
+gm_frexp.m       0.5                                3FE0000000000000
+gm_frexp.e       0.5                                0
+gm_frexp.m       1                                  3FE0000000000000
+gm_frexp.e       1                                  1
+gm_frexp.m       2.7000000000000002                 3FE599999999999A
+gm_frexp.e       2.7000000000000002                 2
+gm_frexp.m       187.66                             3FE7751EB851EB85
+gm_frexp.e       187.66                             8
+gm_frexp.m       0.00012300000000000001             3FE01F31F46ED246
+gm_frexp.e       0.00012300000000000001             -12
+gm_frexp.m       100.5                              3FE9200000000000
+gm_frexp.e       100.5                              7
+gm_modf.fr       0.5                                3FE0000000000000
+gm_modf.ip       0.5                                0000000000000000
+gm_modf.fr       1                                  0000000000000000
+gm_modf.ip       1                                  3FF0000000000000
+gm_modf.fr       2.7000000000000002                 3FE6666666666668
+gm_modf.ip       2.7000000000000002                 4000000000000000
+gm_modf.fr       187.66                             3FE51EB851EB8500
+gm_modf.ip       187.66                             4067600000000000
+gm_modf.fr       0.00012300000000000001             3F201F31F46ED246
+gm_modf.ip       0.00012300000000000001             0000000000000000
+gm_modf.fr       100.5                              3FE0000000000000
+gm_modf.ip       100.5                              4059000000000000
+gm_remquo.r      0.40000000000000002, 1.3           3FD999999999999A
+gm_remquo.q      0.40000000000000002, 1.3           0
+gm_remquo.r      2.7000000000000002, 11.9           400599999999999A
+gm_remquo.q      2.7000000000000002, 11.9           0
+gm_remquo.r      187.66, -59.130000000000003        40248A3D70A3D704
+gm_remquo.q      187.66, -59.130000000000003        -3
+gm_remquo.r      0.00012300000000000001, 9999.5     3F201F31F46ED246
+gm_remquo.q      0.00012300000000000001, 9999.5     0
+gm_remquo.r      1, -1                              0000000000000000
+gm_remquo.q      1, -1                              -1
+gm_remquo.r      -3.5, 2                            3FE0000000000000
+gm_remquo.q      -3.5, 2                            -2
+gm_scalbn        0.5, -3                            3FB0000000000000
+gm_scalbn        1, -2                              3FD0000000000000
+gm_scalbn        2.7000000000000002, -1             3FF599999999999A
+gm_scalbn        187.66, 0                          4067751EB851EB85
+gm_scalbn        0.00012300000000000001, 1          3F301F31F46ED246
+gm_scalbn        100.5, 2                           4079200000000000
+gm_scalb         0.40000000000000002, 1.3           FFF8000000000000
+gm_scalb         2.7000000000000002, 11.9           FFF8000000000000
+gm_scalb         187.66, -59.130000000000003        FFF8000000000000
+gm_scalb         0.00012300000000000001, 9999.5     FFF8000000000000
+gm_scalb         1, -1                              3FE0000000000000
+gm_scalb         -3.5, 2                            C02C000000000000
+gm_fma           0.40000000000000002, 1.3, 0.5      3FF051EB851EB852
+gm_fma           2.7000000000000002, 11.9, -0.5     403FA147AE147AE2
+gm_fma           187.66, -59.130000000000003, 2.7000000000000002 C0C5AAD161E4F766
+gm_fma           0.00012300000000000001, 9999.5, 187.66 40679C7A604E1E71
+gm_fma           1, -1, 0.00012300000000000001      BFEFFEFE0CE0B913
+gm_fma           -3.5, 2, 100.5                     4057600000000000
+---- float, trigonometric ----
+gm_sinf          0.5                                3EF57744
+gm_sinf          -0.5                               BEF57744
+gm_sinf          2.70000005                         3EDAD188
+gm_sinf          187.660004                         BF3DDE0A
+gm_sinf          0.000123000005                     3900F990
+gm_sinf          100.5                              BCFD9FC2
+gm_cosf          0.5                                3F60A940
+gm_cosf          -0.5                               3F60A940
+gm_cosf          2.70000005                         BF677146
+gm_cosf          187.660004                         3F2BB74E
+gm_cosf          0.000123000005                     3F800000
+gm_cosf          100.5                              3F7FE095
+gm_tanf          0.5                                3F0BDA7A
+gm_tanf          -0.5                               BF0BDA7A
+gm_tanf          2.70000005                         BEF20959
+gm_tanf          187.660004                         BF8D87C1
+gm_tanf          0.000123000005                     3900F990
+gm_tanf          100.5                              BCFDBEE5
+gm_asinf         -0.899999976                       BF8F549C
+gm_asinf         -0.5                               BF060A94
+gm_asinf         0                                  00000000
+gm_asinf         0.25                               3E815F4E
+gm_asinf         0.5                                3F060A94
+gm_asinf         0.899999976                        3F8F549C
+gm_acosf         -0.899999976                       402C323B
+gm_acosf         -0.5                               40060A92
+gm_acosf         0                                  3FC90FDB
+gm_acosf         0.25                               3FA8B807
+gm_acosf         0.5                                3F860A92
+gm_acosf         0.899999976                        3EE6ECFE
+gm_atanf         0.5                                3EED6338
+gm_atanf         -0.5                               BEED6338
+gm_atanf         2.70000005                         3F9BA8DC
+gm_atanf         187.660004                         3FC8613E
+gm_atanf         0.000123000005                     3900F990
+gm_atanf         100.5                              3FC7C9D1
+gm_atan2f        0.400000006, 1.29999995            3E98D4DA
+gm_atan2f        2.70000005, 11.8999996             3E6477D5
+gm_atan2f        187.660004, -59.1300011            3FF02214
+gm_atan2f        0.000123000005, 9999.5             325352AE
+gm_atan2f        1, -1                              4016CBE4
+gm_atan2f        -3.5, 2                            BF869C79
+---- float, hyperbolic ----
+gm_sinhf         0.5                                3F056680
+gm_sinhf         -0.5                               BF056680
+gm_sinhf         2.70000005                         40ED001C
+gm_sinhf         187.660004                         7F800000
+gm_sinhf         0.000123000005                     3900F990
+gm_sinhf         100.5                              7F800000
+gm_coshf         0.5                                3F90560C
+gm_coshf         -0.5                               3F90560C
+gm_coshf         2.70000005                         40EF26A8
+gm_coshf         187.660004                         7F800000
+gm_coshf         0.000123000005                     3F800000
+gm_coshf         100.5                              7F800000
+gm_tanhf         0.5                                3EEC9A9F
+gm_tanhf         -0.5                               BEEC9A9F
+gm_tanhf         2.70000005                         3F7DB2AA
+gm_tanhf         187.660004                         3F800000
+gm_tanhf         0.000123000005                     3900F98F
+gm_tanhf         100.5                              3F800000
+gm_asinhf        0.5                                3EF66166
+gm_asinhf        -0.5                               BEF66166
+gm_asinhf        2.70000005                         3FDC09E4
+gm_asinhf        187.660004                         40BDB06C
+gm_asinhf        0.000123000005                     3900F990
+gm_asinhf        100.5                              40A9B4E0
+gm_acoshf        1                                  00000000
+gm_acoshf        1.5                                3F766166
+gm_acoshf        2.70000005                         3FD3398A
+gm_acoshf        10                                 403F90F7
+gm_acoshf        187.660004                         40BDB04F
+gm_acoshf        1000                               40F33A97
+gm_atanhf        -0.899999976                       BFBC71AF
+gm_atanhf        -0.5                               BF0C9F54
+gm_atanhf        0                                  00000000
+gm_atanhf        0.25                               3E82C578
+gm_atanhf        0.5                                3F0C9F54
+gm_atanhf        0.899999976                        3FBC71AF
+---- float, exponential and logarithmic ----
+gm_expf          0.5                                3FD3094C
+gm_expf          -0.5                               3F1B4598
+gm_expf          2.70000005                         416E1362
+gm_expf          187.660004                         7F800000
+gm_expf          0.000123000005                     3F800408
+gm_expf          100.5                              7F800000
+gm_exp2f         0.5                                3FB504F3
+gm_exp2f         -0.5                               3F3504F3
+gm_exp2f         2.70000005                         40CFEFC6
+gm_exp2f         187.660004                         7F800000
+gm_exp2f         0.000123000005                     3F8002CB
+gm_exp2f         100.5                              71B504F3
+gm_expm1f        0.5                                3F261299
+gm_expm1f        -0.5                               BEC974D0
+gm_expm1f        2.70000005                         415E1362
+gm_expm1f        187.660004                         7F800000
+gm_expm1f        0.000123000005                     3900FB98
+gm_expm1f        100.5                              7F800000
+gm_logf          0.5                                BF317218
+gm_logf          1                                  00000000
+gm_logf          2.70000005                         3F7E45C0
+gm_logf          187.660004                         40A7821B
+gm_logf          0.000123000005                     C1100DA0
+gm_logf          100.5                              4093866A
+gm_log10f        0.5                                BE9A209B
+gm_log10f        1                                  00000000
+gm_log10f        2.70000005                         3EDCDBB6
+gm_log10f        187.660004                         40117EEC
+gm_log10f        0.000123000005                     C07A3EFF
+gm_log10f        100.5                              4000237D
+gm_log1pf        0.5                                3ECF991F
+gm_log1pf        1                                  3F317218
+gm_log1pf        2.70000005                         3FA77773
+gm_log1pf        187.660004                         40A7ADA4
+gm_log1pf        0.000123000005                     3900F788
+gm_log1pf        100.5                              4093D786
+gm_logbf         0.5                                BF800000
+gm_logbf         1                                  00000000
+gm_logbf         2.70000005                         3F800000
+gm_logbf         187.660004                         40E00000
+gm_logbf         0.000123000005                     C1500000
+gm_logbf         100.5                              40C00000
+gm_powf          0.400000006, 1.29999995            3E9B93F3
+gm_powf          2.70000005, 11.8999996             4804B7BA
+gm_powf          187.660004, -59.1300011            00000000
+gm_powf          0.000123000005, 9999.5             00000000
+gm_powf          1, -1                              3F800000
+gm_powf          -3.5, 2                            41440000
+---- float, roots ----
+gm_sqrtf         0.5                                3F3504F3
+gm_sqrtf         1                                  3F800000
+gm_sqrtf         2.70000005                         3FD25352
+gm_sqrtf         187.660004                         415B2EB7
+gm_sqrtf         0.000123000005                     3C35B515
+gm_sqrtf         100.5                              41206646
+gm_cbrtf         0.5                                3F4B2FF5
+gm_cbrtf         -0.5                               BF4B2FF5
+gm_cbrtf         2.70000005                         3FB23CAD
+gm_cbrtf         187.660004                         40B734D4
+gm_cbrtf         0.000123000005                     3D4BB3AD
+gm_cbrtf         100.5                              4094C72A
+gm_hypotf        0.400000006, 1.29999995            3FAE194C
+gm_hypotf        2.70000005, 11.8999996             41433D45
+gm_hypotf        187.660004, -59.1300011            4344C159
+gm_hypotf        0.000123000005, 9999.5             461C3E00
+gm_hypotf        1, -1                              3FB504F3
+gm_hypotf        -3.5, 2                            4080FF02
+---- float, rounding ----
+gm_ceilf         0.5                                3F800000
+gm_ceilf         -0.5                               80000000
+gm_ceilf         2.70000005                         40400000
+gm_ceilf         187.660004                         433C0000
+gm_ceilf         0.000123000005                     3F800000
+gm_ceilf         100.5                              42CA0000
+gm_floorf        0.5                                00000000
+gm_floorf        -0.5                               BF800000
+gm_floorf        2.70000005                         40000000
+gm_floorf        187.660004                         433B0000
+gm_floorf        0.000123000005                     00000000
+gm_floorf        100.5                              42C80000
+gm_truncf        0.5                                00000000
+gm_truncf        -0.5                               80000000
+gm_truncf        2.70000005                         40000000
+gm_truncf        187.660004                         433B0000
+gm_truncf        0.000123000005                     00000000
+gm_truncf        100.5                              42C80000
+gm_roundf        0.5                                3F800000
+gm_roundf        -0.5                               BF800000
+gm_roundf        2.70000005                         40400000
+gm_roundf        187.660004                         433C0000
+gm_roundf        0.000123000005                     00000000
+gm_roundf        100.5                              42CA0000
+gm_rintf         0.5                                00000000
+gm_rintf         -0.5                               00000000
+gm_rintf         2.70000005                         40400000
+gm_rintf         187.660004                         433C0000
+gm_rintf         0.000123000005                     00000000
+gm_rintf         100.5                              42C80000
+gm_lrintf        0.5                                0
+gm_lrintf        -0.5                               0
+gm_lrintf        2.70000005                         3
+gm_lrintf        187.660004                         188
+gm_lrintf        0.000123000005                     0
+gm_lrintf        100.5                              100
+gm_lroundf       0.5                                1
+gm_lroundf       -0.5                               -1
+gm_lroundf       2.70000005                         3
+gm_lroundf       187.660004                         188
+gm_lroundf       0.000123000005                     0
+gm_lroundf       100.5                              101
+gm_llrintf       0.5                                0
+gm_llrintf       -0.5                               0
+gm_llrintf       2.70000005                         3
+gm_llrintf       187.660004                         188
+gm_llrintf       0.000123000005                     0
+gm_llrintf       100.5                              100
+gm_llroundf      0.5                                1
+gm_llroundf      -0.5                               -1
+gm_llroundf      2.70000005                         3
+gm_llroundf      187.660004                         188
+gm_llroundf      0.000123000005                     0
+gm_llroundf      100.5                              101
+---- float, sign and remainder ----
+gm_fabsf         0.5                                3F000000
+gm_fabsf         -0.5                               3F000000
+gm_fabsf         2.70000005                         402CCCCD
+gm_fabsf         187.660004                         433BA8F6
+gm_fabsf         0.000123000005                     3900F990
+gm_fabsf         100.5                              42C90000
+gm_fmodf         0.400000006, 1.29999995            3ECCCCCD
+gm_fmodf         2.70000005, 11.8999996             402CCCCD
+gm_fmodf         187.660004, -59.1300011            412451EC
+gm_fmodf         0.000123000005, 9999.5             3900F990
+gm_fmodf         1, -1                              00000000
+gm_fmodf         -3.5, 2                            BFC00000
+gm_remainderf    0.400000006, 1.29999995            3ECCCCCD
+gm_remainderf    2.70000005, 11.8999996             402CCCCD
+gm_remainderf    187.660004, -59.1300011            412451EC
+gm_remainderf    0.000123000005, 9999.5             3900F990
+gm_remainderf    1, -1                              00000000
+gm_remainderf    -3.5, 2                            3F000000
+gm_dremf         0.400000006, 1.29999995            3ECCCCCD
+gm_dremf         2.70000005, 11.8999996             402CCCCD
+gm_dremf         187.660004, -59.1300011            412451EC
+gm_dremf         0.000123000005, 9999.5             3900F990
+gm_dremf         1, -1                              00000000
+gm_dremf         -3.5, 2                            3F000000
+gm_copysignf     0.400000006, 1.29999995            3ECCCCCD
+gm_copysignf     2.70000005, 11.8999996             402CCCCD
+gm_copysignf     187.660004, -59.1300011            C33BA8F6
+gm_copysignf     0.000123000005, 9999.5             3900F990
+gm_copysignf     1, -1                              BF800000
+gm_copysignf     -3.5, 2                            40600000
+gm_fmaxf         0.400000006, 1.29999995            3FA66666
+gm_fmaxf         2.70000005, 11.8999996             413E6666
+gm_fmaxf         187.660004, -59.1300011            433BA8F6
+gm_fmaxf         0.000123000005, 9999.5             461C3E00
+gm_fmaxf         1, -1                              3F800000
+gm_fmaxf         -3.5, 2                            40000000
+gm_fminf         0.400000006, 1.29999995            3ECCCCCD
+gm_fminf         2.70000005, 11.8999996             402CCCCD
+gm_fminf         187.660004, -59.1300011            C26C851F
+gm_fminf         0.000123000005, 9999.5             3900F990
+gm_fminf         1, -1                              BF800000
+gm_fminf         -3.5, 2                            C0600000
+---- float, special ----
+gm_erff          -0.899999976                       BF4C022D
+gm_erff          -0.5                               BF053F7B
+gm_erff          0                                  00000000
+gm_erff          0.25                               3E8D7AA7
+gm_erff          0.5                                3F053F7B
+gm_erff          0.899999976                        3F4C022D
+gm_erfcf         -0.899999976                       3FE60116
+gm_erfcf         -0.5                               3FC29FBD
+gm_erfcf         0                                  3F800000
+gm_erfcf         0.25                               3F3942AC
+gm_erfcf         0.5                                3EF5810A
+gm_erfcf         0.899999976                        3E4FF74C
+gm_lgammaf       0.5                                3F128682
+gm_lgammaf       1                                  00000000
+gm_lgammaf       2.70000005                         3EDEA0CE
+gm_lgammaf       187.660004                         44463E48
+gm_lgammaf       0.000123000005                     41100D56
+gm_lgammaf       100.5                              43B4B7C1
+gm_gammaf        0.5                                3F128682
+gm_gammaf        1                                  00000000
+gm_gammaf        2.70000005                         3EDEA0CE
+gm_gammaf        187.660004                         44463E48
+gm_gammaf        0.000123000005                     41100D56
+gm_gammaf        100.5                              43B4B7C1
+gm_significandf  0.5                                3F800000
+gm_significandf  1                                  3F800000
+gm_significandf  2.70000005                         3FACCCCD
+gm_significandf  187.660004                         3FBBA8F6
+gm_significandf  0.000123000005                     3F80F990
+gm_significandf  100.5                              3FC90000
+gm_j0f           0.5                                3F703F8F
+gm_j0f           1                                  3F43E3FF
+gm_j0f           2.70000005                         BE11DE41
+gm_j0f           187.660004                         BB41EA2D
+gm_j0f           0.000123000005                     3F800000
+gm_j0f           100.5                              3D5EF8E1
+gm_j1f           0.5                                3E781539
+gm_j1f           1                                  3EE14E4F
+gm_j1f           2.70000005                         3EE21994
+gm_j1f           187.660004                         BD6E4B36
+gm_j1f           0.000123000005                     3880F990
+gm_j1f           100.5                              BD6CB663
+gm_y0f           0.5                                BEE397F5
+gm_y0f           1                                  3DB4C010
+gm_y0f           2.70000005                         3EEBC720
+gm_y0f           187.660004                         BD6E42BA
+gm_y0f           0.000123000005                     C0B9C6A7
+gm_y0f           100.5                              BD6DD19E
+gm_y1f           0.5                                BFBC5935
+gm_y1f           1                                  BF47FD90
+gm_y1f           2.70000005                         3E69187D
+gm_y1f           187.660004                         3B37C226
+gm_y1f           0.000123000005                     C5A1BE2A
+gm_y1f           100.5                              BD602879
+gm_ilogbf        0.5                                -1
+gm_ilogbf        1                                  0
+gm_ilogbf        2.70000005                         1
+gm_ilogbf        187.660004                         7
+gm_ilogbf        0.000123000005                     -13
+gm_ilogbf        100.5                              6
+gm_isfinitef     0.5                                1
+gm_isfinitef     -0.5                               1
+gm_isfinitef     2.70000005                         1
+gm_isfinitef     187.660004                         1
+gm_isfinitef     0.000123000005                     1
+gm_isfinitef     100.5                              1
+gm_isnormalf     0.5                                1
+gm_isnormalf     -0.5                               1
+gm_isnormalf     2.70000005                         1
+gm_isnormalf     187.660004                         1
+gm_isnormalf     0.000123000005                     1
+gm_isnormalf     100.5                              1
+gm_finitef       0.5                                1
+gm_finitef       -0.5                               1
+gm_finitef       2.70000005                         1
+gm_finitef       187.660004                         1
+gm_finitef       0.000123000005                     1
+gm_finitef       100.5                              1
+gm_isnanf        0.5                                0
+gm_isnanf        -0.5                               0
+gm_isnanf        2.70000005                         0
+gm_isnanf        187.660004                         0
+gm_isnanf        0.000123000005                     0
+gm_isnanf        100.5                              0
+---- float, out parameters and integer arguments ----
+gm_frexpf.m      0.5                                3F000000
+gm_frexpf.e      0.5                                0
+gm_frexpf.m      1                                  3F000000
+gm_frexpf.e      1                                  1
+gm_frexpf.m      2.70000005                         3F2CCCCD
+gm_frexpf.e      2.70000005                         2
+gm_frexpf.m      187.660004                         3F3BA8F6
+gm_frexpf.e      187.660004                         8
+gm_frexpf.m      0.000123000005                     3F00F990
+gm_frexpf.e      0.000123000005                     -12
+gm_frexpf.m      100.5                              3F490000
+gm_frexpf.e      100.5                              7
+gm_modff.fr      0.5                                3F000000
+gm_modff.ip      0.5                                00000000
+gm_modff.fr      1                                  00000000
+gm_modff.ip      1                                  3F800000
+gm_modff.fr      2.70000005                         3F333334
+gm_modff.ip      2.70000005                         40000000
+gm_modff.fr      187.660004                         3F28F600
+gm_modff.ip      187.660004                         433B0000
+gm_modff.fr      0.000123000005                     3900F990
+gm_modff.ip      0.000123000005                     00000000
+gm_modff.fr      100.5                              3F000000
+gm_modff.ip      100.5                              42C80000
+gm_scalbnf       0.5, -3                            3D800000
+gm_scalbnf       1, -2                              3E800000
+gm_scalbnf       2.70000005, -1                     3FACCCCD
+gm_scalbnf       187.660004, 0                      433BA8F6
+gm_scalbnf       0.000123000005, 1                  3980F990
+gm_scalbnf       100.5, 2                           43C90000
+gm_scalbf        0.400000006, 1.29999995            FFC00000
+gm_scalbf        2.70000005, 11.8999996             FFC00000
+gm_scalbf        187.660004, -59.1300011            FFC00000
+gm_scalbf        0.000123000005, 9999.5             FFC00000
+gm_scalbf        1, -1                              3F000000
+gm_scalbf        -3.5, 2                            C1600000
+gm_jnf           0, 0.5                             3F703F8F
+gm_ynf           0, 0.5                             BEE397F5
+gm_jnf           1, 1                               3EE14E4F
+gm_ynf           1, 1                               BF47FD90
+gm_jnf           2, 2.70000005                      3EF06A5E
+gm_ynf           2, 2.70000005                      BE957234
+gm_jnf           3, 187.660004                      3D6E7F7C
+gm_ynf           3, 187.660004                      BACCEB5C
+gm_jnf           4, 0.000123000005                  212FECF3
+gm_ynf           4, 0.000123000005                  DBED2780
+gm_jnf           5, 100.5                           BD5071CE
+gm_ynf           5, 100.5                           BD7AE98D
+gm_fmaf          0.400000006, 1.29999995, 0.5       3F828F5C
+gm_fmaf          2.70000005, 11.8999996, -0.5       41FD0A3D
+gm_fmaf          187.660004, -59.1300011, 2.70000005 C62D568B
+gm_fmaf          0.000123000005, 9999.5, 187.660004 433CE3D3
+gm_fmaf          1, -1, 0.000123000005              BF7FF7F0
+gm_fmaf          -3.5, 2, 100.5                     42BB0000
