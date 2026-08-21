@@ -66,6 +66,22 @@ pair_up() {
     printf 'GameMath cross-platform comparison\n'
     printf 'generated %s\n\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
 
+    printf 'Each function is called on the same value several ways. The suffix on\n'
+    printf 'the row name says which way, so a difference can be traced to the\n'
+    printf 'function itself or to a conversion around it.\n\n'
+    printf '  .d     double function, double result        gm_f(x)\n'
+    printf '  .f     float function, float result          gm_ff((float)x)\n'
+    printf '  .f2d   float function, result widened        (double)gm_ff((float)x)\n'
+    printf '  .d2f   double function, result narrowed      (float)gm_f(x)\n\n'
+    printf 'Two argument functions vary each argument on its own, since a value can\n'
+    printf 'arrive as a full double or as one that already went through a float:\n\n'
+    printf '  .dd    gm_f(x, y)\n'
+    printf '  .df    gm_f(x, (double)(float)y)\n'
+    printf '  .fd    gm_f((double)(float)x, y)\n'
+    printf '  .ff    gm_f((double)(float)x, (double)(float)y)\n\n'
+    printf 'The .f2d row is what the WWMath wrappers do, so it is the one that\n'
+    printf 'matters for the game.\n\n'
+
     pair_up "$MAC" "$P24" "win32 _PC_24"
     pair_up "$MAC" "$P53" "win32 _PC_53"
 } > "$OUT"

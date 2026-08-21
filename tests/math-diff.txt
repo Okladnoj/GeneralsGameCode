@@ -1,5 +1,25 @@
 GameMath cross-platform comparison
-generated 2026-08-21 19:08 UTC
+generated 2026-08-21 19:12 UTC
+
+Each function is called on the same value several ways. The suffix on
+the row name says which way, so a difference can be traced to the
+function itself or to a conversion around it.
+
+  .d     double function, double result        gm_f(x)
+  .f     float function, float result          gm_ff((float)x)
+  .f2d   float function, result widened        (double)gm_ff((float)x)
+  .d2f   double function, result narrowed      (float)gm_f(x)
+
+Two argument functions vary each argument on its own, since a value can
+arrive as a full double or as one that already went through a float:
+
+  .dd    gm_f(x, y)
+  .df    gm_f(x, (double)(float)y)
+  .fd    gm_f((double)(float)x, y)
+  .ff    gm_f((double)(float)x, (double)(float)y)
+
+The .f2d row is what the WWMath wrappers do, so it is the one that
+matters for the game.
 
 ================ macOS vs win32 _PC_24 ================
 differing lines: 107
