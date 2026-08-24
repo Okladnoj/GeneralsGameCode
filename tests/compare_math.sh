@@ -1,6 +1,8 @@
 #!/bin/sh
 #
-# Compares every math-*.txt dump against the macOS one and writes math-diff.txt.
+# Compares every math-*.txt dump against the macOS one and writes two files:
+#   math-diff.txt      the differing lines of each comparison
+#   math-summary.txt   one table, row kinds down the side, modes across the top
 #
 # Run it from the directory holding the dumps:
 #   sh compare_math.sh
@@ -10,6 +12,7 @@
 set -e
 
 OUT=math-diff.txt
+SUM_OUT=math-summary.txt
 
 BASE=$(ls math-mac-*.txt 2>/dev/null | head -1)
 if [ -z "$BASE" ]; then
@@ -17,7 +20,8 @@ if [ -z "$BASE" ]; then
     exit 1
 fi
 
-OTHERS=$(ls math-*.txt 2>/dev/null | grep -v "^$BASE$" | grep -v "^$OUT$" || true)
+OTHERS=$(ls math-*.txt 2>/dev/null \
+    | grep -v "^$BASE$" | grep -v "^$OUT$" | grep -v "^$SUM_OUT$" || true)
 if [ -z "$OTHERS" ]; then
     echo "nothing to compare against $BASE" >&2
     exit 1
@@ -26,6 +30,30 @@ fi
 norm() {
     tr -d '\r' < "$1" | grep -v '^================'
 }
+
+# Collected across all comparisons, pivoted into one table at the end.
+SUMMARY=$(mktemp)
+trap 'rm -f "$SUMMARY"' EXIT
+
+short() {
+    printf '%s' "$1" | sed -E 's/^win-//; s/precise/prec/'
+}
+
+# Reads the differing lines first, then the whole dump, counting per row suffix.
+AWK_COMMON='
+    function sfx(name,   i) {
+        i = index(name, ".")
+        return (i ? substr(name, i + 1) : "")
+    }
+    function grp(s) {
+        if (s == "f2d")                return "float -> double"
+        if (s ~ /2f$/)                 return "double -> float"
+        if (s == "f" || s ~ /\.f$/)    return "plain float"
+        return "through double"
+    }
+    NR == FNR { s = sfx($1); if (s != "") { dif[s]++ } next }
+    { s = sfx($1); if (s != "") { tot[s]++ } }
+'
 
 # $1 other file
 pair_up() {
@@ -44,21 +72,6 @@ pair_up() {
     if [ "$count" -gt 0 ]; then
         d=$(mktemp)
         diff "$a" "$b" | grep '^<' | sed 's/^< //' > "$d"
-
-        AWK_COMMON='
-            function sfx(name,   i) {
-                i = index(name, ".")
-                return (i ? substr(name, i + 1) : "")
-            }
-            function grp(s) {
-                if (s == "f2d")                return "float -> double"
-                if (s ~ /2f$/)                 return "double -> float"
-                if (s == "f" || s ~ /\.f$/)    return "plain float"
-                return "through double"
-            }
-            NR == FNR { s = sfx($1); if (s != "") { dif[s]++ } next }
-            { s = sfx($1); if (s != "") { tot[s]++ } }
-        '
 
         printf '%-18s %9s %9s\n' "group" "differing" "of total"
         printf '%-18s %9s %9s\n' "------------------" "---------" "--------"
@@ -83,8 +96,36 @@ pair_up() {
             }
         ' "$d" "$a" | sort -k2,2nr -k1,1
 
+        awk -v cfg="$(short "$label")" "$AWK_COMMON"'
+            END {
+                for (s in tot) {
+                    g = grp(s)
+                    tg[g] += tot[s]; dg[g] += dif[s] + 0
+                    printf "%s\t.%s\t%d\t%d\n", cfg, s, dif[s] + 0, tot[s]
+                    all_d += dif[s] + 0; all_t += tot[s]
+                }
+                for (g in tg)
+                    printf "%s\t%s\t%d\t%d\n", cfg, g, dg[g] + 0, tg[g]
+                printf "%s\t%s\t%d\t%d\n", cfg, "total", all_d, all_t
+            }
+        ' "$d" "$a" >> "$SUMMARY"
+
         rm -f "$d"
         printf '\n'
+    else
+        awk -v cfg="$(short "$label")" "$AWK_COMMON"'
+            END {
+                for (s in tot) {
+                    g = grp(s)
+                    tg[g] += tot[s]
+                    printf "%s\t.%s\t0\t%d\n", cfg, s, tot[s]
+                    all_t += tot[s]
+                }
+                for (g in tg)
+                    printf "%s\t%s\t0\t%d\n", cfg, g, tg[g]
+                printf "%s\t%s\t0\t%d\n", cfg, "total", all_t
+            }
+        ' /dev/null "$a" >> "$SUMMARY"
     fi
 
     if [ "$count" -gt 0 ]; then
@@ -149,5 +190,63 @@ pair_up() {
     done
 } > "$OUT"
 
-echo "wrote $OUT"
+{
+    printf 'Differing lines against %s, by row kind.\n\n' \
+        "$(printf '%s' "$BASE" | sed -E 's/^math-//; s/\.txt$//')"
+
+    sort -t"$(printf '\t')" -k1,1 "$SUMMARY" | awk -F'\t' '
+        # Columns are grouped by precision control first, so the PC24 and PC53
+        # pairs sit next to each other and can be read against one another.
+        function colkey(c,   pc) {
+            pc = (c ~ /PC24/) ? "1" : (c ~ /PC53/) ? "2" : "0"
+            return substr(c, 1, 3) pc c
+        }
+        {
+            if (!(($1) in seen)) { seen[$1] = 1; cfg[++nc] = $1; ck[nc] = colkey($1) }
+            d[$2, $1] = $3
+            tot[$2] = $4
+            if (!(($2) in kseen)) { kseen[$2] = 1; key[++nk] = $2 }
+        }
+        END {
+            order[1] = "through double"; order[2] = "float -> double"
+            order[3] = "double -> float"; order[4] = "plain float"
+            order[5] = "total"
+
+            for (i = 1; i < nc; i++)
+                for (j = 1; j <= nc - i; j++)
+                    if (ck[j] > ck[j + 1]) {
+                        t = ck[j]; ck[j] = ck[j + 1]; ck[j + 1] = t
+                        t = cfg[j]; cfg[j] = cfg[j + 1]; cfg[j + 1] = t
+                    }
+
+            w = 18
+            line = sprintf("%-*s %6s", w, "row kind", "rows")
+            for (c = 1; c <= nc; c++) line = line sprintf(" %14s", cfg[c])
+            print line
+            line = sprintf("%-*s %6s", w, "------------------", "------")
+            for (c = 1; c <= nc; c++) line = line sprintf(" %14s", "--------------")
+            print line
+
+            for (i = 1; i <= 5; i++) {
+                k = order[i]
+                if (!(k in tot)) continue
+                line = sprintf("%-*s %6d", w, k, tot[k])
+                for (c = 1; c <= nc; c++) line = line sprintf(" %14d", d[k, cfg[c]] + 0)
+                print line
+                if (i == 4) print ""
+            }
+
+            print ""
+            for (i = 1; i <= nk; i++) {
+                k = key[i]
+                if (substr(k, 1, 1) != ".") continue
+                line = sprintf("%-*s %6d", w, k, tot[k])
+                for (c = 1; c <= nc; c++) line = line sprintf(" %14d", d[k, cfg[c]] + 0)
+                print line
+            }
+        }
+    '
+} > "$SUM_OUT"
+
+echo "wrote $OUT and $SUM_OUT"
 grep -E '^(=====|differing lines)' "$OUT" | sed 's/^/  /'

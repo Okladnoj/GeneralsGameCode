@@ -1,5 +1,5 @@
 GameMath cross-platform comparison
-generated 2026-08-24 22:12 UTC
+generated 2026-08-24 22:27 UTC
 baseline math-mac-arm64-clang.txt
 
 Each function is called on the same value several ways. The suffix on
