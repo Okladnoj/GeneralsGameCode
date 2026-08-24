@@ -180,15 +180,19 @@ Each line is `function.row`, `arguments`, `result bits`. Doubles print as 16 hex
 digits, floats as 8. The argument column is padded to a fixed width but never
 truncated, so a long argument list simply pushes the result column right.
 
-`compare_math.sh` takes the macOS dump as the baseline, compares every other
-`math-*.txt` against it and writes `math-diff.txt` with the differing lines and a
-legend:
+`compare_math.sh` takes the macOS dump as the baseline and compares every other
+`math-*.txt` against it:
 
 ```
 sh compare_math.sh
 ```
 
-It picks up whatever dumps are present, so adding a configuration needs no
+It writes two files. `math-diff.txt` holds a legend and, per comparison, a
+breakdown by row kind followed by the differing lines. `math-summary.txt` holds a
+single table with the row kinds down the side and every compared configuration
+across the top, for reading the modes against each other at a glance.
+
+Both pick up whatever dumps are present, so adding a configuration needs no
 change to the script.
 
 ## Inputs
