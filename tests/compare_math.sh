@@ -42,6 +42,52 @@ pair_up() {
     printf 'differing lines: %s\n\n' "$count"
 
     if [ "$count" -gt 0 ]; then
+        d=$(mktemp)
+        diff "$a" "$b" | grep '^<' | sed 's/^< //' > "$d"
+
+        AWK_COMMON='
+            function sfx(name,   i) {
+                i = index(name, ".")
+                return (i ? substr(name, i + 1) : "")
+            }
+            function grp(s) {
+                if (s == "f2d")                return "float -> double"
+                if (s ~ /2f$/)                 return "double -> float"
+                if (s == "f" || s ~ /\.f$/)    return "plain float"
+                return "through double"
+            }
+            NR == FNR { s = sfx($1); if (s != "") { dif[s]++ } next }
+            { s = sfx($1); if (s != "") { tot[s]++ } }
+        '
+
+        printf '%-18s %9s %9s\n' "group" "differing" "of total"
+        printf '%-18s %9s %9s\n' "------------------" "---------" "--------"
+        awk "$AWK_COMMON"'
+            END {
+                order[1] = "through double"; order[2] = "float -> double"
+                order[3] = "double -> float"; order[4] = "plain float"
+                for (s in tot) { g = grp(s); tg[g] += tot[s]; dg[g] += dif[s] + 0 }
+                for (i = 1; i <= 4; i++)
+                    if (tg[order[i]] > 0)
+                        printf "%-18s %9d %9d\n", order[i], dg[order[i]] + 0, tg[order[i]]
+            }
+        ' "$d" "$a"
+
+        printf '\n%-18s %9s %9s\n' "row" "differing" "of total"
+        printf '%-18s %9s %9s\n' "------------------" "---------" "--------"
+        awk "$AWK_COMMON"'
+            END {
+                for (s in tot)
+                    if (dif[s] > 0)
+                        printf "%-18s %9d %9d\n", "." s, dif[s], tot[s]
+            }
+        ' "$d" "$a" | sort -k2,2nr -k1,1
+
+        rm -f "$d"
+        printf '\n'
+    fi
+
+    if [ "$count" -gt 0 ]; then
         printf '%-20s %-46s %-18s %s\n' "row" "arguments" "macOS" "$label"
         printf '%-20s %-46s %-18s %s\n' \
             "--------------------" \

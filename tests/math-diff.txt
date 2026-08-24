@@ -1,5 +1,5 @@
 GameMath cross-platform comparison
-generated 2026-08-24 22:08 UTC
+generated 2026-08-24 22:12 UTC
 baseline math-mac-arm64-clang.txt
 
 Each function is called on the same value several ways. The suffix on
@@ -46,6 +46,29 @@ differing lines: 0
 
 ================ mac-arm64-clang vs win-x86-precise-PC24 ================
 differing lines: 338
+
+group              differing  of total
+------------------ ---------  --------
+through double           312      1194
+float -> double           11       258
+double -> float           15       420
+plain float                0      1032
+
+row                differing  of total
+------------------ ---------  --------
+.mad.d                    94       258
+.mul.d                    76       258
+.inv.d                    59       258
+.d                        51       204
+.d2f                      12       204
+.f2d                      11       258
+.dd                        8        54
+.df                        8        54
+.fd                        8        54
+.ff                        8        54
+.dd2f                      1        54
+.df2f                      1        54
+.ff2f                      1        54
 
 row                  arguments                                      macOS              win-x86-precise-PC24
 -------------------- ---------------------------------------------- ------------------ ------------------
@@ -391,6 +414,21 @@ y0.mad.d             100.5                                          3FBD337268C0
 ================ mac-arm64-clang vs win-x86-precise-PC53 ================
 differing lines: 22
 
+group              differing  of total
+------------------ ---------  --------
+through double             0      1194
+float -> double           16       258
+double -> float            0       420
+plain float                6      1032
+
+row                differing  of total
+------------------ ---------  --------
+.f2d                      16       258
+.mad.f                     2       258
+.mul.f                     2       258
+.f                         1       258
+.inv.f                     1       258
+
 row                  arguments                                      macOS              win-x86-precise-PC53
 -------------------- ---------------------------------------------- ------------------ ------------------
 atan.f2d             0.00012300000000000001                         3F201F3200000000   3F201F31FEA2CEEB
@@ -418,6 +456,29 @@ erfc.mad.f           0.90000000000000002                            3FF15602    
 
 ================ mac-arm64-clang vs win-x86-strict-PC24 ================
 differing lines: 338
+
+group              differing  of total
+------------------ ---------  --------
+through double           312      1194
+float -> double           11       258
+double -> float           15       420
+plain float                0      1032
+
+row                differing  of total
+------------------ ---------  --------
+.mad.d                    94       258
+.mul.d                    76       258
+.inv.d                    59       258
+.d                        51       204
+.d2f                      12       204
+.f2d                      11       258
+.dd                        8        54
+.df                        8        54
+.fd                        8        54
+.ff                        8        54
+.dd2f                      1        54
+.df2f                      1        54
+.ff2f                      1        54
 
 row                  arguments                                      macOS              win-x86-strict-PC24
 -------------------- ---------------------------------------------- ------------------ ------------------
@@ -762,6 +823,21 @@ y0.mad.d             100.5                                          3FBD337268C0
 
 ================ mac-arm64-clang vs win-x86-strict-PC53 ================
 differing lines: 22
+
+group              differing  of total
+------------------ ---------  --------
+through double             0      1194
+float -> double           16       258
+double -> float            0       420
+plain float                6      1032
+
+row                differing  of total
+------------------ ---------  --------
+.f2d                      16       258
+.mad.f                     2       258
+.mul.f                     2       258
+.f                         1       258
+.inv.f                     1       258
 
 row                  arguments                                      macOS              win-x86-strict-PC53
 -------------------- ---------------------------------------------- ------------------ ------------------
