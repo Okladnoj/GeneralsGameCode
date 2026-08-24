@@ -1,4 +1,4 @@
-================ win-x86-precise, _PC_53 ================
+================ win-x86-strict, _PC_53 ================
 ---- trigonometric ----
 sin.d                0.5                                            3FDEAEE8744B05F0
 sin.f                0.5                                            3EF57744
