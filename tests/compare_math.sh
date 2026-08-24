@@ -90,6 +90,13 @@ pair_up() {
     printf '  .ff2f   (float)gm_f((double)(float)x, (double)(float)y)\n\n'
     printf 'The .f2d row is what the WWMath wrappers do, so it is the one that\n'
     printf 'matters for the game.\n\n'
+    printf 'Every function is also fed into a small expression, since a result that\n'
+    printf 'is merely stored may be rounded correctly while the same result kept in\n'
+    printf 'a register and used in arithmetic is not. r1, r2 and r3 are the function\n'
+    printf 'applied to three consecutive inputs, in float and in double:\n\n'
+    printf '  .mul.d  .mul.f   r1 * r2\n'
+    printf '  .inv.d  .inv.f   1 / r1\n'
+    printf '  .mad.d  .mad.f   r1 * r2 + r3\n\n'
 
     for f in $OTHERS; do
         pair_up "$f"
