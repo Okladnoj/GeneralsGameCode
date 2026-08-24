@@ -80,7 +80,7 @@ verify_game_math_strict.exe
 ```
 
 win64, from an x64 Developer Command Prompt. This needs a 64-bit build of
-GameMath; x64 has no x87 precision control, so it runs once:
+GameMath. `/fp` still matters here, so build it both ways:
 
 ```
 cl /O2 /fp:precise tests\verify_game_math.c ^
@@ -88,7 +88,19 @@ cl /O2 /fp:precise tests\verify_game_math.c ^
    build\win64\_deps\gamemath-build\Release\gm.lib ^
    /Fe:verify_game_math64.exe
 verify_game_math64.exe
+
+cl /O2 /fp:strict tests\verify_game_math.c ^
+   /I build\win64\_deps\gamemath-src\include ^
+   build\win64\_deps\gamemath-build\Release\gm.lib ^
+   /Fe:verify_game_math64_strict.exe
+verify_game_math64_strict.exe
 ```
+
+There is no `_PC_24` / `_PC_53` pair on x64. The precision control belongs to the
+x87 unit, which 64-bit code does not use for floating point, and MSVC does not
+accept those values there. SSE2 has no equivalent knob: every operation is
+computed at the precision it was declared with. So an x64 build produces one
+file per `/fp` model instead of two.
 
 If `gm.lib` is somewhere else:
 
@@ -109,6 +121,7 @@ Files are written to the working directory and named
 | `math-win-x86-strict-PC24.txt` | win32 x86, `/fp:strict`, `_PC_24` |
 | `math-win-x86-strict-PC53.txt` | win32 x86, `/fp:strict`, `_PC_53` |
 | `math-win-x64-precise.txt` | win64, `/fp:precise` |
+| `math-win-x64-strict.txt` | win64, `/fp:strict` |
 
 Each line is `function.row`, `arguments`, `result bits`. Doubles print as 16 hex
 digits, floats as 8. The argument column is padded to a fixed width but never
