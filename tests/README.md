@@ -46,6 +46,10 @@ to `_PC_24` and once with `_PC_53`, since the 32-bit game build sets `_PC_24` in
 
 ## Build and run
 
+Each build names its own output after the platform, the architecture, the `/fp`
+model and, on 32-bit x86, the x87 precision control. Several configurations can
+therefore be dumped side by side without overwriting each other.
+
 macOS:
 
 ```
@@ -55,7 +59,7 @@ cc -O2 -ffp-contract=off tests/verify_game_math.c \
 ./verify_game_math
 ```
 
-win32 x86, from a Developer Command Prompt:
+win32 x86, from an x86 Developer Command Prompt:
 
 ```
 cl /O2 /fp:precise tests\verify_game_math.c ^
@@ -63,6 +67,27 @@ cl /O2 /fp:precise tests\verify_game_math.c ^
    build\win32\_deps\gamemath-build\Release\gm.lib ^
    /Fe:verify_game_math.exe
 verify_game_math.exe
+```
+
+Same thing with strict floating point — only the flag and the output name change:
+
+```
+cl /O2 /fp:strict tests\verify_game_math.c ^
+   /I build\win32\_deps\gamemath-src\include ^
+   build\win32\_deps\gamemath-build\Release\gm.lib ^
+   /Fe:verify_game_math_strict.exe
+verify_game_math_strict.exe
+```
+
+win64, from an x64 Developer Command Prompt. This needs a 64-bit build of
+GameMath; x64 has no x87 precision control, so it runs once:
+
+```
+cl /O2 /fp:precise tests\verify_game_math.c ^
+   /I build\win64\_deps\gamemath-src\include ^
+   build\win64\_deps\gamemath-build\Release\gm.lib ^
+   /Fe:verify_game_math64.exe
+verify_game_math64.exe
 ```
 
 If `gm.lib` is somewhere else:
@@ -73,23 +98,32 @@ dir /s /b build\win32\_deps\gamemath-build\*.lib
 
 ## Output
 
-Files are written to the working directory:
+Files are written to the working directory and named
+`math-<platform>-<arch>-<fp model>[-PC24|-PC53].txt`:
 
 | File | Produced on |
 | :--- | :--- |
-| `math-mac.txt` | macOS ARM64 |
-| `math-win-PC24.txt` | win32 x86 under `_PC_24` |
-| `math-win-PC53.txt` | win32 x86 under `_PC_53` |
+| `math-mac-arm64-clang.txt` | macOS ARM64 |
+| `math-win-x86-precise-PC24.txt` | win32 x86, `/fp:precise`, `_PC_24` |
+| `math-win-x86-precise-PC53.txt` | win32 x86, `/fp:precise`, `_PC_53` |
+| `math-win-x86-strict-PC24.txt` | win32 x86, `/fp:strict`, `_PC_24` |
+| `math-win-x86-strict-PC53.txt` | win32 x86, `/fp:strict`, `_PC_53` |
+| `math-win-x64-precise.txt` | win64, `/fp:precise` |
 
 Each line is `function.row`, `arguments`, `result bits`. Doubles print as 16 hex
 digits, floats as 8. The argument column is padded to a fixed width but never
 truncated, so a long argument list simply pushes the result column right.
 
-Compare with a plain diff. Windows writes CRLF, so normalise first:
+`compare_math.sh` takes the macOS dump as the baseline, compares every other
+`math-*.txt` against it and writes `math-diff.txt` with the differing lines and a
+legend:
 
 ```
-diff <(tr -d '\r' < math-mac.txt) <(tr -d '\r' < math-win-PC24.txt)
+sh compare_math.sh
 ```
+
+It picks up whatever dumps are present, so adding a configuration needs no
+change to the script.
 
 ## Inputs
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Compares the macOS dump against the two win32 dumps and writes math-diff.txt.
+# Compares every math-*.txt dump against the macOS one and writes math-diff.txt.
 #
 # Run it from the directory holding the dumps:
 #   sh compare_math.sh
@@ -9,42 +9,45 @@
 
 set -e
 
-MAC=math-mac.txt
-P24=math-win-PC24.txt
-P53=math-win-PC53.txt
 OUT=math-diff.txt
 
-for f in "$MAC" "$P24" "$P53"; do
-    if [ ! -f "$f" ]; then
-        echo "missing $f" >&2
-        exit 1
-    fi
-done
+BASE=$(ls math-mac-*.txt 2>/dev/null | head -1)
+if [ -z "$BASE" ]; then
+    echo "no macOS dump found (math-mac-*.txt)" >&2
+    exit 1
+fi
+
+OTHERS=$(ls math-*.txt 2>/dev/null | grep -v "^$BASE$" | grep -v "^$OUT$" || true)
+if [ -z "$OTHERS" ]; then
+    echo "nothing to compare against $BASE" >&2
+    exit 1
+fi
 
 norm() {
     tr -d '\r' < "$1" | grep -v '^================'
 }
 
+# $1 other file
 pair_up() {
-    # $1 mac file, $2 win file, $3 label for the win column
     a=$(mktemp)
     b=$(mktemp)
-    norm "$1" > "$a"
-    norm "$2" > "$b"
+    norm "$BASE" > "$a"
+    norm "$1" > "$b"
 
+    label=$(printf '%s' "$1" | sed -E 's/^math-//; s/\.txt$//')
     count=$(diff "$a" "$b" | grep -c '^<' || true)
 
-    printf '================ macOS vs %s ================\n' "$3"
+    printf '================ %s vs %s ================\n' \
+        "$(printf '%s' "$BASE" | sed -E 's/^math-//; s/\.txt$//')" "$label"
     printf 'differing lines: %s\n\n' "$count"
 
     if [ "$count" -gt 0 ]; then
-        printf '%-20s %-46s %-18s %s\n' "row" "arguments" "macOS" "$3"
+        printf '%-20s %-46s %-18s %s\n' "row" "arguments" "macOS" "$label"
         printf '%-20s %-46s %-18s %s\n' \
             "--------------------" \
             "----------------------------------------------" \
             "------------------" "------------------"
 
-        # Walk both files in step and print only the lines that differ.
         paste "$a" "$b" | while IFS="$(printf '\t')" read -r l r; do
             [ "$l" = "$r" ] && continue
             case "$l" in
@@ -64,7 +67,8 @@ pair_up() {
 
 {
     printf 'GameMath cross-platform comparison\n'
-    printf 'generated %s\n\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
+    printf 'generated %s\n' "$(date -u '+%Y-%m-%d %H:%M UTC')"
+    printf 'baseline %s\n\n' "$BASE"
 
     printf 'Each function is called on the same value several ways. The suffix on\n'
     printf 'the row name says which way, so a difference can be traced to the\n'
@@ -87,9 +91,10 @@ pair_up() {
     printf 'The .f2d row is what the WWMath wrappers do, so it is the one that\n'
     printf 'matters for the game.\n\n'
 
-    pair_up "$MAC" "$P24" "win32 _PC_24"
-    pair_up "$MAC" "$P53" "win32 _PC_53"
+    for f in $OTHERS; do
+        pair_up "$f"
+    done
 } > "$OUT"
 
 echo "wrote $OUT"
-grep '^differing lines' "$OUT"
+grep -E '^(=====|differing lines)' "$OUT" | sed 's/^/  /'

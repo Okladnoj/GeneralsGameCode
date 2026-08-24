@@ -1,4 +1,4 @@
-================ macOS ARM64 ================
+================ mac-arm64-clang ================
 ---- trigonometric ----
 sin.d                0.5                                            3FDEAEE8744B05F0
 sin.f                0.5                                            3EF57744

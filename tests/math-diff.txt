@@ -1,5 +1,6 @@
 GameMath cross-platform comparison
-generated 2026-08-21 19:18 UTC
+generated 2026-08-24 21:28 UTC
+baseline math-mac-arm64-clang.txt
 
 Each function is called on the same value several ways. The suffix on
 the row name says which way, so a difference can be traced to the
@@ -26,10 +27,10 @@ and each combination is recorded both ways round:
 The .f2d row is what the WWMath wrappers do, so it is the one that
 matters for the game.
 
-================ macOS vs win32 _PC_24 ================
+================ mac-arm64-clang vs win-x86-precise-PC24 ================
 differing lines: 109
 
-row                  arguments                                      macOS              win32 _PC_24
+row                  arguments                                      macOS              win-x86-precise-PC24
 -------------------- ---------------------------------------------- ------------------ ------------------
 asin.d               -0.90000000000000002                           BFF1EA93705FA172   BFF1EA936F74B57D
 asin.d2f             -0.90000000000000002                           BF8F549C           BF8F549B
@@ -141,10 +142,10 @@ y0.d                 2.7000000000000002                             3FDD78E3E0BE
 y0.d                 187.66                                         BFADC85687B75072   BFADC85680000000
 y0.d                 100.5                                          BFADBA3383291BF7   BFADBA3380000000
 
-================ macOS vs win32 _PC_53 ================
+================ mac-arm64-clang vs win-x86-precise-PC53 ================
 differing lines: 17
 
-row                  arguments                                      macOS              win32 _PC_53
+row                  arguments                                      macOS              win-x86-precise-PC53
 -------------------- ---------------------------------------------- ------------------ ------------------
 atan.f2d             0.00012300000000000001                         3F201F3200000000   3F201F31FEA2CEEB
 atan2.f2d            187.66, -59.130000000000003                    3FFE044280000000   3FFE044288885A40

@@ -213,24 +213,59 @@ static void run_all(void)
     MATRIX1(y0, v_pos);
 }
 
+/* ---------- what we are running on ----------
+ *
+ * The file name carries the configuration, so several builds can drop their
+ * dumps side by side without overwriting each other.
+ */
+
+#if defined(_M_IX86) || defined(__i386__)
+#define ARCH_TAG "x86"
+#elif defined(_M_X64) || defined(_M_AMD64) || defined(__x86_64__)
+#define ARCH_TAG "x64"
+#elif defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__)
+#define ARCH_TAG "arm64"
+#else
+#define ARCH_TAG "unknown"
+#endif
+
+#ifdef _WIN32
+#if defined(_M_FP_STRICT)
+#define FP_TAG "strict"
+#elif defined(_M_FP_FAST)
+#define FP_TAG "fast"
+#elif defined(_M_FP_PRECISE)
+#define FP_TAG "precise"
+#else
+#define FP_TAG "fpdefault"
+#endif
+#define PLAT_TAG "win"
+#else
+#define FP_TAG "clang"
+#define PLAT_TAG "mac"
+#endif
+
+#define BASE_TAG PLAT_TAG "-" ARCH_TAG "-" FP_TAG
+
 int main(void)
 {
-#ifdef _WIN32
+    /* x87 precision control only exists on 32-bit x86. */
+#if defined(_WIN32) && (defined(_M_IX86) || defined(__i386__))
     unsigned int cw;
 
-    if (open_out("math-win-PC24.txt", "win32 x86, _PC_24")) {
+    if (open_out("math-" BASE_TAG "-PC24.txt", BASE_TAG ", _PC_24")) {
         _controlfp_s(&cw, _PC_24, _MCW_PC);
         run_all();
         fclose(g_out);
     }
 
-    if (open_out("math-win-PC53.txt", "win32 x86, _PC_53")) {
+    if (open_out("math-" BASE_TAG "-PC53.txt", BASE_TAG ", _PC_53")) {
         _controlfp_s(&cw, _PC_53, _MCW_PC);
         run_all();
         fclose(g_out);
     }
 #else
-    if (open_out("math-mac.txt", "macOS ARM64")) {
+    if (open_out("math-" BASE_TAG ".txt", BASE_TAG)) {
         run_all();
         fclose(g_out);
     }
