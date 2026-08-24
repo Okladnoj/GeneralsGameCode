@@ -59,10 +59,33 @@ cc -O2 -ffp-contract=off tests/verify_game_math.c \
 ./verify_game_math
 ```
 
-win32 x86, from an x86 Developer Command Prompt:
+Windows, from an ordinary shell — no Developer Command Prompt needed, the script
+finds the toolchain itself:
 
 ```
-cl /O2 /fp:precise tests\verify_game_math.c ^
+powershell -ExecutionPolicy Bypass -File tests\run_verify_game_math.ps1
+```
+
+That walks the whole matrix — x86 and x64, `/fp:precise` and `/fp:strict` — and
+writes all six dumps to `tests/`. Each build happens in its own temporary
+directory outside the repository and is deleted afterwards, so no object files,
+import libraries or executables are left behind. A configuration that fails to
+build does not stop the others; the failures are listed at the end and the
+script exits non-zero. `-Arch x86` or `-Fp precise` narrows the matrix.
+
+The 64-bit half needs a 64-bit GameMath, and nothing in the repository builds
+one: the game is x86 only and there is no x64 preset. The script therefore
+configures GameMath directly from the sources the 32-bit build tree already
+fetched, into `build\win64-gamemath`, with the same options `cmake/gamemath.cmake`
+uses and the same runtime library as the win32 tree, so the two libraries differ
+in architecture and nothing else. It is built once and reused; `-RebuildX64`
+forces it again.
+
+The same by hand, if the script is in the way. win32 x86, from an x86 Developer
+Command Prompt:
+
+```
+cl /O2 /fp:precise /MD tests\verify_game_math.c ^
    /I build\win32\_deps\gamemath-src\include ^
    build\win32\_deps\gamemath-build\Release\gm.lib ^
    /Fe:verify_game_math.exe
@@ -72,26 +95,41 @@ verify_game_math.exe
 Same thing with strict floating point — only the flag and the output name change:
 
 ```
-cl /O2 /fp:strict tests\verify_game_math.c ^
+cl /O2 /fp:strict /MD tests\verify_game_math.c ^
    /I build\win32\_deps\gamemath-src\include ^
    build\win32\_deps\gamemath-build\Release\gm.lib ^
    /Fe:verify_game_math_strict.exe
 verify_game_math_strict.exe
 ```
 
-win64, from an x64 Developer Command Prompt. This needs a 64-bit build of
-GameMath. `/fp` still matters here, so build it both ways:
+`/MD` is not optional: `gm.lib` is built against the dynamic CRT, and the `cl`
+default drags in the static one. The mix fails to link on `__imp__fesetround`
+and `__except_handler4_common`.
+
+win64, from an x64 Developer Command Prompt. Build GameMath for x64 first — the
+headers come from the existing 32-bit tree, only the library is architecture
+specific:
 
 ```
-cl /O2 /fp:precise tests\verify_game_math.c ^
-   /I build\win64\_deps\gamemath-src\include ^
-   build\win64\_deps\gamemath-build\Release\gm.lib ^
+cmake -S build\win32\_deps\gamemath-src -B build\win64-gamemath ^
+      -G "Ninja Multi-Config" -DGM_ENABLE_TESTS=OFF ^
+      -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+cmake --build build\win64-gamemath --config Release
+```
+
+Without Ninja, drop the `-G` and pass `-A x64` instead; either way the library
+lands in `build\win64-gamemath\Release\gm.lib`. Then, both ways round:
+
+```
+cl /O2 /fp:precise /MD tests\verify_game_math.c ^
+   /I build\win32\_deps\gamemath-src\include ^
+   build\win64-gamemath\Release\gm.lib ^
    /Fe:verify_game_math64.exe
 verify_game_math64.exe
 
-cl /O2 /fp:strict tests\verify_game_math.c ^
-   /I build\win64\_deps\gamemath-src\include ^
-   build\win64\_deps\gamemath-build\Release\gm.lib ^
+cl /O2 /fp:strict /MD tests\verify_game_math.c ^
+   /I build\win32\_deps\gamemath-src\include ^
+   build\win64-gamemath\Release\gm.lib ^
    /Fe:verify_game_math64_strict.exe
 verify_game_math64_strict.exe
 ```
@@ -105,7 +143,7 @@ file per `/fp` model instead of two.
 If `gm.lib` is somewhere else:
 
 ```
-dir /s /b build\win32\_deps\gamemath-build\*.lib
+dir /s /b build\*\_deps\gamemath-build\*.lib
 ```
 
 ## Output
