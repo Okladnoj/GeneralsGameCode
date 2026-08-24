@@ -108,6 +108,22 @@ static const double v_pair[][2] = {
             put_d(#base ".f2d", a, (double)gm_##base##f(xf));               \
             put_f(#base ".d2f", a, (float)gm_##base(x));                    \
         }                                                                   \
+        for (i = 0; i < NV; ++i) {                                          \
+            double d1 = gm_##base(set[i]);                                  \
+            double d2 = gm_##base(set[(i + 1) % NV]);                       \
+            double d3 = gm_##base(set[(i + 2) % NV]);                       \
+            float  s1 = gm_##base##f((float)set[i]);                        \
+            float  s2 = gm_##base##f((float)set[(i + 1) % NV]);             \
+            float  s3 = gm_##base##f((float)set[(i + 2) % NV]);             \
+            char a[48];                                                     \
+            snprintf(a, sizeof a, "%.17g", set[i]);                         \
+            put_d(#base ".mul.d", a, d1 * d2);                              \
+            put_f(#base ".mul.f", a, s1 * s2);                              \
+            put_d(#base ".inv.d", a, 1.0 / d1);                             \
+            put_f(#base ".inv.f", a, 1.0f / s1);                            \
+            put_d(#base ".mad.d", a, d1 * d2 + d3);                         \
+            put_f(#base ".mad.f", a, s1 * s2 + s3);                         \
+        }                                                                   \
     } while (0)
 
 /* ---------- two arguments ----------
@@ -148,6 +164,27 @@ static const double v_pair[][2] = {
             put_f(#base ".ff2f", a, (float)gm_##base(xd, yd));              \
             put_f(#base ".f",    a, gm_##base##f(xf, yf));                  \
             put_d(#base ".f2d",  a, (double)gm_##base##f(xf, yf));          \
+        }                                                                   \
+        for (i = 0; i < NV; ++i) {                                          \
+            int j = (i + 1) % NV, k = (i + 2) % NV;                         \
+            double d1 = gm_##base(v_pair[i][0], v_pair[i][1]);              \
+            double d2 = gm_##base(v_pair[j][0], v_pair[j][1]);              \
+            double d3 = gm_##base(v_pair[k][0], v_pair[k][1]);              \
+            float  s1 = gm_##base##f((float)v_pair[i][0],                   \
+                                     (float)v_pair[i][1]);                  \
+            float  s2 = gm_##base##f((float)v_pair[j][0],                   \
+                                     (float)v_pair[j][1]);                  \
+            float  s3 = gm_##base##f((float)v_pair[k][0],                   \
+                                     (float)v_pair[k][1]);                  \
+            char a[64];                                                     \
+            snprintf(a, sizeof a, "%.17g, %.17g",                           \
+                     v_pair[i][0], v_pair[i][1]);                           \
+            put_d(#base ".mul.d", a, d1 * d2);                              \
+            put_f(#base ".mul.f", a, s1 * s2);                              \
+            put_d(#base ".inv.d", a, 1.0 / d1);                             \
+            put_f(#base ".inv.f", a, 1.0f / s1);                            \
+            put_d(#base ".mad.d", a, d1 * d2 + d3);                         \
+            put_f(#base ".mad.f", a, s1 * s2 + s3);                         \
         }                                                                   \
     } while (0)
 

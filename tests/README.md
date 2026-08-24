@@ -40,6 +40,21 @@ These rows are not interchangeable even on a single platform. On macOS ARM64,
 `atan2(187.66, -59.13)` gives four different doubles depending on which argument
 went through a float, and `.f` and `.d2f` differ by one ULP.
 
+Every function is also fed into a small expression, because a result that is
+merely stored may be rounded correctly while the same result kept in a register
+and used in arithmetic is not. `r1`, `r2` and `r3` are the function applied to
+three consecutive inputs, in float and in double:
+
+| Row | Meaning |
+| :--- | :--- |
+| `.mul.d` / `.mul.f` | `r1 * r2` |
+| `.inv.d` / `.inv.f` | `1 / r1` |
+| `.mad.d` / `.mad.f` | `r1 * r2 + r3` |
+
+The `.mad` rows are the interesting ones: a three term expression gives the
+compiler the most room to keep an intermediate at a wider precision than the
+type asks for.
+
 On Windows the whole matrix runs twice, once with the x87 precision control set
 to `_PC_24` and once with `_PC_53`, since the 32-bit game build sets `_PC_24` in
 `setFPMode()`. On macOS there is no x87 precision control, so it runs once.
