@@ -301,6 +301,27 @@ members of a pair are present — `_PC_24` against `_PC_53` function by function
 This is the step where implementations are compared, and the only step where
 milliseconds appear.
 
+It also carries the superposition matrix: every call in the profile costed
+three ways — through the double entry point, through the float one, and as the
+game reaches them today — against every architecture, `/fp` model and precision
+control that was measured.
+
+**The grid is measured in full, and not every branch of it is usable.** On
+32-bit x86 the argument type and the x87 precision control are not free of one
+another. x87 works in 80-bit registers, and the precision control decides how
+many mantissa bits each result is rounded to; to match a platform that computes
+float in real float — SSE2 on x64, ARM on macOS — it has to round to 24 bits,
+and for double to 53. A float route under `_PC_53` keeps intermediates wider
+than the type asks for, a double route under `_PC_24` cuts them shorter, and
+either way the CRC parts company with the other platforms. x64 and macOS have no
+such control: every operation is computed at the precision it was declared with,
+so every route there is sound.
+
+The timings of the unusable combinations are real and are reported — they say
+what the hardware does — but they are not options for the math of the game. Each
+cell carries `ok`, `no det`, or `partial` for the mixed route, which calls both
+entry points and is therefore wrong for one of them whichever setting is chosen.
+
 Two limits are worth keeping in mind. The profile was measured on macOS ARM64,
 so applying it to a Windows build assumes the game issues the same calls there.
 And multiplying counts by microbenchmark nanoseconds is an upper bound: the

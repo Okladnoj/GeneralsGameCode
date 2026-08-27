@@ -60,6 +60,14 @@ done
     printf 'This is an upper bound. The benchmark calls each function in a tight\n'
     printf 'loop with a hot cache and a predicted branch.\n\n'
 
+    printf 'THE GRID IS MEASURED IN FULL, NOT EVERY BRANCH OF IT IS USABLE. On\n'
+    printf '32-bit x86 the argument type and the x87 precision control have to\n'
+    printf 'agree - float with _PC_24, double with _PC_53 - or the results stop\n'
+    printf 'matching the other platforms and the CRC parts company with them. The\n'
+    printf 'timings of the other combinations are real and are reported, but they\n'
+    printf 'are not options for the math of the game. Each cell of the matrix\n'
+    printf 'below carries its own verdict.\n\n'
+
     awk -v prof="$WORK/profile" '
         function colkey(c,   pc) {
             pc = (c ~ /PC24/) ? "1" : (c ~ /PC53/) ? "2" : "0"
@@ -72,6 +80,12 @@ done
         }
         function ns_of(c, f) {
             return (bcol[f] == "d") ? gmd[c, brow[f]] : gmf[c, brow[f]]
+        }
+        # The same call routed through the other entry point. gm_sqrtf and
+        # gm_sqrt both become sqrt.d under "all double" and sqrt.f under
+        # "all float"; the call counts never change, only the way in.
+        function ns_as(c, f, want) {
+            return (want == "d") ? gmd[c, brow[f]] : gmf[c, brow[f]]
         }
         function sysns_of(c, f) {
             return (bcol[f] == "d") ? sysd[c, brow[f]] : sysf[c, brow[f]]
@@ -166,6 +180,79 @@ done
                 line = sprintf("%-12s %-8s", f, brow[f] "." bcol[f])
                 for (c = 1; c <= nc; c++) line = line sprintf(" %16.1f", ns_of(cfg[c], f))
                 print line sprintf(" %10.1f", sysns_of(cfg[1], f))
+            }
+
+            # ---- the superposition matrix ----
+            #
+            # Every call in the profile costed three ways: through the double
+            # entry point, through the float one, and as the game reaches them
+            # today. Across every architecture and precision control that was
+            # measured, this is the grid the choice is made from.
+
+            for (p = 1; p <= np; p++) {
+                printf "\n---- superposition matrix, %s profile (%d frames) ----\n\n",
+                       pname[p], pframes[p]
+
+                print "ms per logic frame. Same calls, same counts, different way in."
+                print ""
+                print "NOT EVERY CELL MAY BE USED. The grid is measured in full, but the"
+                print "argument type and the x87 precision control are not free of one"
+                print "another, and a cell where they disagree cannot carry the math of"
+                print "the game: the CRC would part company with the other platforms."
+                print ""
+                print "x87 works in 80 bit registers and the precision control decides how"
+                print "many mantissa bits each result is rounded to. To match a platform"
+                print "that computes float in real float - SSE2 on x64, ARM on macOS - the"
+                print "x87 has to round to 24 bits. For double it has to round to 53. A"
+                print "float route under _PC_53 keeps intermediates wider than the type"
+                print "asks for; a double route under _PC_24 cuts them shorter. Either way"
+                print "the bits diverge."
+                print ""
+                print "  ok       type and precision control agree, deterministic"
+                print "  no det   they disagree, results will not match other platforms"
+                print "  partial  the mixed route calls both entry points, so whichever"
+                print "           setting is chosen it is wrong for the other type"
+                print ""
+                print "x64 and macOS have no x87 precision control at all: every operation"
+                print "is computed at the precision it was declared with, so every route"
+                print "there is sound."
+                print ""
+
+                printf "%-22s  %15s  %15s  %15s  %s\n",
+                       "configuration", "as the game", "all double", "all float",
+                       "fastest valid"
+                printf "%-22s  %15s  %15s  %15s  %s\n",
+                       bar(22, "-"), bar(15, "-"), bar(15, "-"), bar(15, "-"),
+                       bar(13, "-")
+
+                for (c = 1; c <= nc; c++) {
+                    pc = ""
+                    if (cfg[c] ~ /PC24/) pc = "24"
+                    if (cfg[c] ~ /PC53/) pc = "53"
+
+                    mix = 0; alld = 0; allf = 0
+                    for (i = 1; i <= nf; i++) {
+                        rate = calls[fn[i], p] / pframes[p]
+                        mix  += rate * ns_of(cfg[c], fn[i]) / 1e6
+                        alld += rate * ns_as(cfg[c], fn[i], "d") / 1e6
+                        allf += rate * ns_as(cfg[c], fn[i], "f") / 1e6
+                    }
+
+                    fm = "ok"; fd = "ok"; ff = "ok"
+                    if (pc != "") {
+                        fm = "partial"
+                        if (pc != "53") fd = "no det"
+                        if (pc != "24") ff = "no det"
+                    }
+
+                    best = "none"; low = 0
+                    if (fm == "ok")              { best = "as the game"; low = mix }
+                    if (fd == "ok" && (best == "none" || alld < low)) { best = "all double"; low = alld }
+                    if (ff == "ok" && (best == "none" || allf < low)) { best = "all float";  low = allf }
+
+                    printf "%-22s  %8.4f %6s  %8.4f %6s  %8.4f %6s  %s\n",
+                           cfg[c], mix, fm, alld, fd, allf, ff, best
+                }
             }
 
             # ---- ms per frame, one block per profile ----
