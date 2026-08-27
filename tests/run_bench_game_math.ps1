@@ -316,6 +316,14 @@ try {
             $proc = Start-Process -FilePath $exe -ArgumentList $modeOrder `
                         -WorkingDirectory $cfgDir -NoNewWindow -PassThru `
                         -RedirectStandardOutput $runLog
+
+            # Reading Handle caches it. Without that ExitCode comes back empty
+            # once the process is gone, every run is taken for a failure and
+            # its results are thrown away with the work directory. -Wait would
+            # cache it too, but the priority has to be raised while the process
+            # is still running.
+            $null = $proc.Handle
+
             try { $proc.PriorityClass = 'High' } catch { }
             $proc.WaitForExit()
 
