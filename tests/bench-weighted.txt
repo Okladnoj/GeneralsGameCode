@@ -1,5 +1,5 @@
 GameMath cost per logic frame
-generated 2026-08-27 17:37 UTC
+generated 2026-08-27 17:39 UTC
 
 Nanoseconds per call from bench-*.txt, multiplied by calls per frame
 from callcounts-zh.txt:
@@ -89,21 +89,21 @@ x64 and macOS have no x87 precision control at all: every operation
 is computed at the precision it was declared with, so every route
 there is sound.
 
-configuration               as the game       all double        all float  fastest valid
-----------------------  ---------------  ---------------  ---------------  -------------
-mac-arm64-clang           0.6295     ok    1.1881     ok    0.5258     ok  all float
-x64-prec                  0.3413     ok    0.7762     ok    0.2920     ok  all float
-x64-prec-rev              0.3420     ok    0.7763     ok    0.2923     ok  all float
-x64-strict                0.3362     ok    0.7495     ok    0.2906     ok  all float
-x64-strict-rev            0.3377     ok    0.7420     ok    0.2935     ok  all float
-x86-prec-PC24             0.4198 partial    0.8074 no det    0.3791     ok  all float
-x86-prec-PC24-rev         0.4221 partial    0.8226 no det    0.3789     ok  all float
-x86-strict-PC24           0.3976 partial    0.7691 no det    0.3567     ok  all float
-x86-strict-PC24-rev       0.3938 partial    0.7730 no det    0.3510     ok  all float
-x86-prec-PC53             0.4150 partial    0.7990     ok    0.3751 no det  all double
-x86-prec-PC53-rev         0.4170 partial    0.8025     ok    0.3751 no det  all double
-x86-strict-PC53           0.3957 partial    0.7820     ok    0.3519 no det  all double
-x86-strict-PC53-rev       0.3952 partial    0.7822     ok    0.3515 no det  all double
+configuration                 as the game         all double          all float  fastest valid
+----------------------  -----------------  -----------------  -----------------  -------------
+mac-arm64-clang            0.6295 ok          1.1881 ok          0.5258 ok       all float
+x64-prec                   0.3413 ok          0.7762 ok          0.2920 ok       all float
+x64-prec-rev               0.3420 ok          0.7763 ok          0.2923 ok       all float
+x64-strict                 0.3362 ok          0.7495 ok          0.2906 ok       all float
+x64-strict-rev             0.3377 ok          0.7420 ok          0.2935 ok       all float
+x86-prec-PC24              0.4198 partial     0.8074 no det      0.3791 ok       all float
+x86-prec-PC24-rev          0.4221 partial     0.8226 no det      0.3789 ok       all float
+x86-strict-PC24            0.3976 partial     0.7691 no det      0.3567 ok       all float
+x86-strict-PC24-rev        0.3938 partial     0.7730 no det      0.3510 ok       all float
+x86-prec-PC53              0.4150 partial     0.7990 ok          0.3751 no det   all double
+x86-prec-PC53-rev          0.4170 partial     0.8025 ok          0.3751 no det   all double
+x86-strict-PC53            0.3957 partial     0.7820 ok          0.3519 no det   all double
+x86-strict-PC53-rev        0.3952 partial     0.7822 ok          0.3515 no det   all double
 
 ---- superposition matrix, battle69 profile (79200 frames) ----
 
@@ -131,21 +131,21 @@ x64 and macOS have no x87 precision control at all: every operation
 is computed at the precision it was declared with, so every route
 there is sound.
 
-configuration               as the game       all double        all float  fastest valid
-----------------------  ---------------  ---------------  ---------------  -------------
-mac-arm64-clang           0.6280     ok    1.1938     ok    0.5241     ok  all float
-x64-prec                  0.3403     ok    0.7764     ok    0.2910     ok  all float
-x64-prec-rev              0.3410     ok    0.7766     ok    0.2913     ok  all float
-x64-strict                0.3354     ok    0.7495     ok    0.2897     ok  all float
-x64-strict-rev            0.3367     ok    0.7421     ok    0.2924     ok  all float
-x86-prec-PC24             0.4168 partial    0.8064 no det    0.3761     ok  all float
-x86-prec-PC24-rev         0.4191 partial    0.8219 no det    0.3758     ok  all float
-x86-strict-PC24           0.3944 partial    0.7682 no det    0.3534     ok  all float
-x86-strict-PC24-rev       0.3905 partial    0.7721 no det    0.3476     ok  all float
-x86-prec-PC53             0.4120 partial    0.7979     ok    0.3719 no det  all double
-x86-prec-PC53-rev         0.4138 partial    0.8014     ok    0.3719 no det  all double
-x86-strict-PC53           0.3924 partial    0.7813     ok    0.3485 no det  all double
-x86-strict-PC53-rev       0.3918 partial    0.7814     ok    0.3480 no det  all double
+configuration                 as the game         all double          all float  fastest valid
+----------------------  -----------------  -----------------  -----------------  -------------
+mac-arm64-clang            0.6280 ok          1.1938 ok          0.5241 ok       all float
+x64-prec                   0.3403 ok          0.7764 ok          0.2910 ok       all float
+x64-prec-rev               0.3410 ok          0.7766 ok          0.2913 ok       all float
+x64-strict                 0.3354 ok          0.7495 ok          0.2897 ok       all float
+x64-strict-rev             0.3367 ok          0.7421 ok          0.2924 ok       all float
+x86-prec-PC24              0.4168 partial     0.8064 no det      0.3761 ok       all float
+x86-prec-PC24-rev          0.4191 partial     0.8219 no det      0.3758 ok       all float
+x86-strict-PC24            0.3944 partial     0.7682 no det      0.3534 ok       all float
+x86-strict-PC24-rev        0.3905 partial     0.7721 no det      0.3476 ok       all float
+x86-prec-PC53              0.4120 partial     0.7979 ok          0.3719 no det   all double
+x86-prec-PC53-rev          0.4138 partial     0.8014 ok          0.3719 no det   all double
+x86-strict-PC53            0.3924 partial     0.7813 ok          0.3485 no det   all double
+x86-strict-PC53-rev        0.3918 partial     0.7814 ok          0.3480 no det   all double
 
 ---- ms per logic frame, battle44 profile (72000 frames) ----
 

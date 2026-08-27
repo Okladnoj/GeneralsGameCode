@@ -218,11 +218,13 @@ done
                 print "there is sound."
                 print ""
 
-                printf "%-22s  %15s  %15s  %15s  %s\n",
+                # Each column is a value of nine and a verdict of seven, so the
+                # widest verdict, "partial", still fits and nothing shifts.
+                printf "%-22s  %17s  %17s  %17s  %s\n",
                        "configuration", "as the game", "all double", "all float",
                        "fastest valid"
-                printf "%-22s  %15s  %15s  %15s  %s\n",
-                       bar(22, "-"), bar(15, "-"), bar(15, "-"), bar(15, "-"),
+                printf "%-22s  %17s  %17s  %17s  %s\n",
+                       bar(22, "-"), bar(17, "-"), bar(17, "-"), bar(17, "-"),
                        bar(13, "-")
 
                 for (c = 1; c <= nc; c++) {
@@ -250,7 +252,7 @@ done
                     if (fd == "ok" && (best == "none" || alld < low)) { best = "all double"; low = alld }
                     if (ff == "ok" && (best == "none" || allf < low)) { best = "all float";  low = allf }
 
-                    printf "%-22s  %8.4f %6s  %8.4f %6s  %8.4f %6s  %s\n",
+                    printf "%-22s  %9.4f %-7s  %9.4f %-7s  %9.4f %-7s  %s\n",
                            cfg[c], mix, fm, alld, fd, allf, ff, best
                 }
             }
