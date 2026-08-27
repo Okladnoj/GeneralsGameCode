@@ -217,10 +217,12 @@ Windows, the whole matrix:
 powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1
 ```
 
-That defaults to x86 only, since that is what the game builds and the only place
-the x87 precision control exists, and runs both `/fp` models. `-Arch x86,x64`
-adds the 64-bit half. Builds happen in a temporary directory outside the
-repository and are deleted afterwards, exactly as with the cast matrix.
+That walks the whole matrix by default, x86 and x64 against both `/fp` models,
+the same way `run_verify_game_math.ps1` does. `-Arch x86` or `-Fp precise`
+narrows it. The 64-bit half is built from the sources the 32-bit tree already
+fetched, into `build\win64-gamemath`, and reused afterwards; `-RebuildX64`
+forces it again. Builds happen in a temporary directory outside the repository
+and are deleted afterwards, exactly as with the cast matrix.
 
 On 32-bit x86 the whole table runs twice in one process, once under `_PC_24` and
 once under `_PC_53`. Only two x87 instructions change speed with that setting,

@@ -1,5 +1,5 @@
 GameMath cost per logic frame
-generated 2026-08-27 14:17 UTC
+generated 2026-08-27 14:30 UTC
 
 Nanoseconds per call from bench-*.txt, multiplied by calls per frame
 from callcounts-zh.txt:

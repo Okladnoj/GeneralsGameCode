@@ -28,8 +28,11 @@
     rounds inside the program itself.
 
 .PARAMETER Arch
-    Architectures to run. Default: x86 only, which is what the game builds and
-    the only one where _PC_24 and _PC_53 exist. Pass x64 to add it.
+    Architectures to run. Default: both. x86 is what the game builds and the
+    only one where _PC_24 and _PC_53 exist; x64 is there because the question
+    is which combination of architecture, precision control and argument type
+    is quickest, and that needs every cell of the matrix. `-Arch x86` narrows
+    it.
 
 .PARAMETER Fp
     Floating point models to run. Default: both precise and strict.
@@ -78,7 +81,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('x86', 'x64')]
-    [string[]]$Arch = @('x86'),
+    [string[]]$Arch = @('x86', 'x64'),
 
     [ValidateSet('precise', 'strict')]
     [string[]]$Fp = @('precise', 'strict'),
