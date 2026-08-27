@@ -15,6 +15,9 @@
         x64, /fp:precise   ->  bench-win-x64-precise.txt
         x64, /fp:strict    ->  bench-win-x64-strict.txt
 
+    With -Reverse every name gains a -rev suffix, so the two measurement orders
+    do not overwrite one another.
+
     On 32-bit x86 each run walks both x87 precision control settings, since the
     game build sets _PC_24 in setFPMode() and the question is what that costs.
     There is no such pair on x64: the precision control belongs to the x87 unit,
@@ -34,7 +37,8 @@
 .PARAMETER Reverse
     Measure _PC_53 before _PC_24 instead of the other way round. A timing
     difference that survives both orders is not an artifact of the second run
-    starting on a warmer machine.
+    starting on a warmer machine. The results are written with a -rev suffix,
+    so both orders can sit side by side and be weighed as two configurations.
 
 .PARAMETER BuildDir
     CMake build tree holding the 32-bit GameMath dependency. Its
@@ -340,10 +344,21 @@ try {
             }
 
             foreach ($d in $results) {
-                $dest = Join-Path $OutDir $d.Name
+                # The program names its file after the configuration and knows
+                # nothing about the order it was asked to measure in, so both
+                # orders would land on the same name and the second run would
+                # quietly overwrite the first. Mark the reversed one here, as
+                # the file enters -OutDir; the program stays untouched, and the
+                # suffix sits behind the PC24 / PC53 part that weigh_bench.sh
+                # pairs on, so the two orders come out as two configurations
+                # rather than a broken pair.
+                if ($Reverse) { $name = $d.BaseName + '-rev' + $d.Extension }
+                else          { $name = $d.Name }
+
+                $dest = Join-Path $OutDir $name
                 Move-Item -LiteralPath $d.FullName -Destination $dest -Force
-                $produced.Add($d.Name)
-                Write-Host ("wrote {0} ({1:N0} bytes)" -f $d.Name, (Get-Item $dest).Length)
+                $produced.Add($name)
+                Write-Host ("wrote {0} ({1:N0} bytes)" -f $name, (Get-Item $dest).Length)
             }
 
             if ($KeepExe) {

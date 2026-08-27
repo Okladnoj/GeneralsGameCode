@@ -230,6 +230,13 @@ that survives both orders is not an artifact of the second run starting on a
 warmer machine. The program itself takes the order on the command line
 (`bench_game_math pc53 pc24`).
 
+The program names its file after the configuration and knows nothing about the
+order, so `-Reverse` adds a `-rev` suffix as the results are collected:
+`bench-win-x86-precise-PC24-rev.txt`. Both orders therefore sit side by side
+instead of overwriting each other, and since the suffix comes after the
+`PC24` / `PC53` part that `weigh_bench.sh` pairs on, the reversed run is weighed
+as its own configuration.
+
 Inputs are read through a `volatile` array. Without that the compiler folds the
 system calls at compile time, since it knows what `sin(0.5)` is, while the
 GameMath calls stay opaque and the comparison measures nothing.
