@@ -195,6 +195,109 @@ across the top, for reading the modes against each other at a glance.
 Both pick up whatever dumps are present, so adding a configuration needs no
 change to the script.
 
+## Speed
+
+`bench_game_math.c` times GameMath against the system math library, function by
+function, in float and in double. Same input sets, same call counts, best of
+three rounds. It names its output the same way the cast matrix does, so
+`bench-win-x86-precise-PC24.txt` sits next to `math-win-x86-precise-PC24.txt`.
+
+macOS:
+
+```
+cc -O2 -ffp-contract=off -Wno-macro-redefined tests/bench_game_math.c \
+   -I build/macos/_deps/gamemath-src/include \
+   build/macos/_deps/gamemath-build/libgm.a -lm -o bench_game_math
+./bench_game_math
+```
+
+Windows, the whole matrix:
+
+```
+powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1
+```
+
+That defaults to x86 only, since that is what the game builds and the only place
+the x87 precision control exists, and runs both `/fp` models. `-Arch x86,x64`
+adds the 64-bit half. Builds happen in a temporary directory outside the
+repository and are deleted afterwards, exactly as with the cast matrix.
+
+On 32-bit x86 the whole table runs twice in one process, once under `_PC_24` and
+once under `_PC_53`. Only two x87 instructions change speed with that setting,
+`fdiv` and `fsqrt`, so a difference is expected in the functions that divide or
+take roots and nowhere else. `-Reverse` measures `_PC_53` first; a difference
+that survives both orders is not an artifact of the second run starting on a
+warmer machine. The program itself takes the order on the command line
+(`bench_game_math pc53 pc24`).
+
+Inputs are read through a `volatile` array. Without that the compiler folds the
+system calls at compile time, since it knows what `sin(0.5)` is, while the
+GameMath calls stay opaque and the comparison measures nothing.
+
+`j0` and `y0` are not timed: macOS libm has no `j0f` or `y0f` to compare against.
+
+## Cost in the game
+
+Nanoseconds per call answer only half the question. What the game pays is that
+number times how often it makes the call, and the two do not line up: `gm_fabsf`
+is over half of all GameMath calls, `gm_sqrt` under four per cent of them.
+
+The two halves are kept strictly apart, and the order matters.
+
+**Step one, how often the game calls.** `callcounts-zh.txt` holds calls per
+logic frame per function, measured in Zero Hour with counters at the 52 sites
+that reach GameMath. `profile_from_counts.sh` builds it from a raw counter dump:
+
+```
+sh profile_from_counts.sh <dump>                       lists the sessions
+sh profile_from_counts.sh <dump> 3 289-1008 plateau    one window
+```
+
+Nothing in this step knows what a call costs, and the script never opens a
+benchmark file. A call count is a fact about the game; a nanosecond is a fact
+about one implementation on one machine. Mixing them means the profile can no
+longer be used to compare implementations, which is the only reason it exists.
+If a load window were picked by cost, swapping GameMath for libm — or `_PC_24`
+for `_PC_53` — would move the "peak" even though the game issued exactly the
+same calls. Windows are chosen by call volume and wall clock instead.
+
+The file carries two columns, one per recorded battle, so the spread between
+them stays visible instead of being averaged away. Each is that battle's
+plateau: the stretch where the call volume has risen and holds, containing its
+busiest minute — twenty minutes of a forty-four minute game, twenty-two of a
+sixty-nine minute one, both around 30 000 calls per logic frame. The estimate is
+read off the busier column; `weigh_bench.sh` marks it.
+
+The two agree closely on some functions and not at all on others: `gm_powf` and
+`gm_sqrt` land within a fraction of a per cent of each other across two
+independent battles, while `gm_cosf` differs by a quarter and `gm_floorf` by a
+factor of eight. That spread is the point of keeping both.
+
+The profile stores the counter readings themselves — whole calls, not a rate —
+alongside the frame count of the window. The coefficient is calls divided by
+frames, worked out where it is used, so nothing is lost on the way: `gm_ceil` is
+2 936 calls over 72 000 frames, and a rate rounded to one decimal would have
+filed that as zero.
+
+**Step two, what one call costs.** `weigh_bench.sh` multiplies the profile by
+every `bench-*.txt` present and writes `bench-weighted.txt`:
+
+```
+sh weigh_bench.sh
+```
+
+That file carries the calls per frame, the nanoseconds per call in each
+configuration, the resulting milliseconds per logic frame, and — where both
+members of a pair are present — `_PC_24` against `_PC_53` function by function.
+This is the step where implementations are compared, and the only step where
+milliseconds appear.
+
+Two limits are worth keeping in mind. The profile was measured on macOS ARM64,
+so applying it to a Windows build assumes the game issues the same calls there.
+And multiplying counts by microbenchmark nanoseconds is an upper bound: the
+benchmark calls each function in a tight loop with a hot cache and a predicted
+branch.
+
 ## Inputs
 
 Inputs are grouped by domain so that out-of-range calls do not fill the output

@@ -1,0 +1,106 @@
+GameMath cost per logic frame
+generated 2026-08-27 13:21 UTC
+
+Nanoseconds per call from bench-*.txt, multiplied by calls per frame
+from callcounts-zh.txt:
+
+  ms per frame = calls per frame * ns per call / 1e6
+
+The call profile is built without reference to any timing, so the same
+profile can be laid against any implementation. This file is the step
+where the two meet, and the only place milliseconds appear.
+
+Only the GameMath columns of the benchmark are used; the system libm
+ones are carried along for reference.
+
+This is an upper bound. The benchmark calls each function in a tight
+loop with a hot cache and a predicted branch.
+
+---- calls per logic frame ----
+
+gm function  bench      battle44 calls    per frame   battle69 calls    per frame
+------------ -------- ---------------- ------------ ---------------- ------------
+gm_fabsf     fabs.f         1186020421   16472.5058       1238681383   15639.9165
+gm_sqrtf     sqrt.f          436292215    6059.6141        485772191    6133.4873
+gm_powf      pow.f           169140216    2349.1697        186203226    2351.0508
+gm_sinf      sin.f           102467217    1423.1558        110783177    1398.7775
+gm_cosf      cos.f           100186351    1391.4771         82816853    1045.6673
+gm_sqrt      sqrt.d           84654401    1175.7556         93311750    1178.1787
+gm_atan2f    atan2.f          45575736     632.9963         58036763     732.7874
+gm_lrintf    rint.f           41720719     579.4544         49014184     618.8660
+gm_acosf     acos.f           11042349     153.3660         11417027     144.1544
+gm_floorf    floor.f            264263       3.6703          2450369      30.9390
+gm_asinf     asin.f             105158       1.4605            81143       1.0245
+gm_ceil      ceil.d               2936       0.0408             3974       0.0502
+gm_ceilf     ceil.f                  0       0.0000                0       0.0000
+gm_floor     floor.d                 0       0.0000                0       0.0000
+frames                           72000                         79200             
+
+---- nanoseconds per call ----
+
+gm function  bench     mac-arm64-clang   sys libm
+------------ -------- ---------------- ----------
+gm_fabsf     fabs.f                1.6        0.7
+gm_sqrtf     sqrt.f               38.2        0.5
+gm_powf      pow.f                68.4        2.6
+gm_sinf      sin.f                16.0        1.7
+gm_cosf      cos.f                14.2        2.0
+gm_sqrt      sqrt.d              126.4        0.6
+gm_atan2f    atan2.f              20.5        1.9
+gm_lrintf    rint.f                2.8        0.7
+gm_acosf     acos.f               33.4        1.8
+gm_floorf    floor.f               4.2        0.7
+gm_asinf     asin.f               39.6        1.6
+gm_ceil      ceil.d                4.8        0.7
+gm_ceilf     ceil.f                4.5        0.7
+gm_floor     floor.d               4.4        0.7
+
+---- ms per logic frame, battle44 profile (72000 frames) ----
+
+gm function  bench    calls/frame  mac-arm64-clang
+------------ -------- ----------- ----------------
+gm_fabsf     fabs.f    16472.5058           0.0264
+gm_sqrtf     sqrt.f     6059.6141           0.2315
+gm_powf      pow.f      2349.1697           0.1607
+gm_sinf      sin.f      1423.1558           0.0228
+gm_cosf      cos.f      1391.4771           0.0198
+gm_sqrt      sqrt.d     1175.7556           0.1486
+gm_atan2f    atan2.f     632.9963           0.0130
+gm_lrintf    rint.f      579.4544           0.0016
+gm_acosf     acos.f      153.3660           0.0051
+gm_floorf    floor.f       3.6703           0.0000
+gm_asinf     asin.f        1.4605           0.0001
+gm_ceil      ceil.d        0.0408           0.0000
+gm_ceilf     ceil.f        0.0000           0.0000
+gm_floor     floor.d       0.0000           0.0000
+------------ -------- ----------- ----------------
+TOTAL                                       0.6295
+% of 16.67 ms                                 3.78%
+
+---- ms per logic frame, battle69 profile (79200 frames) ----
+
+gm function  bench    calls/frame  mac-arm64-clang
+------------ -------- ----------- ----------------
+gm_fabsf     fabs.f    15639.9165           0.0250
+gm_sqrtf     sqrt.f     6133.4873           0.2343
+gm_powf      pow.f      2351.0508           0.1608
+gm_sinf      sin.f      1398.7775           0.0224
+gm_cosf      cos.f      1045.6673           0.0148
+gm_sqrt      sqrt.d     1178.1787           0.1489
+gm_atan2f    atan2.f     732.7874           0.0150
+gm_lrintf    rint.f      618.8660           0.0017
+gm_acosf     acos.f      144.1544           0.0048
+gm_floorf    floor.f      30.9390           0.0001
+gm_asinf     asin.f        1.0245           0.0000
+gm_ceil      ceil.d        0.0502           0.0000
+gm_ceilf     ceil.f        0.0000           0.0000
+gm_floor     floor.d       0.0000           0.0000
+------------ -------- ----------- ----------------
+TOTAL                                       0.6280
+% of 16.67 ms                                 3.77%
+
+---- _PC_24 against _PC_53 ----
+
+No PC24 / PC53 pair among the results. The precision control only
+exists on 32-bit x86; run the benchmark there to fill this in.
+
