@@ -90,6 +90,9 @@ done
         function sysns_of(c, f) {
             return (bcol[f] == "d") ? sysd[c, brow[f]] : sysf[c, brow[f]]
         }
+        function sysns_as(c, f, want) {
+            return (want == "d") ? sysd[c, brow[f]] : sysf[c, brow[f]]
+        }
 
         FILENAME == prof {
             if ($1 ~ /^#/ || NF == 0) next
@@ -254,6 +257,39 @@ done
 
                     printf "%-22s  %9.4f %-7s  %9.4f %-7s  %9.4f %-7s  %s\n",
                            cfg[c], mix, fm, alld, fd, allf, ff, best
+                }
+            }
+
+            # ---- GameMath against the platform library ----
+            #
+            # What the deterministic library costs over whatever the platform
+            # already ships. The system column is the same calls at the same
+            # counts, costed with the system entry points.
+
+            for (p = 1; p <= np; p++) {
+                printf "\n---- GameMath against the system library, %s profile ----\n\n",
+                       pname[p]
+                print "ms per logic frame, and what GameMath adds over the platform."
+                print ""
+                printf "%-22s  %19s  %19s\n", "", "as the game", "all float"
+                printf "%-22s  %8s %9s  %8s %9s\n",
+                       "configuration", "GameMath", "system", "GameMath", "system"
+                printf "%-22s  %8s %9s  %8s %9s\n",
+                       bar(22, "-"), bar(8, "-"), bar(9, "-"), bar(8, "-"), bar(9, "-")
+
+                for (c = 1; c <= nc; c++) {
+                    gmix = 0; smix = 0; gflt = 0; sflt = 0
+                    for (i = 1; i <= nf; i++) {
+                        rate = calls[fn[i], p] / pframes[p]
+                        gmix += rate * ns_of(cfg[c], fn[i]) / 1e6
+                        smix += rate * sysns_of(cfg[c], fn[i]) / 1e6
+                        gflt += rate * ns_as(cfg[c], fn[i], "f") / 1e6
+                        sflt += rate * sysns_as(cfg[c], fn[i], "f") / 1e6
+                    }
+                    printf "%-22s  %8.4f %9.4f  %8.4f %9.4f   x%.2f / x%.2f\n",
+                           cfg[c], gmix, smix, gflt, sflt,
+                           (smix > 0 ? gmix / smix : 0),
+                           (sflt > 0 ? gflt / sflt : 0)
                 }
             }
 
