@@ -202,14 +202,31 @@ function, in float and in double. Same input sets, same call counts, best of
 three rounds. It names its output the same way the cast matrix does, so
 `bench-win-x86-precise-PC24.txt` sits next to `math-win-x86-precise-PC24.txt`.
 
-macOS:
+macOS. **Check what the library was built as before timing anything.** The
+project's own tree is usually configured Debug, and an unoptimised GameMath reads
+about three times slower — `sqrt` double came out at 126 ns that way against 41 ns
+in Release, which is enough to make ARM look slower than x86 when it is not:
 
 ```
+grep CMAKE_BUILD_TYPE build/macos/CMakeCache.txt
+```
+
+If that says anything but Release, build the library separately for the
+measurement rather than timing against the Debug one:
+
+```
+cmake -S build/macos/_deps/gamemath-src -B /tmp/gm-release \
+      -DGM_ENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/gm-release -j
+
 cc -O2 -ffp-contract=off -Wno-macro-redefined tests/bench_game_math.c \
    -I build/macos/_deps/gamemath-src/include \
-   build/macos/_deps/gamemath-build/libgm.a -lm -o bench_game_math
+   /tmp/gm-release/libgm.a -lm -o bench_game_math
 ./bench_game_math
 ```
+
+The Windows script has no such trap: it links `Release/gm.lib` and takes the
+configuration through `-Config`.
 
 Windows, the whole matrix:
 
