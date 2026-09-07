@@ -65,13 +65,34 @@ Each build names its own output after the platform, the architecture, the `/fp`
 model and, on 32-bit x86, the x87 precision control. Several configurations can
 therefore be dumped side by side without overwriting each other.
 
-macOS:
+macOS and other Unix, from an ordinary shell:
+
+```
+sh tests/run_verify_game_math.sh
+```
+
+The script builds GameMath itself, cloning it into a work tree outside the
+repository at the revision `cmake/gamemath.cmake` pins, so no build tree of the
+game has to exist first. `--rev` or `--source` takes a different one and
+`--intrinsics off` builds the software paths instead. The dump replaces the one
+in `tests/`, and how many lines moved is printed before it does.
+
+The same by hand, against a library the game tree already built:
 
 ```
 cc -O2 -ffp-contract=off tests/verify_game_math.c \
    -I build/macos/_deps/gamemath-src/include \
    build/macos/_deps/gamemath-build/libgm.a -o verify_game_math
 ./verify_game_math
+```
+
+That library is whatever the game tree was configured with, which is not
+necessarily built with intrinsics — a cached `GM_ENABLE_INTRINSICS:BOOL=OFF`
+survives a change to `cmake/gamemath.cmake` and quietly measures the software
+paths instead:
+
+```
+grep GM_ENABLE_INTRINSICS build/macos/CMakeCache.txt
 ```
 
 Windows, from an ordinary shell — no Developer Command Prompt needed, the script
@@ -202,19 +223,39 @@ function, in float and in double. Same input sets, same call counts, best of
 three rounds. It names its output the same way the cast matrix does, so
 `bench-win-x86-precise-PC24.txt` sits next to `math-win-x86-precise-PC24.txt`.
 
-macOS. **Check what the library was built as before timing anything.** The
-project's own tree is usually configured Debug, and an unoptimised GameMath reads
-about three times slower — `sqrt` double came out at 126 ns that way against 41 ns
-in Release, which is enough to make ARM look slower than x86 when it is not:
+macOS and other Unix:
 
 ```
-grep CMAKE_BUILD_TYPE build/macos/CMakeCache.txt
+sh tests/run_bench_game_math.sh
 ```
 
-If that says anything but Release, build the library separately for the
-measurement rather than timing against the Debug one:
+It builds its own GameMath, Release unless `--config` says otherwise, and writes
+the machine, the compiler and the GameMath revision into the file it produces —
+a timing file that does not say what it was taken against is worth nothing a
+month later. Where a result file is already in the output folder, the rows that
+moved by more than three per cent are printed against it first.
+
+Two revisions are compared by measuring both in one sitting, into folders of
+their own so neither overwrites the other:
 
 ```
+sh tests/run_bench_game_math.sh --rev <old> --out /tmp/old
+sh tests/run_bench_game_math.sh --rev <new> --out /tmp/new
+```
+
+Numbers from two different days are not comparable at all: on a quiet M3 Max the
+rows under two nanoseconds drift by up to twenty per cent between sessions, which
+is larger than most of what a change to one function does.
+
+**Release is not a detail here.** An unoptimised GameMath reads about three times
+slower — `sqrt` double came out at 126 ns that way against 41 ns in Release, which
+is enough to make ARM look slower than x86 when it is not. The project's own tree
+is usually configured Debug, so timing by hand against `build/macos` needs a look
+at the cache first:
+
+```
+grep -E 'CMAKE_BUILD_TYPE|GM_ENABLE_INTRINSICS' build/macos/CMakeCache.txt
+
 cmake -S build/macos/_deps/gamemath-src -B /tmp/gm-release \
       -DGM_ENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
 cmake --build /tmp/gm-release -j
