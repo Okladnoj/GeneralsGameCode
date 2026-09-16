@@ -7,6 +7,20 @@
 #include <stdio.h>
 #include <string.h>
 
+#if !defined(_MSC_VER)
+#include <fenv.h>
+
+// ---- compat.h, f716706ccb ----
+
+#ifndef __forceinline
+#if defined __has_attribute && __has_attribute(always_inline)
+#define __forceinline __attribute__((always_inline)) inline
+#else
+#define __forceinline inline
+#endif
+#endif
+#endif
+
 typedef int Int;
 typedef float Real;
 
@@ -112,11 +126,19 @@ static void printDoubleBits(const char *name, double value)
 
 static void printToolchain()
 {
+#if defined(_MSC_VER)
 	printf("_MSC_VER=%d\n", _MSC_VER);
+#else
+	printf("compiler=%s\n", __VERSION__);
+#endif
 #if defined(_M_X64)
 	printf("arch=x64\n");
 #elif defined(_M_IX86)
 	printf("arch=x86\n");
+#elif defined(__aarch64__)
+	printf("arch=arm64\n");
+#elif defined(__x86_64__)
+	printf("arch=x86_64\n");
 #endif
 #if defined(_M_IX86_FP)
 	printf("_M_IX86_FP=%d\n", _M_IX86_FP);
@@ -126,11 +148,26 @@ static void printToolchain()
 	printf("sizeof(long)=%d\n", (int)sizeof(long));
 }
 
+#if defined(_MSC_VER)
 static void printControlWord()
 {
 	unsigned int control = _controlfp(0, 0);
 	printf("  control=%08X  exception masks (_MCW_EM)=%08X of %08X\n", control, control & _MCW_EM, (unsigned int)_MCW_EM);
 }
+#elif defined(__APPLE__) && defined(__aarch64__)
+static void printControlWord()
+{
+	fenv_t environment;
+	fegetenv(&environment);
+	unsigned long long trapEnableBits = environment.__fpcr & 0x9F00ULL;
+	printf("  fpcr=%016llX  trap enable bits (0x9F00)=%04llX\n", (unsigned long long)environment.__fpcr, trapEnableBits);
+}
+#else
+static void printControlWord()
+{
+	printf("  control word: not printed on this platform\n");
+}
+#endif
 
 static void probeValue(const char *name, Real value)
 {
