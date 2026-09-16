@@ -1,10 +1,13 @@
-// Prints what division by zero and the float to int conversions give with this toolchain.
-// The conversion helpers and setFPMode are copied from BaseType.h and GameLogic.cpp as they are.
+// Prints what division by zero, the NaN it produces and the float to int conversions give with this toolchain.
+// Every input value is read from a file at run time, so the compiler cannot fold any of the operations.
+// The conversion helpers, Div_Safe and setFPMode are copied from BaseType.h, wwmath.h and GameLogic.cpp as they are.
+// The game expressions are copied from origin/main and from the PR with Div_Safe.
 // Written for VC6 as well, so it keeps to C++98 and the old CRT.
 
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #if !defined(_MSC_VER)
@@ -22,12 +25,8 @@
 #endif
 
 typedef int Int;
+typedef unsigned int UnsignedInt;
 typedef float Real;
-
-volatile Real g_zero = 0.0f;
-volatile Real g_one = 1.0f;
-volatile double g_zeroDouble = 0.0;
-volatile double g_oneDouble = 1.0;
 
 // ---- BaseType.h, f716706ccb ----
 
@@ -92,6 +91,13 @@ __forceinline float fast_float_ceil(float f)
 #define REAL_TO_INT_CEIL(x)				(fast_float2long_round(fast_float_ceil(x)))
 #define REAL_TO_INT_FLOOR(x)			(fast_float2long_round(fast_float_floor(x)))
 
+// ---- wwmath.h Div_Safe, USE_DETERMINISTIC_MATH branch, f716706ccb ----
+
+inline float Div_Safe(float dividend, float divisor, float fallback)
+{
+	return (divisor == 0.0f) ? fallback : dividend / divisor;
+}
+
 // ---- GameLogic.cpp setFPMode, f716706ccb ----
 
 #if defined(_M_IX86)
@@ -108,7 +114,103 @@ void setFPMode()
 }
 #endif
 
-// ---- probe ----
+// ---- inputs ----
+
+struct NamedInput
+{
+	char name[64];
+	double value;
+};
+
+static NamedInput g_namedInputs[64];
+static int g_namedInputCount = 0;
+
+static bool readInputs(const char *path)
+{
+	FILE *file = fopen(path, "r");
+	if (file == NULL)
+	{
+		return false;
+	}
+
+	while (g_namedInputCount < 64 && fscanf(file, "%63s %lf", g_namedInputs[g_namedInputCount].name, &g_namedInputs[g_namedInputCount].value) == 2)
+	{
+		++g_namedInputCount;
+	}
+
+	fclose(file);
+	return true;
+}
+
+static double inputValue(const char *name)
+{
+	int index;
+	for (index = 0; index < g_namedInputCount; ++index)
+	{
+		if (strcmp(g_namedInputs[index].name, name) == 0)
+		{
+			return g_namedInputs[index].value;
+		}
+	}
+
+	printf("missing input: %s\n", name);
+	exit(2);
+	return 0.0;
+}
+
+struct Inputs
+{
+	Real zero;
+	Real one;
+	Real minusOne;
+	Real hundred;
+	Real tiny;
+	Real big;
+	Real overInt;
+	Real underInt;
+	Real normal;
+	Real half;
+	double zeroDouble;
+	double oneDouble;
+	double minusOneDouble;
+	Int overkillDamage;
+	Int probabilityModifier;
+	Real bonusPerOverkillPercent;
+	Real maxHealth;
+	Real health;
+	Real tileDistance;
+	Real spacingSmall;
+	Real flightDistance;
+	Real flightPathSpeed;
+};
+
+static void loadInputs(Inputs &inputs)
+{
+	inputs.zero = (Real)inputValue("zero");
+	inputs.one = (Real)inputValue("one");
+	inputs.minusOne = (Real)inputValue("minus_one");
+	inputs.hundred = (Real)inputValue("hundred");
+	inputs.tiny = (Real)inputValue("tiny");
+	inputs.big = (Real)inputValue("big");
+	inputs.overInt = (Real)inputValue("over_int");
+	inputs.underInt = (Real)inputValue("under_int");
+	inputs.normal = (Real)inputValue("normal");
+	inputs.half = (Real)inputValue("half");
+	inputs.zeroDouble = inputValue("zero");
+	inputs.oneDouble = inputValue("one");
+	inputs.minusOneDouble = inputValue("minus_one");
+	inputs.overkillDamage = (Int)inputValue("overkill_damage");
+	inputs.probabilityModifier = (Int)inputValue("probability_modifier");
+	inputs.bonusPerOverkillPercent = (Real)inputValue("bonus_per_overkill_percent");
+	inputs.maxHealth = (Real)inputValue("max_health");
+	inputs.health = (Real)inputValue("health");
+	inputs.tileDistance = (Real)inputValue("tile_distance");
+	inputs.spacingSmall = (Real)inputValue("spacing_small");
+	inputs.flightDistance = (Real)inputValue("flight_distance");
+	inputs.flightPathSpeed = (Real)inputValue("flight_path_speed");
+}
+
+// ---- printing ----
 
 static unsigned floatBits(float value)
 {
@@ -117,11 +219,21 @@ static unsigned floatBits(float value)
 	return bits;
 }
 
-static void printDoubleBits(const char *name, double value)
+static void printFloat(const char *name, float value)
+{
+	printf("  %-34s %08X\n", name, floatBits(value));
+}
+
+static void printDouble(const char *name, double value)
 {
 	unsigned words[2];
 	memcpy(words, &value, sizeof(words));
-	printf("  %-6s double bits=%08X%08X\n", name, words[1], words[0]);
+	printf("  %-34s %08X%08X\n", name, words[1], words[0]);
+}
+
+static void printInt(const char *name, Int value)
+{
+	printf("  %-34s %d\n", name, value);
 }
 
 static void printToolchain()
@@ -169,47 +281,191 @@ static void printControlWord()
 }
 #endif
 
-static void probeValue(const char *name, Real value)
+static void printInputs(const Inputs &inputs)
 {
-	long rounded = fast_float2long_round(value);
-	Int ceilInt = REAL_TO_INT_CEIL(value);
-	Int floorInt = REAL_TO_INT_FLOOR(value);
-	Int castFloat = (Int)value;
-	Int castDouble = (Int)(double)value;
-
-	printf("  %-6s float bits=%08X  (Int)float=%d  (Int)double=%d  fast_float2long_round=%ld  REAL_TO_INT_CEIL=%d  REAL_TO_INT_FLOOR=%d  fast_float_trunc bits=%08X\n",
-		name, floatBits(value), castFloat, castDouble, rounded, ceilInt, floorInt, floatBits(fast_float_trunc(value)));
+	printf("\n[inputs]\n");
+	printFloat("zero", inputs.zero);
+	printFloat("one", inputs.one);
+	printFloat("minus_one", inputs.minusOne);
+	printFloat("hundred", inputs.hundred);
+	printFloat("tiny", inputs.tiny);
+	printFloat("big", inputs.big);
+	printFloat("over_int", inputs.overInt);
+	printFloat("under_int", inputs.underInt);
+	printFloat("normal", inputs.normal);
+	printFloat("half", inputs.half);
+	printInt("overkill_damage", inputs.overkillDamage);
+	printInt("probability_modifier", inputs.probabilityModifier);
+	printFloat("bonus_per_overkill_percent", inputs.bonusPerOverkillPercent);
+	printFloat("max_health", inputs.maxHealth);
+	printFloat("health", inputs.health);
+	printFloat("tile_distance", inputs.tileDistance);
+	printFloat("spacing_small", inputs.spacingSmall);
+	printFloat("flight_distance", inputs.flightDistance);
+	printFloat("flight_path_speed", inputs.flightPathSpeed);
 }
 
-static void runProbe(const char *mode)
+// ---- probes ----
+
+static void probeFloatOperations(const Inputs &in)
+{
+	Real positiveInfinity = in.one / in.zero;
+	Real notANumber = in.zero / in.zero;
+
+	printf("\n  float operations\n");
+	printFloat("one / zero", positiveInfinity);
+	printFloat("minus_one / zero", in.minusOne / in.zero);
+	printFloat("zero / zero", notANumber);
+	printFloat("(zero * minus_one) / zero", (in.zero * in.minusOne) / in.zero);
+	printFloat("(one / zero) * zero", positiveInfinity * in.zero);
+	printFloat("(one / zero) - (one / zero)", positiveInfinity - positiveInfinity);
+	printFloat("(zero / zero) * hundred", notANumber * in.hundred);
+	printFloat("(zero / zero) + one", notANumber + in.one);
+	printFloat("-(zero / zero)", -notANumber);
+	printFloat("one / tiny", in.one / in.tiny);
+}
+
+static void probeDoubleOperations(const Inputs &in)
+{
+	double positiveInfinity = in.oneDouble / in.zeroDouble;
+	double notANumber = in.zeroDouble / in.zeroDouble;
+
+	printf("\n  double operations\n");
+	printDouble("one / zero", positiveInfinity);
+	printDouble("minus_one / zero", in.minusOneDouble / in.zeroDouble);
+	printDouble("zero / zero", notANumber);
+	printDouble("(one / zero) - (one / zero)", positiveInfinity - positiveInfinity);
+	printDouble("-(zero / zero)", -notANumber);
+	printDouble("sqrt(minus_one)", sqrt(in.minusOneDouble));
+	printDouble("fabs(zero / zero)", fabs(notANumber));
+}
+
+static void probeFloatConversion(const char *name, Real value)
+{
+	printf("  %-22s bits=%08X  (Int)=%d  (UnsignedInt)=%u  (Int)(double)=%d  fast_float2long_round=%ld  REAL_TO_INT_CEIL=%d  REAL_TO_INT_FLOOR=%d  fast_float_trunc=%08X\n",
+		name, floatBits(value), (Int)value, (UnsignedInt)value, (Int)(double)value,
+		fast_float2long_round(value), (Int)REAL_TO_INT_CEIL(value), (Int)REAL_TO_INT_FLOOR(value), floatBits(fast_float_trunc(value)));
+}
+
+static void probeDoubleConversion(const char *name, double value)
+{
+	unsigned words[2];
+	memcpy(words, &value, sizeof(words));
+	printf("  %-22s bits=%08X%08X  (Int)=%d  (UnsignedInt)=%u\n", name, words[1], words[0], (Int)value, (UnsignedInt)value);
+}
+
+static void probeConversions(const Inputs &in)
+{
+	printf("\n  float to int\n");
+	probeFloatConversion("one / zero", in.one / in.zero);
+	probeFloatConversion("minus_one / zero", in.minusOne / in.zero);
+	probeFloatConversion("zero / zero", in.zero / in.zero);
+	probeFloatConversion("-(zero / zero)", -(in.zero / in.zero));
+	probeFloatConversion("big", in.big);
+	probeFloatConversion("over_int", in.overInt);
+	probeFloatConversion("under_int", in.underInt);
+	probeFloatConversion("normal", in.normal);
+	probeFloatConversion("half", in.half);
+	probeFloatConversion("-half", -in.half);
+
+	printf("\n  double to int\n");
+	probeDoubleConversion("one / zero", in.oneDouble / in.zeroDouble);
+	probeDoubleConversion("zero / zero", in.zeroDouble / in.zeroDouble);
+	probeDoubleConversion("big", (double)in.big);
+}
+
+static Int maxInt(Int left, Int right)
+{
+	return left > right ? left : right;
+}
+
+static void probeSlowDeathBehavior(const Inputs &in)
+{
+	Int overkillDamage = in.overkillDamage;
+
+	Real overkillPercent = (float)overkillDamage / (float)in.maxHealth;
+	Int overkillModifier = overkillPercent * in.bonusPerOverkillPercent;
+	Int result = maxInt(in.probabilityModifier + overkillModifier, 1);
+
+	Real overkillPercentSafe = Div_Safe((float)overkillDamage, in.maxHealth, 0.0f);
+	Int overkillModifierSafe = overkillPercentSafe * in.bonusPerOverkillPercent;
+	Int resultSafe = maxInt(in.probabilityModifier + overkillModifierSafe, 1);
+
+	printf("\n  SlowDeathBehavior::getProbabilityModifier, overkill_damage / max_health\n");
+	printFloat("upstream overkillPercent", overkillPercent);
+	printInt("upstream overkillModifier", overkillModifier);
+	printInt("upstream result", result);
+	printFloat("Div_Safe overkillPercent", overkillPercentSafe);
+	printInt("Div_Safe overkillModifier", overkillModifierSafe);
+	printInt("Div_Safe result", resultSafe);
+}
+
+static void probeSlavedUpdate(const Inputs &in)
+{
+	printf("\n  SlavedUpdate::update, health / max_health * 100\n");
+	printInt("upstream health=health", (Int)(in.health / in.maxHealth * 100.0f));
+	printInt("upstream health=one", (Int)(in.one / in.maxHealth * 100.0f));
+	printInt("Div_Safe health=health", (Int)(Div_Safe(in.health, in.maxHealth, 0.0f) * 100.0f));
+	printInt("Div_Safe health=one", (Int)(Div_Safe(in.one, in.maxHealth, 0.0f) * 100.0f));
+}
+
+static void probeBridgeBehavior(const Inputs &in)
+{
+	printf("\n  BridgeBehavior::createScaffolding, REAL_TO_INT_CEIL(tile_distance / spacing) + 1\n");
+	printInt("upstream spacing=zero", REAL_TO_INT_CEIL(in.tileDistance / in.zero) + 1);
+	printInt("upstream spacing=spacing_small", REAL_TO_INT_CEIL(in.tileDistance / in.spacingSmall) + 1);
+	printInt("upstream spacing=tiny", REAL_TO_INT_CEIL(in.tileDistance / in.tiny) + 1);
+	printInt("Div_Safe spacing=zero", REAL_TO_INT_CEIL(Div_Safe(in.tileDistance, in.zero, 0.0f)) + 1);
+	printInt("Div_Safe spacing=spacing_small", REAL_TO_INT_CEIL(Div_Safe(in.tileDistance, in.spacingSmall, 0.0f)) + 1);
+	printInt("Div_Safe spacing=tiny", REAL_TO_INT_CEIL(Div_Safe(in.tileDistance, in.tiny, 0.0f)) + 1);
+}
+
+static void probeDumbProjectileBehavior(const Inputs &in)
+{
+	Int segments = ceil(in.flightDistance / in.flightPathSpeed);
+	Int segmentsSafe = (Int)ceil(Div_Safe(in.flightDistance, in.flightPathSpeed, 1.0f));
+
+	printf("\n  DumbProjectileBehavior, ceil(flight_distance / flight_path_speed)\n");
+	printInt("upstream m_flightPathSegments", segments);
+	printInt("Div_Safe m_flightPathSegments", segmentsSafe);
+}
+
+static void runProbe(const char *mode, const Inputs &inputs)
 {
 	printf("\n[%s]\n", mode);
 	printControlWord();
 
-	probeValue("1/0", g_one / g_zero);
-	probeValue("-1/0", -g_one / g_zero);
-	probeValue("0/0", g_zero / g_zero);
-	probeValue("1e20", g_one * 1e20f);
-	probeValue("3e9", g_one * 3e9f);
-	probeValue("-3e9", g_one * -3e9f);
-	probeValue("1e6", g_one * 1e6f);
-
-	printDoubleBits("1/0", g_oneDouble / g_zeroDouble);
-	printDoubleBits("0/0", g_zeroDouble / g_zeroDouble);
+	probeFloatOperations(inputs);
+	probeDoubleOperations(inputs);
+	probeConversions(inputs);
+	probeSlowDeathBehavior(inputs);
+	probeSlavedUpdate(inputs);
+	probeBridgeBehavior(inputs);
+	probeDumbProjectileBehavior(inputs);
 
 	printControlWord();
 }
 
-int main()
+int main(int argc, char **argv)
 {
 	setvbuf(stdout, NULL, _IONBF, 0);
 
+	if (argc < 2 || !readInputs(argv[1]))
+	{
+		printf("usage: div_zero_probe <inputs file>\n");
+		return 2;
+	}
+
+	Inputs inputs;
+	loadInputs(inputs);
+
 	printToolchain();
-	runProbe("default");
+	printInputs(inputs);
+	runProbe("default", inputs);
 
 #if defined(_M_IX86)
 	setFPMode();
-	runProbe("game setFPMode");
+	runProbe("game setFPMode", inputs);
 #else
 	printf("\n[game setFPMode] skipped: _MCW_PC exists only on x86\n");
 #endif

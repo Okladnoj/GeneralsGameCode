@@ -84,16 +84,24 @@ jobs:
         with:
           arch: x64
 
-      - name: Build Probe with Release Flags
+      - name: Build Probe with VC6 Release Flags
+        if: matrix.toolchain == 'vc6'
         shell: pwsh
         run: |
-          cl /nologo /O2 /Ob2 /DNDEBUG /MD tests\div_zero\div_zero_probe.cpp
+          cl /nologo /DWIN32 /D_WINDOWS /W3 /GR /GX /O2 /Ob2 /DNDEBUG /MD tests\div_zero\div_zero_probe.cpp
+          exit $LASTEXITCODE
+
+      - name: Build Probe with VC2022 Release Flags
+        if: matrix.toolchain != 'vc6'
+        shell: pwsh
+        run: |
+          cl /nologo /DWIN32 /D_WINDOWS /W3 /GR /EHsc /O2 /Ob2 /DNDEBUG /MD /Zi /std:c++20 /Zc:__cplusplus tests\div_zero\div_zero_probe.cpp
           exit $LASTEXITCODE
 
       - name: Run Probe
         shell: pwsh
         run: |
-          .\div_zero_probe.exe | Tee-Object -FilePath div-zero-${{ matrix.toolchain }}.txt
+          .\div_zero_probe.exe tests\div_zero\inputs.txt | Tee-Object -FilePath div-zero-${{ matrix.toolchain }}.txt
           Write-Host "exit code: $LASTEXITCODE"
           exit $LASTEXITCODE
 
