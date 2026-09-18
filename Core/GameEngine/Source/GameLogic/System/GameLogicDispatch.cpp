@@ -353,6 +353,18 @@ void GameLogic::prepareNewGame( GameMode gameMode, GameDifficulty diff, Int rank
 // TheSuperHackers @diagnostic Dump every dispatched logic message and every construct command,
 // for cross platform comparison.
 //-------------------------------------------------------------------------------------------------
+static void dumpThingTemplateTable()
+{
+	FILE *file = fopen("TplDiag.txt", "w");
+	if (!file)
+		return;
+
+	for (const ThingTemplate *tmpl = TheThingFactory->firstTemplate(); tmpl; tmpl = tmpl->friend_getNextTemplate())
+		fprintf(file, "TPL id=%d name=%s\n", (Int)tmpl->getTemplateID(), tmpl->getName().str());
+
+	fclose(file);
+}
+
 static FILE *getMsgDiagFile()
 {
 	static FILE *s_msgFile = NULL;
@@ -362,6 +374,7 @@ static FILE *getMsgDiagFile()
 	{
 		s_msgTried = TRUE;
 		s_msgFile = fopen("MsgDiag.txt", "w");
+		dumpThingTemplateTable();
 	}
 
 	return s_msgFile;
@@ -398,15 +411,15 @@ static void dumpLogicMessage(UnsignedInt frame, const char *command, Int playerI
 	fflush(file);
 }
 
-static void dumpDozerConstruct(UnsignedInt frame, const Object *constructor, const ThingTemplate *what,
+static void dumpDozerConstruct(UnsignedInt frame, Int templateID, const Object *constructor, const ThingTemplate *what,
 															 const Coord3D *loc, Real angle, const Object *building)
 {
 	FILE *file = getMsgDiagFile();
 	if (!file)
 		return;
 
-	fprintf(file, "DOZER f%d ctor=%d tpl=%s loc=%08X,%08X,%08X ang=%08X bldg=%d\n",
-		(Int)frame,
+	fprintf(file, "DOZER f%d tplid=%d ctor=%d tpl=%s loc=%08X,%08X,%08X ang=%08X bldg=%d\n",
+		(Int)frame, templateID,
 		constructor ? (Int)constructor->getID() : -1,
 		what ? what->getName().str() : "none",
 		asHex(loc->x), asHex(loc->y), asHex(loc->z), asHex(angle),
@@ -1960,7 +1973,7 @@ bool GameLogic::onDozerConstruct(MAYBE_UNUSED GameMessage *msg, AIGroupPtr &curr
 
 	if( place == nullptr || constructorObject == nullptr )
 	{
-		dumpDozerConstruct( getFrame(), constructorObject, place, &loc, angle, nullptr );
+		dumpDozerConstruct( getFrame(), msg->getArgument( 0 )->integer, constructorObject, place, &loc, angle, nullptr );
 		return false;  //These are not crashes, as the object may have died before this message came in
 	}
 
@@ -1968,7 +1981,7 @@ bool GameLogic::onDozerConstruct(MAYBE_UNUSED GameMessage *msg, AIGroupPtr &curr
 	{
 		Object *newBuilding = TheBuildAssistant->buildObjectNow( constructorObject, place, &loc, angle,
 																				constructorObject->getControllingPlayer() );
-		dumpDozerConstruct( getFrame(), constructorObject, place, &loc, angle, newBuilding );
+		dumpDozerConstruct( getFrame(), msg->getArgument( 0 )->integer, constructorObject, place, &loc, angle, newBuilding );
 	}
 	else
 	{
