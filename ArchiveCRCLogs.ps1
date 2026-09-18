@@ -98,12 +98,12 @@ foreach ($dir in $SearchDirs) {
 }
 
 # 2. Keep only the last 600 DebugFrame files (they are the bulk; the desync tail is what matters).
-$debugFrames = $allFiles | Where-Object { $_.Name -like "DebugFrame_*.txt" } | Sort-Object Name
+$debugFrames = @($allFiles | Where-Object { $_.Name -like "DebugFrame_*.txt" } | Sort-Object Name)
 $debugFramesToKeep = if ($debugFrames.Count -gt 600) { $debugFrames | Select-Object -Last 600 } else { $debugFrames }
 
 # 3. Deduplicate the final set.
-$otherFiles = $allFiles | Where-Object { $_.Name -notlike "DebugFrame_*.txt" }
-$filesToProcess = ($otherFiles + $debugFramesToKeep) | Sort-Object -Property FullName -Unique
+$otherFiles = @($allFiles | Where-Object { $_.Name -notlike "DebugFrame_*.txt" })
+$filesToProcess = (@($otherFiles) + @($debugFramesToKeep)) | Sort-Object -Property FullName -Unique
 
 $foundCount = 0
 foreach ($file in $filesToProcess) {
