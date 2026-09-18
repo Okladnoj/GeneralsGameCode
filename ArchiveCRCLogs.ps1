@@ -35,7 +35,8 @@ $LogPatterns = @(
     "TplDiag.txt",
     "IniDiag.txt",
     "RandomDiag.txt",
-    "ArchiveDiag.txt"
+    "ArchiveDiag.txt",
+    "ScriptDiag.txt"
 )
 
 $SearchDirs = @($GameDir, "$GameDir\CRCLogs", $DocsDir)
