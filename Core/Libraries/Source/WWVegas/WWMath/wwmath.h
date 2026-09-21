@@ -1055,10 +1055,12 @@ WWINLINE float WWMath::Normalize_Angle(float angle)
 	return angle - (WWMATH_TWO_PI * Floorf((angle + WWMATH_PI) / WWMATH_TWO_PI));
 }
 
+// TheSuperHackers @info The fallback parameter is unused for now but kept, because the call sites pass very different values.
+// Removing it is a game logic task, not a determinism one.
 WWINLINE float WWMath::Div_Safe(float dividend, float divisor, float fallback)
 {
 #if USE_DETERMINISTIC_MATH
-	return (divisor == 0.0f) ? fallback : dividend / divisor;
+	return dividend / max(0.001f, divisor);
 #else
 	return dividend / divisor;
 #endif
@@ -1067,7 +1069,7 @@ WWINLINE float WWMath::Div_Safe(float dividend, float divisor, float fallback)
 WWINLINE double WWMath::Div_Safe(double dividend, double divisor, double fallback)
 {
 #if USE_DETERMINISTIC_MATH
-	return (divisor == 0.0) ? fallback : dividend / divisor;
+	return dividend / max(0.001, divisor);
 #else
 	return dividend / divisor;
 #endif
