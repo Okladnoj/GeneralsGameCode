@@ -124,7 +124,7 @@ have to be rebuilt, or the dumps quietly describe the old revision:
 ```
 git pull
 cmake --preset win32
-cmake --build build\win32 --config Release --target gm
+cmake --build build\win32 --config Release --target gamemath
 powershell -ExecutionPolicy Bypass -File tests\run_verify_game_math.ps1 -RebuildX64
 powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1
 powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1 -Reverse
