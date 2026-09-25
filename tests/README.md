@@ -117,6 +117,17 @@ uses and the same runtime library as the win32 tree, so the two libraries differ
 in architecture and nothing else. It is built once and reused; `-RebuildX64`
 forces it again.
 
+The 32-bit library is not built by the script at all: it links whatever
+`build\win32` holds. After the pin in `cmake/gamemath.cmake` moves, both halves
+have to be rebuilt, or the dumps quietly describe the old revision:
+
+```
+git pull
+cmake --preset win32
+cmake --build build\win32 --config Release --target gm
+powershell -ExecutionPolicy Bypass -File tests\run_verify_game_math.ps1 -RebuildX64
+```
+
 The same by hand, if the script is in the way. win32 x86, from an x86 Developer
 Command Prompt:
 
