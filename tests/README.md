@@ -126,7 +126,11 @@ git pull
 cmake --preset win32
 cmake --build build\win32 --config Release --target gm
 powershell -ExecutionPolicy Bypass -File tests\run_verify_game_math.ps1 -RebuildX64
+powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1
+powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1 -Reverse
 ```
+
+The verify run rebuilds the 64-bit library, and both benchmark runs reuse it.
 
 The same by hand, if the script is in the way. win32 x86, from an x86 Developer
 Command Prompt:
