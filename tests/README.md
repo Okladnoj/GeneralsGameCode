@@ -119,12 +119,38 @@ forces it again.
 
 The 32-bit library is not built by the script at all: it links whatever
 `build\win32` holds. After the pin in `cmake/gamemath.cmake` moves, both halves
-have to be rebuilt, or the dumps quietly describe the old revision:
+have to be rebuilt, or the dumps quietly describe the old revision. One script
+does the lot - rebuild the 32-bit library, write the dumps, run both benchmark
+passes - and finds the toolchain itself, so an ordinary shell is enough:
+
+```
+powershell -ExecutionPolicy Bypass -File tests\run_all_game_math.ps1 -Pull
+```
+
+`-Pull` runs `git pull` first; leave it off to rebuild the tree as it stands.
+The library build gates everything after it: if it fails, no dump is run, so
+nothing in `tests\` is overwritten with numbers from the old library. `-Arch`
+and `-Fp` narrow the matrix exactly as they do for the other two scripts, and
+`-SkipBuild` goes straight to the runs when `build\win32` is already current.
+The benchmark half measures time, so the machine wants to be otherwise idle
+for it.
+
+Without that script, the same work is six commands. The two `cmake` lines drive
+the win32 Ninja tree directly, so they need the compiler environment - run them
+from an x86 Developer Command Prompt (`x86 Native Tools Command Prompt for VS
+2022`). From an ordinary shell `cl.exe` is still found, by the absolute path in
+the CMake cache, but `INCLUDE` is unset and every one of the 136 files fails on
+`fatal error C1083: Cannot open include file: 'stdint.h'`:
 
 ```
 git pull
 cmake --preset win32
 cmake --build build\win32 --config Release --target gamemath
+```
+
+The three script runs that follow need no such shell:
+
+```
 powershell -ExecutionPolicy Bypass -File tests\run_verify_game_math.ps1 -RebuildX64
 powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1
 powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1 -Reverse
