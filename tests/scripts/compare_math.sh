@@ -4,12 +4,14 @@
 #   math-diff.txt      the differing lines of each comparison
 #   math-summary.txt   one table, row kinds down the side, modes across the top
 #
-# Run it from the directory holding the dumps:
-#   sh compare_math.sh
+# Reads and writes tests/math, wherever it is run from:
+#   sh tests/scripts/compare_math.sh
 #
 # Windows writes CRLF, so line endings are normalised before comparing.
 
 set -e
+
+cd -- "$(dirname -- "$0")/../math"
 
 OUT=math-diff.txt
 SUM_OUT=math-summary.txt

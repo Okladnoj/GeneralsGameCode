@@ -88,17 +88,12 @@ $repoRoot = Split-Path $testsDir -Parent
 
 if (-not $BuildDir) { $BuildDir = Join-Path $repoRoot "build\$Preset" }
 
-$verifyScript = Join-Path $testsDir 'run_verify_game_math.ps1'
-$benchScript  = Join-Path $testsDir 'run_bench_game_math.ps1'
+$verifyScript = Join-Path $testsDir 'scripts\run_verify_game_math.ps1'
+$benchScript  = Join-Path $testsDir 'scripts\run_bench_game_math.ps1'
 
 foreach ($s in @($verifyScript, $benchScript)) {
     if (-not (Test-Path $s)) { throw "Script not found: $s" }
 }
-
-# The same host that is running this script, so a pwsh caller does not silently
-# hand the children a different PowerShell.
-$psExe = (Get-Process -Id $PID).Path
-if (-not $psExe) { $psExe = 'powershell.exe' }
 
 # ---------- toolchain ----------
 
@@ -210,21 +205,56 @@ else {
     }
 }
 
+# ---------- the pin ----------
+
+# FetchContent does not always move the sources when the tag changes, and a
+# library built from the old checkout looks exactly like a fix that did nothing.
+
+$pinFile   = Join-Path $repoRoot 'cmake\gamemath.cmake'
+$pinnedTag = ([regex]::Match((Get-Content $pinFile -Raw), 'GIT_TAG\s+(\S+)')).Groups[1].Value
+$sourceDir = Join-Path $BuildDir '_deps\gamemath-src'
+$sourceRev = [string](& git -C $sourceDir rev-parse HEAD)
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Cannot read the GameMath revision in $sourceDir; nothing else was run."
+}
+
+$sourceRev = $sourceRev.Trim()
+if ($sourceRev -ne $pinnedTag) {
+    throw "GameMath sources are at $sourceRev, the pin is $pinnedTag; nothing else was run."
+}
+
+Write-Host "gamemath  : $sourceRev"
+
 # ---------- the dumps ----------
 
-$common = @('-Arch') + $Arch + @('-Fp') + $Fp + @('-Config', $Config, '-BuildDir', $BuildDir)
+# The children run in this process. Through "powershell -File" an array
+# argument arrives as separate strings: -Arch keeps only its first value and
+# the rest fall through to positional parameters such as -OutDir.
+
+$common = @{ Arch = $Arch; Fp = $Fp; Config = $Config; BuildDir = $BuildDir }
 
 $runs = @(
-    @{ Name = 'verify';         Script = $verifyScript; Args = $common + @('-RebuildX64') },
-    @{ Name = 'bench';          Script = $benchScript;  Args = $common },
-    @{ Name = 'bench -Reverse'; Script = $benchScript;  Args = $common + @('-Reverse') }
+    @{ Name = 'verify';         Script = $verifyScript; Extra = @{ RebuildX64 = $true } },
+    @{ Name = 'bench';          Script = $benchScript;  Extra = @{} },
+    @{ Name = 'bench -Reverse'; Script = $benchScript;  Extra = @{ Reverse = $true } }
 )
 
 foreach ($run in $runs) {
     Write-Host ''
     Write-Host ("=== {0} ===" -f $run.Name)
 
-    & $psExe -ExecutionPolicy Bypass -File $run.Script @($run.Args)
+    $params = $common + $run.Extra
+    $global:LASTEXITCODE = 0
+    try {
+        & $run.Script @params
+    }
+    catch {
+        Write-Host $_
+        $failures.Add(("{0} ({1})" -f $run.Name, $_.Exception.Message))
+        continue
+    }
+
     if ($LASTEXITCODE -ne 0) {
         $failures.Add(("{0} (exit code {1})" -f $run.Name, $LASTEXITCODE))
     }
@@ -239,4 +269,4 @@ if ($failures.Count -gt 0) {
     exit 1
 }
 
-Write-Host 'done; dumps and benchmark results are in tests\'
+Write-Host 'done; dumps are in tests\math, benchmark results in tests\bench'

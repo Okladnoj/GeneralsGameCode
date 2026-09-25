@@ -6,7 +6,7 @@
 .DESCRIPTION
     Walks the matrix of architectures and floating point models, compiling
     verify_game_math.c against the GameMath library for each one, running it,
-    and leaving only the dump files in -OutDir (the tests folder by default).
+    and leaving only the dump files in -OutDir (tests\math by default).
 
         x86, /fp:precise   ->  math-win-x86-precise-PC24.txt
                                math-win-x86-precise-PC53.txt
@@ -48,7 +48,7 @@
     GameMath build configuration to link against. Default: Release
 
 .PARAMETER OutDir
-    Where the dump files are written. Default: the tests folder.
+    Where the dump files are written. Default: tests\math
 
 .PARAMETER RebuildX64
     Configure and build the 64-bit GameMath again even if its library is
@@ -60,10 +60,10 @@
     binaries behind.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tests\run_verify_game_math.ps1
+    powershell -ExecutionPolicy Bypass -File tests\scripts\run_verify_game_math.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tests\run_verify_game_math.ps1 -Arch x86
+    powershell -ExecutionPolicy Bypass -File tests\scripts\run_verify_game_math.ps1 -Arch x86
 
 .NOTES
     The x86 half is the one that characterises the game build: it is 32-bit,
@@ -88,14 +88,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$testsDir = $PSScriptRoot
+$testsDir = Split-Path $PSScriptRoot -Parent
 $repoRoot = Split-Path $testsDir -Parent
 
 if (-not $BuildDir)       { $BuildDir       = Join-Path $repoRoot 'build\win32' }
 if (-not $X64GameMathDir) { $X64GameMathDir = Join-Path $repoRoot 'build\win64-gamemath' }
-if (-not $OutDir)         { $OutDir         = $testsDir }
+if (-not $OutDir)         { $OutDir         = Join-Path $testsDir 'math' }
 
-$source      = Join-Path $testsDir 'verify_game_math.c'
+$source      = Join-Path $testsDir 'src\verify_game_math.c'
 $gamemathSrc = Join-Path $BuildDir '_deps\gamemath-src'
 $include     = Join-Path $gamemathSrc 'include'
 $gmLibX86    = Join-Path $BuildDir "_deps\gamemath-build\$Config\gm.lib"
@@ -109,7 +109,7 @@ if (-not (Test-Path $include)) {
     throw "GameMath headers not found: $include`nConfigure the build tree first, or pass -BuildDir."
 }
 if (($Arch -contains 'x86') -and -not (Test-Path $gmLibX86)) {
-    throw "32-bit GameMath library not found: $gmLibX86`nBuild the gm target first, or pass -BuildDir / -Config."
+    throw "32-bit GameMath library not found: $gmLibX86`nBuild the gamemath target first, or pass -BuildDir / -Config."
 }
 if (($Arch -contains 'x64') -and -not (Test-Path (Join-Path $gamemathSrc 'CMakeLists.txt'))) {
     throw "GameMath sources not found: $gamemathSrc`nThe 64-bit library is built from them; configure the build tree first, or pass -BuildDir."

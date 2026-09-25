@@ -37,7 +37,7 @@ usage: sh run_bench_game_math.sh [options]
                      GM_ENABLE_INTRINSICS; left at GameMath's own default
                      when not given
   --gamemath-dir DIR work tree for the sources and the library
-  --out DIR          where the result is written  (default: the tests folder)
+  --out DIR          where the result is written  (default: tests/bench)
   --cc COMPILER      C compiler                   (default: $CC, else cc)
   --rebuild          delete the work tree and build GameMath again
   --keep-exe         copy the executable to --out instead of discarding it
@@ -45,7 +45,7 @@ usage: sh run_bench_game_math.sh [options]
 EOF
 }
 
-TESTS_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+TESTS_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PIN_FILE=$TESTS_DIR/../cmake/gamemath.cmake
 DEFAULT_REPO=https://github.com/OmniBlade/gamemath.git
 
@@ -55,7 +55,7 @@ REV=
 CONFIG=Release
 INTRINSICS=
 GAMEMATH_DIR=
-OUT_DIR=$TESTS_DIR
+OUT_DIR=$TESTS_DIR/bench
 CC_BIN=${CC:-cc}
 REBUILD=0
 KEEP_EXE=0
@@ -133,7 +133,7 @@ OUT_DIR=$(CDPATH= cd -- "$OUT_DIR" && pwd)
 
 SRC_DIR=$GAMEMATH_DIR/src
 BUILD_DIR=$GAMEMATH_DIR/build
-PROGRAM=$TESTS_DIR/bench_game_math.c
+PROGRAM=$TESTS_DIR/src/bench_game_math.c
 
 if [ ! -f "$PROGRAM" ]; then
     echo "source not found: $PROGRAM" >&2
@@ -317,4 +317,4 @@ fi
 
 echo ''
 echo 'Now weight them by how often the game makes each call:'
-echo '  sh weigh_bench.sh        (from the tests folder)'
+echo "  sh $TESTS_DIR/scripts/weigh_bench.sh"

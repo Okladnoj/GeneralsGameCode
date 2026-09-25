@@ -18,7 +18,7 @@
 # there and at --rev otherwise. That tree is kept between runs and built
 # incrementally; --rebuild throws it away first.
 #
-# The dump lands in the tests folder, on top of the one already there, so the
+# The dump lands in tests/math, on top of the one already there, so the
 # question the run exists to answer is `git diff`. How many lines moved is
 # printed before the file is replaced.
 
@@ -36,7 +36,7 @@ usage: sh run_verify_game_math.sh [options]
                      GM_ENABLE_INTRINSICS; left at GameMath's own default
                      when not given
   --gamemath-dir DIR work tree for the sources and the library
-  --out DIR          where the dump is written    (default: the tests folder)
+  --out DIR          where the dump is written    (default: tests/math)
   --cc COMPILER      C compiler                   (default: $CC, else cc)
   --rebuild          delete the work tree and build GameMath again
   --keep-exe         copy the executable to --out instead of discarding it
@@ -44,7 +44,7 @@ usage: sh run_verify_game_math.sh [options]
 EOF
 }
 
-TESTS_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+TESTS_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PIN_FILE=$TESTS_DIR/../cmake/gamemath.cmake
 DEFAULT_REPO=https://github.com/OmniBlade/gamemath.git
 
@@ -54,7 +54,7 @@ REV=
 CONFIG=Release
 INTRINSICS=
 GAMEMATH_DIR=
-OUT_DIR=$TESTS_DIR
+OUT_DIR=$TESTS_DIR/math
 CC_BIN=${CC:-cc}
 REBUILD=0
 KEEP_EXE=0
@@ -128,7 +128,7 @@ OUT_DIR=$(CDPATH= cd -- "$OUT_DIR" && pwd)
 
 SRC_DIR=$GAMEMATH_DIR/src
 BUILD_DIR=$GAMEMATH_DIR/build
-PROGRAM=$TESTS_DIR/verify_game_math.c
+PROGRAM=$TESTS_DIR/src/verify_game_math.c
 
 if [ ! -f "$PROGRAM" ]; then
     echo "source not found: $PROGRAM" >&2
@@ -265,4 +265,4 @@ fi
 
 echo ''
 echo 'Now compare the dumps against the other platforms:'
-echo '  sh compare_math.sh       (from the tests folder)'
+echo "  sh $TESTS_DIR/scripts/compare_math.sh"

@@ -8,16 +8,18 @@
 # mix shifts with the load. Combining the two gives milliseconds per logic
 # frame, which is the number that decides whether _PC_24 or _PC_53 is cheaper.
 #
-# Inputs, all read from the directory it runs in:
+# Inputs, all read from tests/bench:
 #   callcounts-zh.txt   calls per frame, one column per load profile
 #   bench-*.txt         nanoseconds per call, one file per configuration
 #
-# Run it from the directory holding them:
-#   sh weigh_bench.sh
+# Reads and writes tests/bench, wherever it is run from:
+#   sh tests/scripts/weigh_bench.sh
 #
 # Windows writes CRLF, so line endings are normalised on the way in.
 
 set -e
+
+cd -- "$(dirname -- "$0")/../bench"
 
 PROFILE=callcounts-zh.txt
 OUT=bench-weighted.txt

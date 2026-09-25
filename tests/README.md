@@ -61,6 +61,26 @@ to `_PC_24` and once with `_PC_53`, since the 32-bit game build sets `_PC_24` in
 
 ## Build and run
 
+One command per platform does everything. Windows builds the library and
+writes the dumps and timings; macOS writes its own and then compares every file
+present, the ones pushed from Windows included:
+
+```
+powershell -ExecutionPolicy Bypass -File tests\run_all_game_math.ps1 -Pull
+sh tests/run_all_game_math.sh --pull
+```
+
+Everything writes to the same places whether it is started from the repository
+root or from `tests/`:
+
+| Path | Holds |
+| :--- | :--- |
+| `tests/run_all_game_math.*` | the two commands above |
+| `tests/scripts/` | the single steps they chain, for running one on its own |
+| `tests/src/` | `verify_game_math.c`, `bench_game_math.c` |
+| `tests/math/` | `math-*.txt` dumps, `math-diff.txt`, `math-summary.txt` |
+| `tests/bench/` | `bench-*.txt` timings, `callcounts-zh.txt`, `bench-weighted.txt` |
+
 Each build names its own output after the platform, the architecture, the `/fp`
 model and, on 32-bit x86, the x87 precision control. Several configurations can
 therefore be dumped side by side without overwriting each other.
@@ -68,19 +88,19 @@ therefore be dumped side by side without overwriting each other.
 macOS and other Unix, from an ordinary shell:
 
 ```
-sh tests/run_verify_game_math.sh
+sh tests/scripts/run_verify_game_math.sh
 ```
 
 The script builds GameMath itself, cloning it into a work tree outside the
 repository at the revision `cmake/gamemath.cmake` pins, so no build tree of the
 game has to exist first. `--rev` or `--source` takes a different one and
 `--intrinsics off` builds the software paths instead. The dump replaces the one
-in `tests/`, and how many lines moved is printed before it does.
+in `tests/math/`, and how many lines moved is printed before it does.
 
 The same by hand, against a library the game tree already built:
 
 ```
-cc -O2 -ffp-contract=off tests/verify_game_math.c \
+cc -O2 -ffp-contract=off tests/src/verify_game_math.c \
    -I build/macos/_deps/gamemath-src/include \
    build/macos/_deps/gamemath-build/libgm.a -o verify_game_math
 ./verify_game_math
@@ -99,11 +119,11 @@ Windows, from an ordinary shell — no Developer Command Prompt needed, the scri
 finds the toolchain itself:
 
 ```
-powershell -ExecutionPolicy Bypass -File tests\run_verify_game_math.ps1
+powershell -ExecutionPolicy Bypass -File tests\scripts\run_verify_game_math.ps1
 ```
 
 That walks the whole matrix — x86 and x64, `/fp:precise` and `/fp:strict` — and
-writes all six dumps to `tests/`. Each build happens in its own temporary
+writes all six dumps to `tests/math/`. Each build happens in its own temporary
 directory outside the repository and is deleted afterwards, so no object files,
 import libraries or executables are left behind. A configuration that fails to
 build does not stop the others; the failures are listed at the end and the
@@ -129,7 +149,7 @@ powershell -ExecutionPolicy Bypass -File tests\run_all_game_math.ps1 -Pull
 
 `-Pull` runs `git pull` first; leave it off to rebuild the tree as it stands.
 The library build gates everything after it: if it fails, no dump is run, so
-nothing in `tests\` is overwritten with numbers from the old library. `-Arch`
+nothing in `tests\math` or `tests\bench` is overwritten with numbers from the old library. `-Arch`
 and `-Fp` narrow the matrix exactly as they do for the other two scripts, and
 `-SkipBuild` goes straight to the runs when `build\win32` is already current.
 The benchmark half measures time, so the machine wants to be otherwise idle
@@ -151,9 +171,9 @@ cmake --build build\win32 --config Release --target gamemath
 The three script runs that follow need no such shell:
 
 ```
-powershell -ExecutionPolicy Bypass -File tests\run_verify_game_math.ps1 -RebuildX64
-powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1
-powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1 -Reverse
+powershell -ExecutionPolicy Bypass -File tests\scripts\run_verify_game_math.ps1 -RebuildX64
+powershell -ExecutionPolicy Bypass -File tests\scripts\run_bench_game_math.ps1
+powershell -ExecutionPolicy Bypass -File tests\scripts\run_bench_game_math.ps1 -Reverse
 ```
 
 The verify run rebuilds the 64-bit library, and both benchmark runs reuse it.
@@ -162,7 +182,7 @@ The same by hand, if the script is in the way. win32 x86, from an x86 Developer
 Command Prompt:
 
 ```
-cl /O2 /fp:precise /MD tests\verify_game_math.c ^
+cl /O2 /fp:precise /MD tests\src\verify_game_math.c ^
    /I build\win32\_deps\gamemath-src\include ^
    build\win32\_deps\gamemath-build\Release\gm.lib ^
    /Fe:verify_game_math.exe
@@ -172,7 +192,7 @@ verify_game_math.exe
 Same thing with strict floating point — only the flag and the output name change:
 
 ```
-cl /O2 /fp:strict /MD tests\verify_game_math.c ^
+cl /O2 /fp:strict /MD tests\src\verify_game_math.c ^
    /I build\win32\_deps\gamemath-src\include ^
    build\win32\_deps\gamemath-build\Release\gm.lib ^
    /Fe:verify_game_math_strict.exe
@@ -198,13 +218,13 @@ Without Ninja, drop the `-G` and pass `-A x64` instead; either way the library
 lands in `build\win64-gamemath\Release\gm.lib`. Then, both ways round:
 
 ```
-cl /O2 /fp:precise /MD tests\verify_game_math.c ^
+cl /O2 /fp:precise /MD tests\src\verify_game_math.c ^
    /I build\win32\_deps\gamemath-src\include ^
    build\win64-gamemath\Release\gm.lib ^
    /Fe:verify_game_math64.exe
 verify_game_math64.exe
 
-cl /O2 /fp:strict /MD tests\verify_game_math.c ^
+cl /O2 /fp:strict /MD tests\src\verify_game_math.c ^
    /I build\win32\_deps\gamemath-src\include ^
    build\win64-gamemath\Release\gm.lib ^
    /Fe:verify_game_math64_strict.exe
@@ -225,7 +245,7 @@ dir /s /b build\*\_deps\gamemath-build\*.lib
 
 ## Output
 
-Files are written to the working directory and named
+Files are written to `tests/math/` and named
 `math-<platform>-<arch>-<fp model>[-PC24|-PC53].txt`:
 
 | File | Produced on |
@@ -246,7 +266,7 @@ truncated, so a long argument list simply pushes the result column right.
 `math-*.txt` against it:
 
 ```
-sh compare_math.sh
+sh tests/scripts/compare_math.sh
 ```
 
 It writes two files. `math-diff.txt` holds a legend and, per comparison, a
@@ -267,7 +287,7 @@ three rounds. It names its output the same way the cast matrix does, so
 macOS and other Unix:
 
 ```
-sh tests/run_bench_game_math.sh
+sh tests/scripts/run_bench_game_math.sh
 ```
 
 It builds its own GameMath, Release unless `--config` says otherwise, and writes
@@ -280,8 +300,8 @@ Two revisions are compared by measuring both in one sitting, into folders of
 their own so neither overwrites the other:
 
 ```
-sh tests/run_bench_game_math.sh --rev <old> --out /tmp/old
-sh tests/run_bench_game_math.sh --rev <new> --out /tmp/new
+sh tests/scripts/run_bench_game_math.sh --rev <old> --out /tmp/old
+sh tests/scripts/run_bench_game_math.sh --rev <new> --out /tmp/new
 ```
 
 Numbers from two different days are not comparable at all: on a quiet M3 Max the
@@ -301,7 +321,7 @@ cmake -S build/macos/_deps/gamemath-src -B /tmp/gm-release \
       -DGM_ENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
 cmake --build /tmp/gm-release -j
 
-cc -O2 -ffp-contract=off -Wno-macro-redefined tests/bench_game_math.c \
+cc -O2 -ffp-contract=off -Wno-macro-redefined tests/src/bench_game_math.c \
    -I build/macos/_deps/gamemath-src/include \
    /tmp/gm-release/libgm.a -lm -o bench_game_math
 ./bench_game_math
@@ -313,7 +333,7 @@ configuration through `-Config`.
 Windows, the whole matrix:
 
 ```
-powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1
+powershell -ExecutionPolicy Bypass -File tests\scripts\run_bench_game_math.ps1
 ```
 
 That walks the whole matrix by default, x86 and x64 against both `/fp` models,
@@ -352,13 +372,13 @@ is over half of all GameMath calls, `gm_sqrt` under four per cent of them.
 
 The two halves are kept strictly apart, and the order matters.
 
-**Step one, how often the game calls.** `callcounts-zh.txt` holds calls per
+**Step one, how often the game calls.** `bench/callcounts-zh.txt` holds calls per
 logic frame per function, measured in Zero Hour with counters at the 52 sites
 that reach GameMath. `profile_from_counts.sh` builds it from a raw counter dump:
 
 ```
-sh profile_from_counts.sh <dump>                       lists the sessions
-sh profile_from_counts.sh <dump> 3 289-1008 plateau    one window
+sh tests/scripts/profile_from_counts.sh <dump>                       lists the sessions
+sh tests/scripts/profile_from_counts.sh <dump> 3 289-1008 plateau    one window
 ```
 
 Nothing in this step knows what a call costs, and the script never opens a
@@ -388,10 +408,10 @@ frames, worked out where it is used, so nothing is lost on the way: `gm_ceil` is
 filed that as zero.
 
 **Step two, what one call costs.** `weigh_bench.sh` multiplies the profile by
-every `bench-*.txt` present and writes `bench-weighted.txt`:
+every `bench-*.txt` in `tests/bench/` and writes `bench-weighted.txt` there:
 
 ```
-sh weigh_bench.sh
+sh tests/scripts/weigh_bench.sh
 ```
 
 That file carries the calls per frame, the nanoseconds per call in each

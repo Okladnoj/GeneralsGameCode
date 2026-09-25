@@ -6,7 +6,7 @@
 .DESCRIPTION
     Compiles bench_game_math.c against the GameMath library once per
     architecture and floating point model, runs it, and leaves only the result
-    files in -OutDir (the tests folder by default).
+    files in -OutDir (tests\bench by default).
 
         x86, /fp:precise   ->  bench-win-x86-precise-PC24.txt
                                bench-win-x86-precise-PC53.txt
@@ -57,7 +57,7 @@
     GameMath build configuration to link against. Default: Release
 
 .PARAMETER OutDir
-    Where the result files are written. Default: the tests folder.
+    Where the result files are written. Default: tests\bench
 
 .PARAMETER RebuildX64
     Configure and build the 64-bit GameMath again even if its library is
@@ -68,10 +68,10 @@
     of discarding it.
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1
+    powershell -ExecutionPolicy Bypass -File tests\scripts\run_bench_game_math.ps1
 
 .EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tests\run_bench_game_math.ps1 -Reverse
+    powershell -ExecutionPolicy Bypass -File tests\scripts\run_bench_game_math.ps1 -Reverse
 
 .NOTES
     Nanoseconds per call answer only half the question. What the game pays is
@@ -97,14 +97,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$testsDir = $PSScriptRoot
+$testsDir = Split-Path $PSScriptRoot -Parent
 $repoRoot = Split-Path $testsDir -Parent
 
 if (-not $BuildDir)       { $BuildDir       = Join-Path $repoRoot 'build\win32' }
 if (-not $X64GameMathDir) { $X64GameMathDir = Join-Path $repoRoot 'build\win64-gamemath' }
-if (-not $OutDir)         { $OutDir         = $testsDir }
+if (-not $OutDir)         { $OutDir         = Join-Path $testsDir 'bench' }
 
-$source      = Join-Path $testsDir 'bench_game_math.c'
+$source      = Join-Path $testsDir 'src\bench_game_math.c'
 $gamemathSrc = Join-Path $BuildDir '_deps\gamemath-src'
 $include     = Join-Path $gamemathSrc 'include'
 $gmLibX86    = Join-Path $BuildDir "_deps\gamemath-build\$Config\gm.lib"
@@ -118,7 +118,7 @@ if (-not (Test-Path $include)) {
     throw "GameMath headers not found: $include`nConfigure the build tree first, or pass -BuildDir."
 }
 if (($Arch -contains 'x86') -and -not (Test-Path $gmLibX86)) {
-    throw "32-bit GameMath library not found: $gmLibX86`nBuild the gm target first, or pass -BuildDir / -Config."
+    throw "32-bit GameMath library not found: $gmLibX86`nBuild the gamemath target first, or pass -BuildDir / -Config."
 }
 if (($Arch -contains 'x64') -and -not (Test-Path (Join-Path $gamemathSrc 'CMakeLists.txt'))) {
     throw "GameMath sources not found: $gamemathSrc`nThe 64-bit library is built from them; configure the build tree first, or pass -BuildDir."
@@ -437,7 +437,7 @@ if ($produced.Count -gt 0) {
     $produced | Sort-Object | ForEach-Object { Write-Host "  $_" }
     Write-Host ''
     Write-Host 'Now weight them by how often the game makes each call:'
-    Write-Host '  sh weigh_bench.sh        (from the tests folder)'
+    Write-Host '  sh tests/scripts/weigh_bench.sh'
 }
 else {
     Write-Host 'no results were produced'
