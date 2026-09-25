@@ -3,7 +3,7 @@ set(GM_ENABLE_TESTS OFF CACHE BOOL "Disable GameMath tests" FORCE)
 FetchContent_Declare(
     gamemath
     GIT_REPOSITORY https://github.com/OmniBlade/gamemath.git
-    GIT_TAG        5c6d0aed404b81b1f0c96ea8ec72367802f19dda
+    GIT_TAG        ce1dc3a2b18e119272aea99c670a3a76d5c78b08
 )
 
 FetchContent_MakeAvailable(gamemath)
