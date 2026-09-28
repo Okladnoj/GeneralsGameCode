@@ -1,5 +1,6 @@
 # Base headers and debug utilities shared by all libraries
 set(LIBRARIES_INCLUDE_SRC
+    Include/Lib/BaseDefines.h
     Include/Lib/BaseFunctions.h
     Include/Lib/BaseType.h
     Include/Lib/Coord2D.h
