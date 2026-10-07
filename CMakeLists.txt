@@ -84,6 +84,14 @@ if(RTS_BUILD_OPTION_BENCHMARKS)
     include(cmake/googlebenchmark.cmake)
 endif()
 
+if(RTS_BUILD_OPTION_TESTS OR RTS_BUILD_OPTION_BENCHMARKS)
+    include(cmake/gamemath.cmake)
+    if(NOT MSVC)
+        # Keep a * b + c as two rounded operations, as MSVC does, so that the results match across compilers.
+        target_compile_options(gamemath PRIVATE -ffp-contract=off)
+    endif()
+endif()
+
 add_subdirectory(Dependencies)
 
 add_subdirectory(resources)
