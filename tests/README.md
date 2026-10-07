@@ -61,9 +61,10 @@ to `_PC_24` and once with `_PC_53`, since the 32-bit game build sets `_PC_24` in
 
 ## Build and run
 
-One command per platform does everything. Windows builds the library and
-writes the dumps and timings; macOS writes its own and then compares every file
-present, the ones pushed from Windows included:
+One command per platform does everything. Windows builds the library, writes
+the dumps and timings and compares its dumps against the macOS one from the
+repository; macOS writes its own and then compares every file present, the ones
+pushed from Windows included:
 
 ```
 powershell -ExecutionPolicy Bypass -File tests\run_all_game_math.ps1 -Pull
@@ -141,7 +142,8 @@ The 32-bit library is not built by the script at all: it links whatever
 `build\win32` holds. After the pin in `cmake/gamemath.cmake` moves, both halves
 have to be rebuilt, or the dumps quietly describe the old revision. One script
 does the lot - rebuild the 32-bit library, write the dumps, run both benchmark
-passes - and finds the toolchain itself, so an ordinary shell is enough:
+passes, compare the dumps - and finds the toolchain itself, so an ordinary shell
+is enough:
 
 ```
 powershell -ExecutionPolicy Bypass -File tests\run_all_game_math.ps1 -Pull
@@ -267,9 +269,11 @@ truncated, so a long argument list simply pushes the result column right.
 
 ```
 sh tests/scripts/compare_math.sh
+powershell -ExecutionPolicy Bypass -File tests\scripts\compare_math.ps1
 ```
 
-It writes two files. `math-diff.txt` holds a legend and, per comparison, a
+The PowerShell twin writes the same files from the same dumps, so either
+platform can refresh the comparison. It writes two files. `math-diff.txt` holds a legend and, per comparison, a
 breakdown by row kind followed by the differing lines. `math-summary.txt` holds a
 single table with the row kinds down the side and every compared configuration
 across the top, for reading the modes against each other at a glance.

@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
     The whole GameMath refresh in one command: rebuilds the 32-bit library,
-    then writes the verification dumps and both benchmark passes.
+    then writes the verification dumps and both benchmark passes, and compares
+    the dumps against the macOS one.
 
 .DESCRIPTION
     The sequence README.md spells out after the pin in cmake/gamemath.cmake
@@ -12,6 +13,7 @@
         run_verify_game_math.ps1 -RebuildX64
         run_bench_game_math.ps1
         run_bench_game_math.ps1 -Reverse
+        compare_math.ps1
 
     The two cmake steps drive the win32 Ninja tree, which needs the MSVC
     environment. This script calls vcvarsall.bat itself, the same way the
@@ -24,10 +26,15 @@
     the dumps would otherwise quietly describe the old revision, which is the
     failure this sequence exists to prevent. The three script runs that follow
     do not gate one another; each one is left to its own error handling,
-    whatever failed is listed at the end and the script exits non-zero.
+    whatever failed is listed at the end and the script exits non-zero. The
+    comparison runs only after the dumps were written, since it would otherwise
+    describe the old ones.
 
-    Nothing is left behind beyond the dump files: the child scripts clean up
-    after themselves, and this one adds no artifacts of its own.
+    The comparison takes the macOS dump from the repository; -Pull brings in
+    the latest one.
+
+    Nothing is left behind beyond the dump files and the comparison: the child
+    scripts clean up after themselves, and this one adds no artifacts of its own.
 
 .PARAMETER Arch
     Architectures to dump and benchmark, passed to both child scripts.
@@ -89,9 +96,10 @@ $repoRoot = Split-Path $testsDir -Parent
 if (-not $BuildDir) { $BuildDir = Join-Path $repoRoot "build\$Preset" }
 
 $verifyScript = Join-Path $testsDir 'scripts\run_verify_game_math.ps1'
-$benchScript  = Join-Path $testsDir 'scripts\run_bench_game_math.ps1'
+$benchScript   = Join-Path $testsDir 'scripts\run_bench_game_math.ps1'
+$compareScript = Join-Path $testsDir 'scripts\compare_math.ps1'
 
-foreach ($s in @($verifyScript, $benchScript)) {
+foreach ($s in @($verifyScript, $benchScript, $compareScript)) {
     if (-not (Test-Path $s)) { throw "Script not found: $s" }
 }
 
@@ -260,6 +268,25 @@ foreach ($run in $runs) {
     }
 }
 
+# ---------- the comparison ----------
+
+Write-Host ''
+Write-Host '=== compare dumps ==='
+
+$verifyFailed = @($failures | Where-Object { $_.StartsWith('verify ') }).Count -gt 0
+if ($verifyFailed) {
+    Write-Host 'skipped: verify failed, so the dumps are not current'
+}
+else {
+    try {
+        & $compareScript
+    }
+    catch {
+        Write-Host $_
+        $failures.Add(("compare ({0})" -f $_.Exception.Message))
+    }
+}
+
 # ---------- report ----------
 
 Write-Host ''
@@ -269,4 +296,4 @@ if ($failures.Count -gt 0) {
     exit 1
 }
 
-Write-Host 'done; dumps are in tests\math, benchmark results in tests\bench'
+Write-Host 'done; dumps and their comparison are in tests\math, benchmark results in tests\bench'
