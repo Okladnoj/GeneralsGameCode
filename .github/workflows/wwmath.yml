@@ -57,7 +57,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path results | Out-Null
           $exe = Get-ChildItem -Path build\win32 -Recurse -Filter z_googletest.exe | Select-Object -First 1
-          & $exe.FullName '--gtest_filter=*WWMathBits.*' 2>&1 | Tee-Object -FilePath results\wwmath-test-${{ matrix.retail }}.txt
+          & $exe.FullName '--gtest_filter=WWMathTables.*:*WWMathBits.*' 2>&1 | Tee-Object -FilePath results\wwmath-test-${{ matrix.retail }}.txt
           exit $LASTEXITCODE
 
       - name: Run WWMath Benchmarks
