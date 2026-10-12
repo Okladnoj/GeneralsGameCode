@@ -1,0 +1,82 @@
+name: WWMath
+
+permissions:
+  contents: read
+
+# workflow_dispatch only works once this file is on the default branch, so the
+# push trigger is what runs it from a test branch.
+on:
+  push:
+    branches:
+      - 'okji/test/**'
+    paths:
+      - '.github/workflows/wwmath.yml'
+      - 'Core/Libraries/Source/WWVegas/WWMath/wwmath.h'
+      - 'Tests/Google/Core/Libraries/WWVegas/WWMath/**'
+      - 'Benchmarks/Google/Core/Libraries/WWVegas/WWMath/**'
+  workflow_dispatch:
+
+jobs:
+  wwmath:
+    name: win32 retail ${{ matrix.retail }}
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        retail: [DEFAULT, OFF]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set Up VC2022 Environment
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x86
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake --preset win32 `
+            -DRTS_BUILD_ZEROHOUR=ON `
+            -DRTS_BUILD_GENERALS=OFF `
+            -DRTS_BUILD_CORE_TOOLS=OFF `
+            -DRTS_BUILD_ZEROHOUR_TOOLS=OFF `
+            -DRTS_BUILD_CORE_EXTRAS=OFF `
+            -DRTS_BUILD_ZEROHOUR_EXTRAS=OFF `
+            -DRTS_BUILD_OPTION_TESTS=ON `
+            -DRTS_BUILD_OPTION_BENCHMARKS=ON `
+            -DRTS_BUILD_OPTION_RETAIL_COMPATIBLE_GAME=${{ matrix.retail }}
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake --build --preset win32 --target z_googletest z_googlebenchmark
+
+      - name: Run WWMath Tests
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path results | Out-Null
+          $exe = Get-ChildItem -Path build\win32 -Recurse -Filter z_googletest.exe | Select-Object -First 1
+          & $exe.FullName --gtest_filter=WWMathBits.* 2>&1 | Tee-Object -FilePath results\wwmath-test-${{ matrix.retail }}.txt
+          exit $LASTEXITCODE
+
+      - name: Run WWMath Benchmarks
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path results | Out-Null
+          $exe = Get-ChildItem -Path build\win32 -Recurse -Filter z_googlebenchmark.exe | Select-Object -First 1
+          & $exe.FullName '--benchmark_filter=BM_Unary|BM_Binary' 2>&1 | Tee-Object -FilePath results\wwmath-benchmark-${{ matrix.retail }}.txt
+          exit $LASTEXITCODE
+
+      - name: Upload Results
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: wwmath-results-${{ matrix.retail }}
+          path: results
