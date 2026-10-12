@@ -19,9 +19,9 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
+#include <format>
 #include <ostream>
 #include <string>
 
@@ -81,25 +81,15 @@ inline T runtimeValue(T value)
 
 inline std::string toBitsString(float value)
 {
-	uint32_t raw;
-	memcpy(&raw, &value, sizeof(raw));
-	char text[16];
-	snprintf(text, sizeof(text), "%08X", static_cast<unsigned int>(raw));
-	return text;
+	return std::format("{:08X}", std::bit_cast<uint32_t>(value));
 }
 
 inline std::string toBitsString(double value)
 {
-	uint64_t raw;
-	memcpy(&raw, &value, sizeof(raw));
-	char text[32];
-	snprintf(text, sizeof(text), "%016llX", static_cast<unsigned long long>(raw));
-	return text;
+	return std::format("{:016X}", std::bit_cast<uint64_t>(value));
 }
 
 inline std::string toBitsString(long value)
 {
-	char text[32];
-	snprintf(text, sizeof(text), "%ld", value);
-	return text;
+	return std::to_string(value);
 }
