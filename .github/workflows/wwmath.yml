@@ -9,11 +9,6 @@ on:
   push:
     branches:
       - 'okji/test/**'
-    paths:
-      - '.github/workflows/wwmath.yml'
-      - 'Core/Libraries/Source/WWVegas/WWMath/wwmath.h'
-      - 'Tests/Google/Core/Libraries/WWVegas/WWMath/**'
-      - 'Benchmarks/Google/Core/Libraries/WWVegas/WWMath/**'
   workflow_dispatch:
 
 jobs:
